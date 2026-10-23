@@ -3,6 +3,7 @@ import { $ } from "../core/dom.js";
 import { CONFIG, S } from "../core/state.js";
 import { esc } from "../core/format.js";
 import { qTab } from "../messages/messages.js";
+import { selected } from "../room/input.js";
 
 // Read-only. Every item's state comes from the server (GitHub, the lane, open asks); this only draws it.
 // It is rebuilt when the state changes, never on a timer. STALLED work also shows as a red strip on the
@@ -47,13 +48,16 @@ export function renderWork() {
     strip.innerHTML = `<span class="k">${stalled.length} STALLED ${stalled.length === 1 ? "ITEM" : "ITEMS"}${stalled.length > 2 ? ` (+${stalled.length - 2} MORE)` : ""} · OPEN WORK</span>${rows}`;
   }
   if (qTab !== "work") return;
-  const open = b.items.filter((i) => i.state !== "done").length;
-  const sum = WORK_ORDER.filter((s) => b.counts[s]).map((s) => `${b.counts[s]} ${WORK_STATE[s]}`).join(" · ");
+  // With a lane in focus, only its work.
+  const items = selected ? b.items.filter((i) => i.lane === selected) : b.items;
+  const open = items.filter((i) => i.state !== "done").length;
+  const counts = selected ? Object.fromEntries(WORK_ORDER.map((s) => [s, items.filter((i) => i.state === s).length])) : b.counts;
+  const sum = WORK_ORDER.filter((s) => counts[s]).map((s) => `${counts[s]} ${WORK_STATE[s]}`).join(" · ");
   const groups = WORK_ORDER.map((s) => {
-    const its = b.items.filter((i) => i.state === s);
+    const its = items.filter((i) => i.state === s);
     return its.length ? `<h4 class="${s}">${WORK_STATE[s]} (${its.length})</h4>${its.map(workRow).join("")}` : "";
   }).join("");
-  $("work").innerHTML = b.items.length
+  $("work").innerHTML = items.length
     ? `<div class="sum">${open} OPEN · ${sum}</div>${groups}`
-    : `<div class="empty">No tracked work. HQ adds it with hud track.</div>`;
+    : selected ? `<div class="empty">NO TRACKED WORK</div>` : `<div class="empty">No tracked work. HQ adds it with hud track.</div>`;
 }

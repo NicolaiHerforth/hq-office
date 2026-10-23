@@ -1,7 +1,8 @@
 /* The page grid: the top bar's columns, the desk and the stage; on desktop a page that never scrolls, on a phone one that scrolls as one. */
 /* Layout: two zones under one top bar.
    left  = your desk: the questions, and Tell HQ right under them. The urgent count sits on top of this column.
-   right = the office: the room, then the FROM HQ / sent-log tabs and the worker card underneath. */
+   right = the office: the room, then the FROM HQ / sent-log tabs underneath. A click on a worker puts its lane in
+   focus at the top of the left column (card/). */
 :root { --qcol: clamp(420px, 36vw, 560px); }
 /* top bar: the same two columns as the page, so the urgent count heads the questions it counts */
 .top { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
@@ -37,5 +38,4 @@
   html .reply textarea, html .compose textarea, html .sin { font-size: 16px; }
   html .log { max-height: none; overflow: visible; }
 }
-.under { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 270px); gap: 14px; }
-@media (max-width: 800px) { .under { grid-template-columns: minmax(0, 1fr); } }
+.under { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }

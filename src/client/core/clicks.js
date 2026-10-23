@@ -1,4 +1,4 @@
-// Clicks delegated from the whole document: select a worker, switch the feed tab, MORE/LESS.
+// Clicks delegated from the whole document: focus a lane, switch the feed tab, MORE/LESS.
 import { $ } from "./dom.js";
 import { renderFeed, renderLog, setFeedTab } from "../feed/feed.js";
 import { select } from "../room/input.js";
@@ -8,7 +8,7 @@ import { renderMsgs } from "../messages/messages.js";
 
 document.addEventListener("click", (e) => {
   const sel = e.target.closest("[data-select]");
-  if (sel) { select(sel.dataset.select, true); return; }
+  if (sel) { select(sel.dataset.select); return; }
   const tabBtn = e.target.closest("[data-tab]");
   if (tabBtn) {
     setFeedTab(tabBtn.dataset.tab);

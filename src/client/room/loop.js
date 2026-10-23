@@ -11,7 +11,8 @@ import { drawAccessories, wornBy } from "./accessories.js";
 import { drawEventCounter } from "./events.js";
 import { workers } from "./workers.js";
 import { deskCount } from "./collision.js";
-import { GLYPH, drawBubble, drawLabel, drawRoom, stillOpaque, stillPicture } from "./scene.js";
+import { GLYPH, drawAlert, drawLabel, drawMark, drawNeedsGlow, drawRoom, stillOpaque, stillPicture } from "./scene.js";
+import { ROLE_COLOR, wornWithRole } from "./roles.js";
 import { danceMove, drawNotes, drawShadow, drawSleep, drawSparkles, isNight, slideChange, sliding } from "./hero.js";
 import { drawProp, drawWatchCheck, idleBrain, idleLift } from "./breakroom.js";
 import { changeAt, danceClock, nextChange, steadyClock, walkMs, mode } from "./beat.js";
@@ -115,7 +116,9 @@ function drawScene(now, dt) {
         w.t = 0;
       }
     }
-    list.sort((a, b) => a.y - b.y);
+    list.sort((a, b) => (a.lane.name === selected) - (b.lane.name === selected) || a.y - b.y); // the focused one on top
+    // With a lane in focus, everyone else steps back (drawn faint, but a lane that needs you keeps its bubble) and
+    // the focused one stands in a yellow ring, the yellow of the focus bar over the question column.
     for (const w of list) {
       const moving = w.path.length > 0;
       const step = moving ? 1 + (Math.floor(w.t * 8) % 2) : 0;
@@ -125,25 +128,30 @@ function drawScene(now, dt) {
       const float = ghost ? Math.sin(steadyClock(now) / 400 + w.bob) * 1.5 : 0;
       const sway = w.brain && moving ? Math.round(Math.sin(now / 110 + w.bob)) : 0;
       const sx = w.x * TS + sway, sy = w.y * TS - 6 - idleBob + float - idleLift(w, moving, now);
-      if (selected === w.lane.name) {
-        const r = 7 + Math.sin(steadyClock(now) / 200);
-        ctx.strokeStyle = "#d63c3c";
-        ctx.lineWidth = SC;
-        ctx.beginPath();
-        ctx.ellipse((sx + 8) * SC, (w.y * TS + 9) * SC, r * SC, r * 0.45 * SC, 0, 0, Math.PI * 2);
-        ctx.stroke();
+      const needs = st === "needs_you", focused = selected === w.lane.name;
+      const alpha = (ghost ? 0.4 : 1) * (selected && !focused ? 0.45 : 1);
+      if (needs) drawNeedsGlow(sx + 8, w.y * TS + 9, Math.abs(Math.sin(steadyClock(now) / 300)));
+      if (focused) {
+        const r = 8 + Math.sin(steadyClock(now) / 200);
+        for (const [color, width] of [["#22202a", 3], ["#ffd84a", 1.5]]) {
+          ctx.strokeStyle = color;
+          ctx.lineWidth = SC * width;
+          ctx.beginPath();
+          ctx.ellipse((sx + 8) * SC, (w.y * TS + 9) * SC, r * SC, r * 0.45 * SC, 0, 0, Math.PI * 2);
+          ctx.stroke();
+        }
       }
-      drawSprite(w.pal, sx, sy, w.dir, step, ghost ? 0.4 : 1);
+      drawSprite(w.pal, sx, sy, w.dir, step, alpha);
       const busyHand = !!(w.brain?.acting && (w.brain.act.kind === "coffee" || w.brain.act.kind === "snack"));
-      drawAccessories(w.pal, wornBy(w.lane.name), sx, sy, w.dir, step, ghost ? 0.4 : 1, busyHand);
-      if (!moving && GLYPH[st]) {
-        const bounce = st === "needs_you" ? Math.abs(Math.sin(steadyClock(now) / 220)) * 2.5 : 0;
-        drawBubble(sx, sy, GLYPH[st][0], GLYPH[st][1], bounce);
-      }
+      drawAccessories(w.pal, wornWithRole(w.lane.name, w.lane.role), sx, sy, w.dir, step, alpha, busyHand);
+      if (!moving && needs) drawAlert(sx, sy, Math.abs(Math.sin(steadyClock(now) / 220)) * 2.5);
+      else if (!moving && GLYPH[st]) { ctx.globalAlpha = alpha; drawMark(sx, sy, GLYPH[st][0], GLYPH[st][1]); ctx.globalAlpha = 1; }
       drawProp(w, sx, sy);
       if (st === "waiting" && !moving) drawWatchCheck(w, sx, sy, now);
       const name = w.lane.name.length > 14 ? w.lane.name.slice(0, 13) + "…" : w.lane.name;
-      drawLabel(name, sx + 8, w.y * TS + 10, selected === w.lane.name || hovered === w.lane.name || st === "needs_you");
+      ctx.globalAlpha = needs ? 1 : alpha;
+      drawLabel(name, sx + 8, w.y * TS + 10, focused || hovered === w.lane.name || needs, needs ? "#d63c3c" : ROLE_COLOR[w.lane.role], focused ? "#ffd84a" : undefined);
+      ctx.globalAlpha = 1;
     }
   }
   drawnHover = hovered;

@@ -6,6 +6,7 @@ import { S } from "../core/state.js";
 import { clock, dur, esc, setClass, setHTML, setText } from "../core/format.js";
 import { clipText, linkify, renderBody } from "../core/text.js";
 import { renderSecretTimes } from "../secrets/secrets.js";
+import { selected } from "../room/input.js";
 
 // A question below the fold gets a red pill at the bottom of the list. Click it to go to the next one.
 export function renderBelow() {
@@ -26,8 +27,10 @@ export function renderHud() {
   const focusedSecret = document.activeElement?.dataset?.secret;
   const focusedMin = document.activeElement?.dataset?.secretMin !== undefined;
   // The count lives in the top bar now; the list only needs words when it is empty.
-  const head = S.open.length ? "" : `<div class="box"><h2>NOTHING WAITS ON YOU</h2><div style="color:var(--muted);font-size:14px">Every worker is either at its desk or waiting on HQ or CI. Questions land here.</div></div>`;
-  const html = head + S.open.map((a) => {
+  // With a lane in focus, only its questions.
+  const open = selected ? S.open.filter((a) => a.lane === selected) : S.open;
+  const head = open.length ? "" : selected ? `<div class="box"><h2>NOTHING FROM ${esc(selected.toUpperCase())} WAITS ON YOU</h2></div>` : `<div class="box"><h2>NOTHING WAITS ON YOU</h2><div style="color:var(--muted);font-size:14px">Every worker is either at its desk or waiting on HQ or CI. Questions land here.</div></div>`;
+  const html = head + open.map((a) => {
     const d = drafts.get(a.id) || {};
     const kind = a.kind;
     const want = a.secrets ?? [];

@@ -38,6 +38,7 @@
   <div class="main" id="main">
     <section class="desk">
       <div class="qwrap">
+        <div class="box card" id="card" hidden></div>
         <div class="qtabs" id="qtabs" role="tablist">
           <button class="tab" type="button" role="tab" data-qtab="questions">QUESTIONS <span class="tag count" id="qtCount" hidden></span></button>
           <button class="tab" type="button" role="tab" data-qtab="messages">MESSAGES <span class="tag new" id="qtUnread" hidden></span></button>
@@ -63,11 +64,11 @@
       <div class="room">
         <canvas id="room"></canvas>
         <div class="legend">
-          <span><i style="color:#d63c3c">!</i>WAITING ON YOU</span>
-          <span><i style="color:#e0901e">?</i>WAITING ON HQ</span>
-          <span><i style="color:#3c6fd6">…</i>WAITING ON CI/OTHER</span>
-          <span><i style="color:#6a6a82">z</i>PARKED</span>
-          <span><i style="color:#2f9e57">✓</i>DONE</span>
+          <span><i class="alert">!</i>WAITING ON YOU</span>
+          <span>BY HQ = WAITING ON HQ</span>
+          <span><i class="mark" style="color:#3c6fd6">…</i>WAITING ON CI/OTHER</span>
+          <span><i class="mark" style="color:#8a8aa8">z</i>PARKED</span>
+          <span><i class="mark" style="color:#2f9e57">✓</i>DONE</span>
           <span>AT DESK = WORKING</span>
         </div>
       </div>
@@ -85,7 +86,6 @@
             <div class="slist" id="secretList"></div>
           </div>
         </section>
-        <div class="box card" id="card"></div>
       </div>
     </section>
   </div>

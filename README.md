@@ -94,6 +94,23 @@ Questions from HQ appear at the top of the panel, most urgent first. Pick an opt
 
 HQ uses the CLI in `hud.ts` (the `hud` command after the install hud command action, or `bun hud.ts` from the plugin directory with `HUD_URL` set if you changed the port) to add lanes, ask questions and wait for your answers. HQ posts progress to the **FROM HQ** tab with `hud tell --title "PR is up" [--body "details"] [--lane NAME]` (`hud say` is the same command); the tab counts unread updates until you open them or mark them all read. `hud guide` prints how HQ should reach you.
 
+## Who needs you, and one lane in focus
+
+Only a lane with an open question for you (`hud ask --lane L`) carries a speech bubble: a red one with a white "!", over a red glow, its name on red, standing in the queue at your desk. A lane waiting on HQ stands beside HQ with no bubble; one waiting on CI, parked or done shows a small mark of its own. At a desk means working.
+
+Click or tap a worker to put its lane in focus. The top of the question column then shows the lane (its status, role, issue, PR and projects), and the QUESTIONS, MESSAGES and WORK tabs show only that lane: its open questions, answered there as anywhere else; its messages (HQ's updates about it, what happened to it, such as questions asked and answered, and your replies), from `/api/lanes/stream`; and its tracked work. In the room everyone else steps back and the lane stands in a yellow ring. CLEAR, Esc or a click on the empty floor shows everyone again. On a phone, a tap in the room goes up to the column.
+
+HQ says what a lane is, so the room shows it:
+
+```sh
+hud lane NAME --role pm                                      # orchestrator, pm, builder or walker; --role "" clears it
+hud lane NAME --project "Deploy gate=https://linear.app/acme/project/deploy-gate-1a2b3c4d"   # repeat --project for more
+hud lane NAME --project https://linear.app/acme/project/deploy-gate-1a2b3c4d                 # a bare link names itself
+hud lane NAME --project none                                 # no projects
+```
+
+An orchestrator wears a headset and its name tag is gold; a PM carries a clipboard and its tag is purple; a builder wears a hard hat; a walker carries a magnifying glass and its tag is teal. A lane with a role wears no season's hat or hand item. The projects are links at the top of the column while the lane is in focus. A list of projects replaces the old one; a flag left out leaves its value as it is.
+
 ## Secrets
 
 Paste a key into the SECRETS tab (under the room) with a name and a lifetime in minutes, or into the fields of a question HQ asked with `hud ask --secret NAME`. HQ reads it until it expires:

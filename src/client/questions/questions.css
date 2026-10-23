@@ -6,7 +6,6 @@
 .hud { display: grid; gap: 12px; }
 .hud h2 { margin: 0 0 4px; font: 11px/1.4 var(--pixel); }
 .ask { display: grid; gap: 8px; scroll-margin: 12px; padding: 12px 14px; }
-.ask.flash { animation: flash .9s ease 2; }
 .ask .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .tag.lane { background: var(--ink); color: #fff; }
 .tag.decision { background: #ece0ff; color: #5a2fb0; }

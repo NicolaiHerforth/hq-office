@@ -5,6 +5,27 @@ All notable changes to HQ Office are listed here, newest first. The format follo
 
 ## [Unreleased]
 
+### Added
+
+- **Click a worker to put its lane in focus.** The question column then shows only that lane: its questions,
+  answered right there, its messages (HQ's updates about it, its questions asked and answered, your replies) and its
+  work, under a bar with its status, issue, PR and projects. Everyone else steps back in the room and the lane stands
+  in a yellow ring. CLEAR, Esc or a click on the empty floor shows everyone again; on a phone a tap in the room goes
+  up to the column.
+- **Roles and projects for lanes.** `hud lane NAME --role orchestrator|pm|builder|walker` dresses the worker (a
+  headset, a clipboard, a hard hat, a magnifying glass) and colours its name tag; `hud lane NAME --project
+  "NAME=URL"` lists the lane's projects, linked from the focus bar.
+
+### Changed
+
+- **Only a lane that needs you has a speech bubble.** It is red with a white "!", over a red glow, with its name on
+  red. A lane waiting on HQ no longer shows a "?" bubble that looked like a question for you; it stands beside HQ
+  with none. Waiting on CI, parked and done keep a small mark without a bubble.
+- The HQ guide tells HQ to name the lane on every question (`hud ask --lane L`), since that is what makes the
+  lane's worker show it needs you, and to say what each lane is (`hud lane NAME --role R --project NAME=URL`).
+- The worker card under the room is gone: its contents moved to the focus bar over the question column, and the
+  FROM HQ panel has the row to itself.
+
 ## [0.6.4] - 2026-10-23
 
 ### Fixed

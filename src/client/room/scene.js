@@ -153,31 +153,49 @@ export function drawRoom(now, still) {
   drawSeason(now);
 }
 
-export function drawBubble(x, y, glyph, color, bounce) {
-  const bx = x + 9, by = y - 9 - bounce;
-  px(bx, by, 10, 9, "#22202a");
-  px(bx + 1, by + 1, 8, 7, "#ffffff");
-  px(bx + 2, by + 9, 2, 2, "#22202a");
-  ctx.fillStyle = color;
-  ctx.font = `bold ${7 * SC}px "Press Start 2P", monospace`;
+// A speech bubble is kept for one thing: a lane that needs you. It is red with a white "!", over a red glow on the
+// floor (drawNeedsGlow), and its name is on red. Every other status gets a small mark with no bubble, and a lane
+// waiting on HQ gets none: standing beside HQ says it, and it must not look like it wants you.
+export function drawAlert(x, y, bounce) {
+  const bx = x + 8, by = y - 12 - bounce;
+  px(bx, by, 12, 11, "#22202a");
+  px(bx + 1, by + 1, 10, 9, "#d63c3c");
+  px(bx + 2, by + 11, 3, 2, "#22202a");
+  px(bx + 3, by + 10, 1, 2, "#d63c3c");
+  px(bx + 5, by + 2, 2, 5, "#ffffff");
+  px(bx + 5, by + 8, 2, 1, "#ffffff");
+}
+export function drawNeedsGlow(cx, footY, pulse) {
+  ctx.fillStyle = `rgba(214, 60, 60, ${0.3 + 0.2 * pulse})`;
+  ctx.beginPath();
+  ctx.ellipse(cx * SC, footY * SC, 8 * SC, 3.6 * SC, 0, 0, Math.PI * 2);
+  ctx.fill();
+}
+export function drawMark(x, y, glyph, color) {
+  ctx.font = `bold ${5 * SC}px "Press Start 2P", monospace`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  ctx.fillText(glyph, (bx + 5) * SC, (by + 5) * SC);
+  ctx.lineWidth = SC * 1.5;
+  ctx.strokeStyle = "#22202a";
+  ctx.strokeText(glyph, (x + 14) * SC, (y - 3) * SC);
+  ctx.fillStyle = color;
+  ctx.fillText(glyph, (x + 14) * SC, (y - 3) * SC);
 }
 
 // Label widths are measured once per text, weight and font load, not every frame.
 const labelWidths = new Map();
-export function drawLabel(text, cx, y, strong) {
+export function drawLabel(text, cx, y, strong, bg, edge) {
   ctx.font = `${strong ? 700 : 600} ${4.2 * SC}px Nunito, system-ui, sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
   const wk = `${strong}|${fontsLoaded}|${text}`;
   let w = labelWidths.get(wk);
   if (w === undefined) { if (labelWidths.size > 500) labelWidths.clear(); labelWidths.set(wk, (w = ctx.measureText(text).width + 8)); }
-  ctx.fillStyle = strong ? "rgba(35,35,58,.92)" : "rgba(35,35,58,.62)";
+  ctx.fillStyle = bg ?? (strong ? "rgba(35,35,58,.92)" : "rgba(35,35,58,.62)");
   ctx.fillRect(cx * SC - w / 2, y * SC, w, 5.6 * SC);
+  if (edge) { ctx.strokeStyle = edge; ctx.lineWidth = SC; ctx.strokeRect(cx * SC - w / 2 - SC / 2, y * SC - SC / 2, w + SC, 6.6 * SC); }
   ctx.fillStyle = "#fff";
   ctx.fillText(text, cx * SC, y * SC + 0.8 * SC);
 }
 
-export const GLYPH = { needs_you: ["!", "#d63c3c"], hq_turn: ["?", "#e0901e"], stale: ["?", "#c0501e"], waiting: ["…", "#3c6fd6"], parked: ["z", "#6a6a82"], done: ["✓", "#2f9e57"], gone: ["x", "#6a6a82"] };
+export const GLYPH = { waiting: ["…", "#3c6fd6"], parked: ["z", "#8a8aa8"], done: ["✓", "#2f9e57"], gone: ["x", "#8a8aa8"] };

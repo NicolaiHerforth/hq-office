@@ -15,3 +15,6 @@
 .quote { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .thread { display: grid; gap: 8px; margin-left: 12px; padding-left: 10px; border-left: 3px solid var(--edge-2); }
 .rbox { padding-block: 2px; }
+/* in a lane's thread: what happened (asked, answered, a phase), quieter than what was said */
+.msg.ev { padding-block: 4px; }
+.msg.ev .text { font-size: 13px; color: var(--muted); }

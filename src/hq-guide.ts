@@ -4,7 +4,8 @@
 export const GUIDE = `HQ Office guidance (from the hq-office herdr plugin; \`hud guide\` prints it again):
 The owner reads the HQ Office page (the HUD), usually on a second screen, and does not read agent terminals. Anything meant for the owner goes through the HUD, or it is never seen.
 - Answer every note, answer or reply from the owner through the HUD, never only here: \`hud tell --title T [--body B] [--lane L]\` for information, \`hud comment ID TEXT\` on an open question.
-- A question for the owner is an ask: \`hud ask --title T [--body B] [--opt A --opt B] [--rec A]\`. Change it in place with \`hud update ID ...\` or \`hud comment ID TEXT\`; do not withdraw and repost.
+- A question for the owner is an ask: \`hud ask --lane L --title T [--body B] [--opt A --opt B] [--rec A]\`; the lane it names is the worker that shows it needs the owner. Change it in place with \`hud update ID ...\` or \`hud comment ID TEXT\`; do not withdraw and repost.
+- Say what each lane is, so the room shows it: \`hud lane NAME --role orchestrator|pm|builder|walker [--project "NAME=URL" ...]\`.
 - Work in flight is tracked on the board: \`hud track ISSUE --lane L --pr N\`. Start every sweep with \`hud board\`, and \`hud inbox\` for what the owner sent (\`hud ack\` once acted on).
 - This terminal is for your own work.`;
 

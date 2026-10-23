@@ -10,6 +10,9 @@
 //   hud item ID N done|undo      tick or untick item N (from 1) by hand
 //   hud item ID add TEXT         add an item to an open question
 //   hud lane NAME [--title T] [--machine M] [--pane P] [--issue OPE-1] [--pr 123] [--phase running|waiting|parked|done] [--note N]
+//                 [--role orchestrator|pm|builder|walker]   how its worker looks; --role "" clears it
+//                 [--project "NAME=URL" ...]                its projects, replacing the list; a bare URL names itself;
+//                                                           --project none clears them
 //   hud rm-lane NAME
 //   hud withdraw ID [--reason R]
 //   hud event [--lane L] TEXT
@@ -115,6 +118,8 @@ switch (cmd) {
       pr: flags.pr?.join(","),
       phase: one("phase"),
       note: one("note"),
+      role: one("role"),
+      projects: flags.project ? flags.project.filter((p) => p !== "none") : undefined,
     });
     console.log(`lane ${rest[0]}`);
     break;

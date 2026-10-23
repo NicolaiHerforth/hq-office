@@ -12,7 +12,7 @@ import { board } from "./work-board.ts";
 
 export function state() {
   const now = Date.now();
-  const lanes = db.query("SELECT * FROM lanes ORDER BY name").all() as Lane[];
+  const lanes = db.query("SELECT lanes.*, lane_meta.role, lane_meta.projects FROM lanes LEFT JOIN lane_meta ON lane_meta.lane = lanes.name ORDER BY name").all() as Lane[];
   const open = db.query("SELECT * FROM asks WHERE status = 'open' ORDER BY COALESCE(due, 9e15), created_at").all() as Ask[];
   const answered = db
     .query("SELECT * FROM asks WHERE status != 'open' AND COALESCE(answered_at, created_at) >= ? ORDER BY answered_at DESC LIMIT 40")
@@ -23,7 +23,7 @@ export function state() {
   return {
     now,
     version,
-    lanes: lanes.map((l) => ({ ...l, status: laneStatus(l, openByLane, now) })),
+    lanes: lanes.map((l) => ({ ...l, projects: l.projects ? JSON.parse(l.projects) : [], status: laneStatus(l, openByLane, now) })),
     open: open.map(parse),
     answered: answered.map(parse),
     notes: db.query("SELECT * FROM notes ORDER BY at DESC LIMIT 20").all(),
