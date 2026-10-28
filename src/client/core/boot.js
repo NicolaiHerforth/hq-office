@@ -36,4 +36,7 @@ function connect() {
 // never hold the browser's six connections to this server. Shown again from that cache, it opens a new one.
 addEventListener("pagehide", () => { stream?.close(); stream = null; });
 addEventListener("pageshow", (e) => { if (e.persisted && !stream) connect(); });
-connect();
+// The first state is rendered only once every feature script has run and listens: they load after main.js, and a state that
+// came sooner would reach none of them until the next change. (Module scripts run while readyState is already "interactive".)
+if (document.readyState === "complete") connect();
+else addEventListener("DOMContentLoaded", connect, { once: true });

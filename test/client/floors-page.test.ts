@@ -137,7 +137,7 @@ test.skipIf(!chromeFound)("entering a floor: its office and every list and count
   // MESSAGES: this floor's, and opening it marks only this floor's updates read.
   expect(await ev(`document.getElementById("qtUnread").textContent`)).toBe("1 NEW");
   await click('[data-qtab="messages"]');
-  await until(`document.getElementById("msgs").innerText.includes("Backend update")`);
+  await until(`document.getElementById("msgs").innerText.includes("Backend update") && document.getElementById("msgs").innerText.includes("Backend note")`);
   const msgs = await text("#msgs");
   expect(msgs).toContain("Backend note");
   expect(msgs).not.toContain("Legal update");

@@ -381,6 +381,8 @@ export async function newSession(cdp: Cdp, errors: string[]) {
   });
   for (const d of ["Page", "Runtime", "Log", "Network", "Animation"]) await s(`${d}.enable`);
   await s("Emulation.setFocusEmulationEnabled", { enabled: true });
+  // CPU_THROTTLE=N slows the page N times, to reproduce a load-only flake without loading the machine.
+  if (Number(process.env.CPU_THROTTLE) > 1) await s("Emulation.setCPUThrottlingRate", { rate: Number(process.env.CPU_THROTTLE) });
   const evaluate = async (expression: string) => {
     const r = await s("Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true });
     if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description ?? r.exceptionDetails.text);
