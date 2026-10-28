@@ -12,7 +12,7 @@ function startOfDay(now: number) {
 // 5-minute grace costs one point; an answer inside 10 minutes earns 20.
 export function score(now: number) {
   const asks = db
-    .query("SELECT created_at, answered_at, status FROM asks WHERE status != 'withdrawn' AND (created_at >= ? OR status = 'open' OR answered_at >= ?)")
+    .query("SELECT created_at, answered_at, status FROM asks WHERE recipient = 'owner' AND status != 'withdrawn' AND (created_at >= ? OR status = 'open' OR answered_at >= ?)")
     .all(startOfDay(now), startOfDay(now)) as Ask[];
   let lost = 0;
   let bonus = 0;

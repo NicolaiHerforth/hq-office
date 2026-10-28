@@ -53,6 +53,7 @@ export function renderHud() {
     return `<article class="box ask" data-ask="${a.id}" data-lane="${esc(a.lane || "")}" data-created="${a.created_at}" data-due="${a.due || ""}">
       <div class="meta">
         ${a.lane ? `<button class="tag lane" data-select="${esc(a.lane)}">${esc(a.lane)}</button>` : ""}
+        ${a.urgent_at ? `<span class="tag urgent-tag">URGENT</span>` : ""}
         <span class="tag kind ${esc(kind)}">${esc(KIND_LABEL[kind] ?? kind.toUpperCase())}</span>
         ${want.length ? `<span class="tag secret">SECRETS</span>` : ""}
         ${a.link ? `<a class="tag" href="${esc(a.link)}" target="_blank" rel="noopener">OPEN LINK</a>` : ""}

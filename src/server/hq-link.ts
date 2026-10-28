@@ -189,9 +189,13 @@ function flush(): Promise<void> {
 // Resolves when the current flush, if any, is done: a route that checks HQ answers with what came of it.
 export const flushed = () => flushing ?? Promise.resolve();
 
+// An ask in a queue (a lane's urgent request, an urgent Tell) is answered from the queue: hud ack refuses it.
 const ackHint = (ref: string | null) => {
   const [kind, id] = (ref ?? "").split(":");
-  return kind === "note" ? `; ack it with hud ack n:${id}` : kind === "ask" ? `; ack it with hud ack a:${id}` : "";
+  if (kind === "note") return `; ack it with hud ack n:${id}`;
+  if (kind !== "ask") return "";
+  const ask = db.query("SELECT recipient FROM asks WHERE id = ?").get(Number(id)) as { recipient: string } | null;
+  return ask && ask.recipient !== "owner" ? `; it is #${id} in your queue (hud req next)` : `; ack it with hud ack a:${id}`;
 };
 
 // Where each of the owner's notes and answers stands, for the page: held (not typed in yet), unconfirmed (typed in

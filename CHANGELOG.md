@@ -3,6 +3,19 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **HQ's queue.** Every message to HQ waits in one queue instead of being typed into its pane, so a lane never interrupts HQ and HQ never loses a message. Lanes send with `hud request` (`--file PATH` for long text, `--urgent` for what cannot wait; the kind is optional); HQ reads with `hud req next|list|answer|close`. An urgent item sorts first and also types one line into the recipient's pane. `hud urgent --since 7d` counts urgent uses by who and by recipient.
+- **The count at every step.** `bin/hq-queue-hook.ts` is a Claude Code hook (UserPromptSubmit, PostToolUse, Stop) that shows `HQ QUEUE 4 · oldest 12m · 1 URGENT` and keeps HQ from going idle on unread items. The hook acts only where `HUD_LEAD` is set, so put it in HQ's own project settings, never a user-wide file. The top bar shows the same box (a green 0 when empty), red when an item is urgent or older than 30 minutes.
+- **Tell HQ** has an URGENT toggle. A plain note waits in HQ's queue; an urgent one reaches HQ at once. Your notes and replies stay on your page, and HQ's answer to a note arrives in FROM HQ.
+- `hud ask --urgent` puts a question at the top of your desk, marked URGENT.
+
+### Changed
+
+- Lanes hand back with `hud request`, not by typing into a pane (`hud guide`).
+
 ## [0.18.0] - 2026-10-28
 
 ### Added

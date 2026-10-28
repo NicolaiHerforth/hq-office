@@ -12,9 +12,9 @@ import { emit } from "../core/bus.js";
 
 // QUESTIONS and MESSAGES share the question column; one shows at a time. The choice is remembered in this browser.
 // MESSAGES is one thread, oldest at the top: HQ's updates and your notes, by time. A reply is an ordinary note
-// that starts with  re: #u12 ("first words of the parent")  (u = from HQ, n = your note), so the server needs
+// that starts with  re: #u12 ("first words of the parent")  (u = from HQ, n = your note; nq12 is a note that went to HQ's queue), so the server needs
 // nothing new and HQ reads what the reply answers.
-const REF = /^re: #([un])(\d+)(?: \("([^"\n]*)"\))?[ \t]*/;
+const REF = /^re: #([un])(q?\d+)(?: \("([^"\n]*)"\))?[ \t]*/;
 export let qTab = (() => { try { const t = localStorage.getItem("hq-qtab"); return ["messages", "work", "rooms"].includes(t) ? t : "questions"; } catch { return "questions"; } })();
 export let replyTo = null, replyText = "", msgStick = true;
 // The open reply, put back after the page reloads (questions/drafts.js keeps it with the other drafts).

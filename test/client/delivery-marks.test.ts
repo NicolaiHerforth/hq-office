@@ -48,14 +48,14 @@ afterAll(async () => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-test.skipIf(!chromeFound)("a note typed in while HQ was busy says so; once HQ is free it is delivered; acked, HQ has it", async () => {
-  await server.post("/api/notes", { text: "while you were busy" });
+test.skipIf(!chromeFound)("an urgent note typed in while HQ was busy says so; once HQ is free it is delivered; closed, HQ has it", async () => {
+  await server.post("/api/notes", { text: "while you were busy", urgent: true }); // only an urgent Tell is typed into HQ
   await until(`${log}.includes("typed in while HQ was busy")`);
   writeFileSync(status, "idle");
   await server.post("/api/hq/check", {});
   await until(`${log}.includes("delivered to HQ")`);
   const { notes } = await (await fetch(`${server.base}/api/state`)).json();
-  await server.post(`/api/notes/${notes[0].id}/ack`, {});
+  await server.post(`/api/requests/${String(notes[0].id).slice(1)}/close`, { reason: "read" }); // a queued Tell closes in the queue
   await until(`${log}.includes("HQ has it")`);
   expect(errors).toEqual([]);
 });

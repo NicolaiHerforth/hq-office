@@ -8,3 +8,6 @@
 .tell .lastnote > b:first-child { font: 7px/1 var(--pixel); color: var(--muted); margin-right: 6px; }
 .tell .lastnote button { background: none; border: 0; padding: 0 0 0 6px; font: 7px/1 var(--pixel); color: var(--blue); }
 .compose { display: grid; gap: 8px; }
+/* URGENT on Tell HQ: off by default, red while it is on */
+.urgent-toggle { align-self: center; padding: 4px 8px; font-size: 8px; }
+.urgent-toggle[aria-pressed="true"] { background: var(--red); color: #fff; border-color: var(--red); }

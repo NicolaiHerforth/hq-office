@@ -316,7 +316,7 @@ export function createBoard(opts: {
   function view() {
     const t = now();
     const lanes = new Map((db.query("SELECT * FROM lanes").all() as any[]).map((l) => [l.name, l]));
-    const asks = db.query("SELECT id, lane, title, body, status, created_at, answered_at FROM asks WHERE status != 'withdrawn'").all() as any[];
+    const asks = db.query("SELECT id, lane, title, body, status, created_at, answered_at FROM asks WHERE recipient = 'owner' AND status != 'withdrawn'").all() as any[];
     const all = rows();
     // An ask names an item by its issue key or one of its PR numbers, in the title or the body.
     const prNums = (it: any) => it.prs.map((k: string) => parsePr(k, repo)?.number).filter(Boolean) as number[];

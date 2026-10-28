@@ -1,0 +1,14 @@
+/* HQ's queue in the top bar: quiet while it is short, an alarm when an item is urgent or has waited over 30 minutes. */
+.queue { display: grid; gap: 6px; padding: 10px 14px; cursor: default; }
+.queue .k { font: 8px/1 var(--pixel); color: var(--muted); }
+.queue .v { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; font: 11px/1.2 var(--pixel); }
+.queue .v span, .queue .v em { white-space: nowrap; }
+.queue .v b { font-weight: normal; font-size: 16px; }
+.queue .v em { font-style: normal; }
+.queue.ok .v b { color: var(--green); }
+.queue.alarm { border-color: var(--red); }
+.queue.alarm .v { color: var(--red); }
+/* a phone has no room for the long form */
+@media (max-width: 600px) { .queue { padding: 8px 10px; } .queue .v { font-size: 9px; gap: 3px 6px; } }
+/* the mark on an urgent question on the owner's desk (it sorts to the top) */
+.tag.urgent-tag { background: var(--red); color: #fff; }

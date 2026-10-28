@@ -50,7 +50,7 @@ function findings(): string | null {
   const lanes = db.query("SELECT name, herdr FROM lanes WHERE herdr IN ('idle', 'done') AND bg IS NULL ORDER BY name").all() as { name: string }[];
   const gone = db.query("SELECT name FROM lanes WHERE herdr = 'gone' AND phase NOT IN ('done', 'parked') ORDER BY name").all() as { name: string }[];
   const stalled = board.view().items.filter((i: any) => i.state === "stalled").map((i: any) => i.issue as string);
-  const asks = db.query("SELECT COUNT(*) AS n, MIN(created_at) AS at FROM asks WHERE status = 'open'").get() as { n: number; at: number | null };
+  const asks = db.query("SELECT COUNT(*) AS n, MIN(created_at) AS at FROM asks WHERE status = 'open' AND recipient = 'owner'").get() as { n: number; at: number | null };
   const rooms = db.query("SELECT DISTINCT slug FROM room_messages WHERE author IS NULL AND delivery IN ('away', 'failed') ORDER BY slug").all() as { slug: string }[];
   const parts: string[] = [];
   const list = (label: string, names: string[]) => names.length && parts.push(`${label} ${names.length}: ${names.join(", ")}`);

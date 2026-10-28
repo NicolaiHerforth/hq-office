@@ -9,15 +9,14 @@ import { event } from "./events.ts";
 import { addStatePart } from "./state.ts";
 import { board } from "./work-board.ts";
 import { parsePr } from "./board.ts";
-import { createAsk } from "./asks.ts";
+import { createAsk, ownerAsk } from "./asks.ts";
 import type { Ask } from "./types.ts";
 import { underHq } from "../lane-tree.ts";
 
 type Item = { ask_id: number; n: number; text: string; pr: string | null; done_at: number | null; done_by: string | null };
 
 function openAsk(id: number) {
-  const ask = db.query("SELECT * FROM asks WHERE id = ?").get(id) as Ask | null;
-  if (!ask) throw new Error(`no ask ${id}`);
+  const ask = ownerAsk(id);
   if (ask.status !== "open") throw new Error(`ask ${id} is already ${ask.status}`);
   return ask;
 }

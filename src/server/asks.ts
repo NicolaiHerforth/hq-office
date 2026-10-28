@@ -7,13 +7,18 @@ import type { Ask } from "./types.ts";
 import { secrets } from "./push.ts";
 import { event } from "./events.ts";
 import { notifyHq } from "./hq-link.ts";
+import { recordUrgent } from "./urgent.ts";
 import { commentAsk } from "./ledger.ts";
 
+// An ask for the owner's desk, or (with body.recipient) a message in an orchestrator's queue; see queue.ts.
+// body.urgent files it at the top of its recipient's list; body.by names who is being urgent (default: its lane).
 export function createAsk(body: any) {
   if (!body.title) throw new Error("title is required");
   const wanted = [...new Set<string>((body.secrets ?? []).map(checkName))];
+  const recipient = body.recipient ?? "owner";
+  const created = body.created_at ?? Date.now();
   const res = db
-    .query("INSERT INTO asks (lane, kind, title, body, options, recommended, link, due, created_at, secrets) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
+    .query("INSERT INTO asks (lane, kind, title, body, options, recommended, link, due, created_at, secrets, recipient, urgent_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
     .run(
       body.lane ?? null,
       body.kind ?? "decision",
@@ -23,17 +28,31 @@ export function createAsk(body: any) {
       body.recommended ?? null,
       body.link ?? null,
       body.due ?? null,
-      body.created_at ?? Date.now(),
+      created,
       wanted.length ? JSON.stringify(wanted) : null,
+      recipient,
+      body.urgent ? Date.now() : null,
     );
-  event("hq", `asked: ${body.title}`, body.lane);
-  return Number(res.lastInsertRowid);
+  const id = Number(res.lastInsertRowid);
+  if (recipient === "owner") event("hq", `asked: ${body.title}`, body.lane);
+  if (body.urgent) recordUrgent(db.query("SELECT * FROM asks WHERE id = ?").get(id) as Ask, body.by ?? body.lane ?? "hq");
+  return id;
+}
+
+// An ask on the owner's desk. The desk's routes (withdraw, update, comment, ack, secrets) refuse an item in someone's
+// queue: that one is answered with hud req, and closing it from the desk would skip its delivery.
+export function ownerAsk(id: number): Ask {
+  const ask = db.query("SELECT * FROM asks WHERE id = ?").get(id) as Ask | null;
+  if (!ask) throw new Error(`no ask ${id}`);
+  if (ask.recipient !== "owner") throw new Error(`ask ${id} is for ${ask.recipient}, not the owner: use hud req ${id}`);
+  return ask;
 }
 
 export function answerAsk(id: number, answer: string) {
   const ask = db.query("SELECT * FROM asks WHERE id = ?").get(id) as Ask | null;
   if (!ask) throw new Error(`no ask ${id}`);
   if (ask.status !== "open") throw new Error(`ask ${id} is already ${ask.status}`);
+  if (ask.recipient !== "owner") throw new Error(`ask ${id} is for ${ask.recipient}, not the owner: answer it with hud req answer ${id}`);
   db.query("UPDATE asks SET status = 'answered', answer = ?, answered_at = ? WHERE id = ?").run(answer, Date.now(), id);
   event(OWNER, `answered "${ask.title}": ${answer}`, ask.lane);
   notifyHq(`HUD answer #${id}${ask.lane ? ` (${ask.lane})` : ""}: "${ask.title}" -> ${answer}`, `ask:${id}`);
@@ -42,8 +61,7 @@ export function answerAsk(id: number, answer: string) {
 // An ask that requests secrets is answered with their values: each one goes to the secret store, and the
 // answer HQ gets (and the database keeps) names them only.
 export function answerWithSecrets(id: number, body: any) {
-  const ask = db.query("SELECT * FROM asks WHERE id = ?").get(id) as Ask | null;
-  if (!ask) throw new Error(`no ask ${id}`);
+  const ask = ownerAsk(id);
   if (ask.status !== "open") throw new Error(`ask ${id} is already ${ask.status}`);
   const wanted: string[] = ask.secrets ? JSON.parse(ask.secrets) : [];
   if (!wanted.length) throw new Error(`ask ${id} requests no secrets`);

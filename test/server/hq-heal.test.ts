@@ -72,10 +72,12 @@ test("the name dropped while HQ stays in its pane: the next sync gives it back, 
   expect((await state()).events.some((e: any) => e.text.startsWith("HQ isn't receiving"))).toBe(false);
 });
 
-test("a note sent in the gap before the sync is delivered, without ever showing as held", async () => {
+// A plain note waits in HQ's queue and is never typed into its pane; an urgent one types its line there, so it is the
+// one a dropped name could hold up.
+test("an urgent note sent in the gap before the sync is delivered, without ever showing as held", async () => {
   writeFileSync(mode, "dropped");
   const seen: unknown[] = [];
-  await post("/api/notes", { text: "in the gap" });
+  await post("/api/notes", { text: "in the gap", urgent: true });
   await until(async () => {
     const s = await state();
     seen.push(s.hq.reason, ...s.hq.held);

@@ -115,10 +115,11 @@ describe("uploads", () => {
     for (const p of ["/uploads/..%2Fhud.db", "/uploads/%2E%2E%2Fhud.db", "/uploads/.hidden", "/uploads/nothing.pdf"]) expect((await fetch(`${BASE}${p}`)).status).toBe(404);
   });
 
-  test("a note's tokens reach hud inbox with the full path on this machine", async () => {
+  // A Tell waits in HQ's queue, so HQ reads its tokens with hud req next.
+  test("a note's tokens reach HQ's queue with the full path on this machine", async () => {
     const pdf = await send("/api/uploads", "brief.pdf", "%PDF-1.4");
     await post("/api/notes", { text: `See this [file: ${pdf.path}]` });
-    const { out, code } = await hud(["inbox"]);
+    const { out, code } = await hud(["req", "next"]);
     expect(code).toBe(0);
     expect(out).toContain(`[file: ${pdf.path}]`);
     expect(pdf.path.startsWith(DATA)).toBe(true);

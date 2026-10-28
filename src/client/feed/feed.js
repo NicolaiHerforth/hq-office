@@ -67,6 +67,8 @@ export function renderLog() {
 // Where a note or an answer stands with HQ (S.hq.deliveries, see hq-link.ts): acked by HQ, delivered (HQ started
 // working on it), typed in while HQ was busy (sent again once it is free), or held (not typed in yet).
 const held = (ref) => (S.hq?.held ?? []).some((h) => h.ref === ref);
+// A Tell that went to the queue is qN here; only an urgent one is held, in the outbox as ask:N.
+const noteRef = (n) => (String(n.id).startsWith("q") ? `ask:${String(n.id).slice(1)}` : `note:${n.id}`);
 const mark = (color, text) => `<span style="color:var(--${color})">· ${text}</span>`;
 function deliveryMark(ref, acked, ackedText, waitingText) {
   if (acked) return mark("green", ackedText);
@@ -77,7 +79,7 @@ function deliveryMark(ref, acked, ackedText, waitingText) {
   if (d === "delivered") return mark("green", "delivered to HQ");
   return mark("amber", waitingText);
 }
-const noteMark = (n) => deliveryMark(`note:${n.id}`, !!n.acked_at, "HQ has it", "not picked up yet");
+const noteMark = (n) => deliveryMark(noteRef(n), !!n.acked_at, "HQ has it", "not picked up yet");
 function logRows() {
   // One list, newest first: your notes and HQ's answers interleaved by time.
   const notes = S.notes.slice(0, 5).map((n) => ({ at: n.at, html: `<div><b>${clock(n.at)} YOU</b><div class="md inl">${mdClip(n.text, `n${n.id}`)}</div> ${noteMark(n)}</div>` }));

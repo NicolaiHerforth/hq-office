@@ -31,3 +31,5 @@ export const LEGACY_OWNER_WHO = "nico";
 export const whoOf = (who: string) => (who === LEGACY_OWNER_WHO ? OWNER : who);
 export const SYNC_MS = 20_000;
 export const STALE_MS = 15 * 60_000;
+// The orchestration registry (JSON): which orchestrator or PM a lane's requests go to. Empty means everything goes to HQ.
+export const ORCHESTRATION = (process.env.HUD_ORCHESTRATION ?? "").trim();

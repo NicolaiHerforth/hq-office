@@ -96,6 +96,8 @@ test("a nudge HQ does not act on doubles the wait", async () => {
 });
 
 test("nothing to look at: nothing is sent", async () => {
+  // A lane's request waits in HQ's queue, not on the owner: the sweep must not count it as a question waiting on him.
+  await post("/api/requests", { lane: "alpha", kind: "READY", text: "pushed" });
   world("working", []);
   await sync();
   world("idle", [["alpha", "working"], ["bravo", "working"]]);
