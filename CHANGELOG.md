@@ -3,6 +3,14 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.21.1] - 2026-10-29
+### Fixed
+
+- **A floor whose HQ never started can be removed.** `hud floor rm` used to refuse a floor with messages held for its
+  HQ, and nothing could clear them. Now a floor with no lanes goes. Your notes and answers that its HQ never got move
+  to the first floor's HQ, marked "meant for floor X, whose HQ never got it". What was already read, and the guide
+  meant only for that floor's HQ, are dropped. The activity feed has a line with both counts.
+
 ## [0.21.0] - 2026-10-28
 ### Changed
 

@@ -7,6 +7,7 @@
 // the first floor; an explicit floor (x-hud-floor, or floor in the body or the query) wins over all of these.
 import { LOCAL } from "./config.ts";
 import { db } from "./db.ts";
+import { event } from "./events.ts";
 import { FLOOR_PALETTE, freeColor } from "./floor-colors.ts";
 
 export type Floor = { id: string; name: string; color: string; hq: string; position: number; created_at: number; hq_pane: string | null; hq_seen_at: number | null };
@@ -129,8 +130,9 @@ export function setFloor(id: string, body: any) {
   return hqChanged;
 }
 
-// Only an empty floor goes: no lanes, no open question, no open room, no open board item and nothing held for its
-// HQ. What it leaves behind (answered questions, updates, notes, the log) moves to the first floor that stays.
+// Only a floor with no work goes: no lanes, no open question, no open room, no open board item. What was held for its
+// HQ (it never took it) moves to the first floor's HQ, marked as meant for this floor; what its HQ's owner already
+// read is dropped. What it leaves behind (answered questions, updates, notes, the log) moves to the first floor too.
 export function removeFloor(id: string) {
   const f = mustFloor(id);
   if (floorList().length === 1) throw new Error("the last floor cannot go");
@@ -140,14 +142,34 @@ export function removeFloor(id: string) {
     [count("SELECT COUNT(*) AS n FROM asks WHERE floor = ? AND status = 'open'"), "open questions"],
     [count("SELECT COUNT(*) AS n FROM rooms WHERE floor = ? AND archived_at IS NULL"), "open rooms"],
     [count("SELECT COUNT(*) AS n FROM work_items WHERE floor = ? AND done_at IS NULL"), "open board items"],
-    [count("SELECT COUNT(*) AS n FROM hq_outbox WHERE floor = ? AND sent_at IS NULL"), "messages held for its HQ"],
   ].filter(([n]) => n) as [number, string][];
   if (left.length) throw new Error(`floor ${f.id} is not empty: ${left.map(([n, what]) => `${n} ${what}`).join(", ")}. Move lanes with hud lane NAME --floor OTHER first`);
+  let moved = 0, dropped = 0;
   db.transaction(() => {
     db.query("DELETE FROM floors WHERE id = ?").run(f.id);
     const to = firstFloor();
+    const now = Date.now();
+    for (const row of db.query("SELECT id, ref, text FROM hq_outbox WHERE floor = ? AND sent_at IS NULL").all(f.id) as { id: number; ref: string | null; text: string }[]) {
+      // The owner's words (a note, an answer) move; a notice meant only for that floor's HQ (its guide), or something
+      // already read, is dropped.
+      if (!row.ref || readAlready(row.ref)) {
+        db.query("UPDATE hq_outbox SET sent_at = ?, confirmed_at = ?, error = 'not delivered: its floor was removed' WHERE id = ?").run(now, now, row.id);
+        dropped += 1;
+      } else {
+        db.query("UPDATE hq_outbox SET floor = ?, text = ?, error = NULL, resend = 0 WHERE id = ?").run(to, `(meant for floor ${f.name}, whose HQ never got it) ${row.text}`, row.id);
+        moved += 1;
+      }
+    }
     for (const t of ["asks", "updates", "notes", "rooms", "hq_outbox", "events", "work_items"]) db.query(`UPDATE ${t} SET floor = ? WHERE floor = ?`).run(to, f.id);
   })();
+  event("hud", `floor ${f.id} removed: ${moved} held ${moved === 1 ? "message" : "messages"} moved to ${firstFloor()}, ${dropped} dropped (already read, or only for its HQ)`);
+}
+
+// A note or an answer HQ has already read (acked): nothing to deliver.
+function readAlready(ref: string | null) {
+  const [kind, id] = (ref ?? "").split(":");
+  const table = kind === "note" ? "notes" : kind === "ask" ? "asks" : null;
+  return !!table && !!(db.query(`SELECT acked_at FROM ${table} WHERE id = ?`).get(Number(id)) as { acked_at: number | null } | null)?.acked_at;
 }
 
 // The three readings the owner reads at a glance, for one floor or the whole office (docs/floors.md, "Three

@@ -87,7 +87,6 @@ const routes: Route[] = [
     if (body.rm === true) {
       removeFloor(f.id);
       forgetLink(f.id);
-      event("hud", `floor ${f.id} removed`);
       return { floors: floorList().map((x) => x.id) };
     }
     if (setFloor(f.id, body)) {
