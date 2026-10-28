@@ -41,12 +41,13 @@ const open = async () => {
 };
 
 // In the page: the room's pixels by art pixel, and where each worker and its desk are.
-const HELPERS = `
-  const G = await import("/src/client/room/gadgets.js");
-  const { workers } = await import("/src/client/room/workers.js");
-  const { TS, SC } = await import("/src/client/room/canvas.js");
+// A floor other than HQ's is the room's modules loaded again from /floor/<id>/..., drawing on its own canvas room-<id>.
+const helpers = (prefix: string, canvas: string) => `
+  const G = await import("${prefix}/src/client/room/gadgets.js");
+  const { workers } = await import("${prefix}/src/client/room/workers.js");
+  const { TS, SC } = await import("${prefix}/src/client/room/canvas.js");
   const KEY = ${JSON.stringify(KEY)};
-  const room = document.getElementById("room"), data = room.getContext("2d").getImageData(0, 0, room.width, room.height).data;
+  const room = document.getElementById("${canvas}"), data = room.getContext("2d").getImageData(0, 0, room.width, room.height).data;
   const hex = (i) => "#" + [data[i], data[i + 1], data[i + 2]].map((v) => v.toString(16).padStart(2, "0")).join("");
   // the colours in an art-pixel box, sampled at each art pixel's centre
   const colours = (x0, y0, x1, y1) => { const out = new Set(); for (let y = Math.max(0, y0); y < y1; y++) for (let x = Math.max(0, x0); x < x1; x++) out.add(hex(((Math.floor(y * SC + 1)) * room.width + Math.floor(x * SC + 1)) * 4)); return out; };
@@ -57,6 +58,7 @@ const HELPERS = `
   const sipNow = (name) => G.sipping(name, Math.floor(performance.now() / 1000) * 1000);
   const keys = (box) => Object.entries(KEY).filter(([, c]) => colours(...box).has(c)).map(([id]) => id);
 `;
+const HELPERS = helpers("", "room");
 
 beforeAll(async () => {
   if (!chromeFound) return;
@@ -73,7 +75,7 @@ beforeAll(async () => {
   stander = await page.evaluate(`import("/src/client/room/gadgets.js").then((G) => ${JSON.stringify(STAND)}.find((n) => G.gadgetFor(n)))`);
   writeHerdr(stander);
   for (const name of [...DESK, stander, ASKER]) await server.post("/api/lanes", { name, phase: "running", title: name, machine: "local" });
-  await server.post("/api/asks", { lane: ASKER, kind: "decision", title: "Ship it?", options: ["Yes", "No"] });
+  await server.post("/api/asks", { lane: ASKER, kind: "decision", title: "Ship it?", options: ["Yes", "No"], recommended: "Yes" });
   await server.post("/api/settings", { settings: { performance: "balanced", theme: "office" } });
   await server.post("/api/sync", {});
   await open();
@@ -229,7 +231,12 @@ test.skipIf(!chromeFound)("ARENA: guards and numbered players hold their gadgets
   for (const [name, parent] of Object.entries(parents)) await server.post("/api/lanes", { name, parent });
   await server.post("/api/settings", { settings: { theme: "arena" } });
   await open();
-  const out = await page.evaluate(`(async () => {${HELPERS}
+  // kiwi directs a lead with reports below it, so the tree is kiwi's floor: its workers, looks and pixels are in that
+  // floor's copy of the room. Zoom in so the floor draws, as the page does.
+  await page.evaluate(`import("/src/client/core/scope.js").then((m) => m.setFloor("kiwi"))`);
+  for (let i = 0; i < 200 && !(await page.evaluate(`import("/floor/kiwi/src/client/room/workers.js").then((m) => m.workers.size >= 6, () => false)`).catch(() => false)); i++) await Bun.sleep(50);
+  await page.evaluate("__hq.advance(20)");
+  const out = await page.evaluate(`(async () => {${helpers("/floor/kiwi", "room-kiwi")}
     const rows = [];
     for (const w of workers.values()) {
       const g = G.gadgetFor(w.lane.name);
@@ -239,7 +246,8 @@ test.skipIf(!chromeFound)("ARENA: guards and numbered players hold their gadgets
     return { rows, hero: keys([20 * TS - 12, 2 * TS - 8, 20 * TS + 12, 2 * TS + 12]), hq: keys([16 * TS - 4, 5 * TS - 8, 16 * TS + 20, 5 * TS + 10]) };
   })()`);
   const looks = new Set(out.rows.map((r: any) => r.look));
-  for (const l of ["guard-star", "guard-square", "guard-triangle", "guard-circle", "player"]) expect(looks.has(l)).toBe(true);
+  // kiwi, the guard-star, heads the floor: it stands at the terminal (the box checked as "hq" below), not at a desk.
+  for (const l of ["guard-square", "guard-triangle", "guard-circle", "player"]) expect(looks.has(l)).toBe(true);
   for (const r of out.rows) if (r.g) expect({ name: r.name, seen: r.seen.includes(r.g) }).toEqual({ name: r.name, seen: true });
   expect(out.rows.filter((r: any) => r.g && r.look?.startsWith("guard")).length).toBeGreaterThan(1);
   expect(out.rows.filter((r: any) => r.g && r.look === "player").length).toBeGreaterThan(0);

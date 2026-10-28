@@ -44,31 +44,31 @@ async function office(owner: string | undefined) {
 }
 
 describe("HUD_OWNER set", async () => {
-  const o = await office("Aleks");
+  const o = await office("Pat");
 
-  test("a note reaches HQ under the owner's name, and the log says who told it", async () => {
-    expect((await o.post("/api/notes", { text: "ship it" })).status).toBe(200);
-    expect(await o.sent("ship it")).toContain("agent prompt hq HUD note from Aleks: ship it");
-    expect(await o.events()).toContain("Aleks told HQ: ship it");
+  test("an urgent note reaches HQ under the owner's name, and the log says who told it", async () => {
+    expect((await o.post("/api/notes", { text: "ship it", urgent: true })).status).toBe(200);
+    expect(await o.sent("ship it")).toContain("agent prompt hq URGENT from Pat: ship it");
+    expect(await o.events()).toContain("Pat told HQ: ship it");
   });
 
   test("an answer is logged under the owner's name", async () => {
-    const { id } = await (await o.post("/api/asks", { title: "Left or right?", options: ["Left", "Right"] })).json();
+    const { id } = await (await o.post("/api/asks", { title: "Left or right?", options: ["Left", "Right"], recommended: "Left" })).json();
     expect((await o.post(`/api/asks/${id}/answer`, { answer: "Left" })).status).toBe(200);
-    expect(await o.events()).toContain('Aleks answered "Left or right?": Left');
+    expect(await o.events()).toContain('Pat answered "Left or right?": Left');
   });
 
   test("a secret set on the page is announced to HQ under the owner's name", async () => {
     const res = await o.post("/api/secrets", { name: "TEST_KEY_OWNER", value: "TEST_ONLY_VALUE_OWNER_135", minutes: 5, by: "owner" }, { origin: o.base });
     expect(res.status).toBe(200);
     const lines = await o.sent("TEST_KEY_OWNER");
-    expect(lines.some((l) => l.includes("HUD secret from Aleks: TEST_KEY_OWNER"))).toBe(true);
+    expect(lines.some((l) => l.includes("HUD secret from Pat: TEST_KEY_OWNER"))).toBe(true);
     expect(lines.join("\n")).not.toContain("TEST_ONLY_VALUE_OWNER_135");
   });
 
   test("events 0.1.0 logged under its fixed word read as the owner's", async () => {
     await o.post("/api/events", { who: LEGACY_OWNER_WHO, text: "told HQ: an old note" });
-    expect(await o.events()).toContain("Aleks told HQ: an old note");
+    expect(await o.events()).toContain("Pat told HQ: an old note");
     expect((await o.state()).events.some((e: any) => e.who === LEGACY_OWNER_WHO)).toBe(false);
   });
 });
@@ -77,8 +77,8 @@ describe("HUD_OWNER unset", async () => {
   const o = await office(undefined);
 
   test("the note says the owner", async () => {
-    await o.post("/api/notes", { text: "ship it" });
-    expect(await o.sent("ship it")).toContain("agent prompt hq HUD note from the owner: ship it");
+    await o.post("/api/notes", { text: "ship it", urgent: true });
+    expect(await o.sent("ship it")).toContain("agent prompt hq URGENT from the owner: ship it");
     expect(await o.events()).toContain("the owner told HQ: ship it");
     expect((await o.state()).events.some((e: any) => e.who === LEGACY_OWNER_WHO)).toBe(false);
   });

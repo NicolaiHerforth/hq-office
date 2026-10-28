@@ -44,15 +44,18 @@ async function office(hint: string | undefined) {
     }
     throw new Error(`no prompt containing ${part}`);
   };
-  return { post, prompt };
+  const state = async () => (await fetch(`${base}/api/state`)).json();
+  return { post, prompt, state };
 }
 
 describe("reply reminder on (the default)", async () => {
   const o = await office(undefined);
 
-  test("a note carries it, on a line of its own", async () => {
+  // A plain note from the owner waits in HQ's queue (see queue.ts); only an answer or an urgent line is typed.
+  test("a plain note types nothing into HQ's pane", async () => {
     await o.post("/api/notes", { text: "ship it" });
-    expect(await o.prompt("ship it")).toBe(`HUD note from the owner: ship it\n${HINT}`);
+    await Bun.sleep(300);
+    await expect(o.prompt("ship it")).rejects.toThrow("no prompt containing");
   });
 
   test("an answer carries it", async () => {
@@ -61,10 +64,13 @@ describe("reply reminder on (the default)", async () => {
     expect(await o.prompt("yes, merge")).toBe(`HUD answer #${id}: "Merge the fix?" -> yes, merge\n${HINT}`);
   });
 
-  test("a reply from the messages tab carries it", async () => {
+  // A reply from the MESSAGES tab is an ordinary note now: it waits in HQ's queue and stays in the owner's thread.
+  test("a reply from the messages tab waits in the queue and stays in the owner's notes", async () => {
     const { id } = await o.post("/api/updates", { title: "PR is up" });
     await o.post("/api/notes", { text: `re: #u${id} ("PR is up") looks good` });
-    expect(await o.prompt("looks good")).toEndWith(`re: #u${id} ("PR is up") looks good\n${HINT}`);
+    await Bun.sleep(300);
+    await expect(o.prompt("looks good")).rejects.toThrow("no prompt containing");
+    expect((await o.state()).notes.map((n: any) => n.text)).toContain(`re: #u${id} ("PR is up") looks good`);
   });
 
   test("the reminder is one line and names the commands", () => {
@@ -77,13 +83,9 @@ describe("reply reminder on (the default)", async () => {
 describe("HUD_HQ_HINT=0", async () => {
   const o = await office("0");
 
-  test("a note, an answer and a reply go without it", async () => {
-    await o.post("/api/notes", { text: "plain note" });
-    expect(await o.prompt("plain note")).toBe("HUD note from the owner: plain note");
+  test("an answer goes without it", async () => {
     const { id } = await o.post("/api/asks", { title: "Q" });
     await o.post(`/api/asks/${id}/answer`, { answer: "plain answer" });
     expect(await o.prompt("plain answer")).not.toContain(HINT);
-    await o.post("/api/notes", { text: "re: #n1 plain reply" });
-    expect(await o.prompt("plain reply")).toBe("HUD note from the owner: re: #n1 plain reply");
   });
 });

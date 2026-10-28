@@ -1,0 +1,31 @@
+/* The project panel: over the room while open, like the accounts panel (desktop), or in the room's place in the page (narrow). */
+.room.project-open { position: relative; }
+.projectp:empty { display: none; }
+.projectp { position: absolute; inset: 0; z-index: 3; overflow-y: auto; overscroll-behavior: contain; display: grid; gap: 10px; align-content: start; padding: 10px; background: #1b1d2c; border-radius: 6px; }
+@media (max-width: 1150px) {
+  .projectp { position: static; inset: auto; overflow: visible; padding: 2px; }
+  .room.project-open > canvas, .room.project-open > .scene, .room.project-open > .building, .room.project-open > .legend { display: none; }
+}
+.phdr { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ptitle { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.ptitle h2 { margin: 0; color: #f8f8f0; font: 12px/1.3 var(--pixel); overflow-wrap: anywhere; }
+.ptitle .tag.st { color: #fff; }
+.phdr .btn { min-height: 44px; }
+.pgrp { display: grid; gap: 6px; padding: 10px 12px; align-content: start; }
+.pgrp h3 { margin: 0; font: 8px/1 var(--pixel); color: var(--muted); }
+.pgrp .btn.go { justify-self: start; min-height: 36px; text-decoration: none; }
+.pgrp .lrow { display: grid; grid-template-columns: auto minmax(0, 1fr) minmax(0, 150px) auto; gap: 4px 10px; align-items: center; width: 100%; padding: 5px 8px; border: 2px solid #e2e2ee; border-radius: 6px; background: #fff; text-align: left; font-size: 13px; color: inherit; }
+.pgrp button.lrow { cursor: pointer; }
+.pgrp button.lrow:hover { border-color: var(--edge-2); }
+.pgrp .lrow b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 800; }
+.pgrp .lrow .d { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #3a3a52; }
+.pgrp .lrow .timer { margin: 0; font-size: 8px; }
+.pgrp .dot { display: inline-block; width: 9px; height: 9px; border-radius: 2px; box-shadow: 0 0 0 2px var(--ink); }
+.pwork, .shelf { display: flex; flex-wrap: wrap; gap: 6px; }
+.pwork .rwork { display: inline-flex; align-items: center; gap: 4px; }
+.shelfc { display: inline-flex; align-items: center; gap: 6px; max-width: 100%; padding: 4px 8px; border: 2px solid var(--edge); border-radius: 6px; background: var(--box); color: var(--ink); font: 700 13px/1.2 var(--text); text-decoration: none; }
+.shelfc:hover { background: #fff; }
+@media (max-width: 600px) {
+  .pgrp .lrow { grid-template-columns: auto minmax(0, 1fr) auto; }
+  .pgrp .lrow .d { grid-column: 1 / -1; }
+}

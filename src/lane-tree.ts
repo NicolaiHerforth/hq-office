@@ -42,6 +42,24 @@ export function laneTree(lanes: { name: string; parent?: string | null }[]) {
   return out;
 }
 
+// HQ's floor. Every lane is on it unless it sits under (or is) a general: a lane straight under HQ with a lane at
+// depth 3 or deeper below it. A general directs leads as HQ does, so its subtree is a floor of its own, named for it.
+// A tree of HQ > PM > builder stays one floor. The rule lives here and in its tests only.
+export const HQ_FLOOR = "hq";
+
+export function floorsOf(lanes: { name: string; parent?: string | null }[]) {
+  const tree = laneTree(lanes);
+  const heads = new Set<string>();
+  for (const t of tree.values()) if (t.depth >= 3) heads.add(t.path[0]);
+  const out = new Map<string, { floor: string; heads: boolean }>();
+  for (const l of lanes) {
+    const top = tree.get(l.name)!.path[0] ?? l.name;
+    const floor = heads.has(top) ? top : HQ_FLOOR;
+    out.set(l.name, { floor, heads: floor !== HQ_FLOOR && top === l.name });
+  }
+  return out;
+}
+
 const STATUS_WORDS: Record<string, string> = {
   blocked: "blocked on a prompt",
   needs_you: "waiting on the owner",

@@ -3,7 +3,7 @@ import { STALE_MS } from "./config.ts";
 import { db } from "./db.ts";
 import type { Lane } from "./types.ts";
 import { event } from "./events.ts";
-import { laneTree, levelName, levelNames, rankOf, underHq } from "../lane-tree.ts";
+import { floorsOf, laneTree, levelName, levelNames, rankOf, underHq } from "../lane-tree.ts";
 
 // An agent at work: herdr says working, or an idle agent still has shells, a monitor or subagents running (bg).
 export const laneWorking = (lane: Lane | null | undefined) => !!lane && (lane.herdr === "working" || !!lane.bg);
@@ -26,8 +26,14 @@ export function laneStatus(lane: Lane, openByLane: Map<string, number>, now: num
 
 const LANE_FIELDS = ["title", "machine", "pane", "issue", "pr", "phase", "note"] as const;
 
+const RESERVED_LANES = ["owner", "hq"];
+
 export function upsertLane(body: any) {
   if (!body.name) throw new Error("name is required");
+  // A lane's name is also its floor's id in a URL (/floor/<id>/...), where "." and ".." would mean another path.
+  if ([".", ".."].includes(String(body.name).trim())) throw new Error(`a lane cannot be named ${String(body.name).trim()}`);
+  // "owner" and "hq" mark the owner and HQ as authors in ask_comments and room_messages: a lane with either name would read as them.
+  if (RESERVED_LANES.includes(String(body.name).trim().toLowerCase())) throw new Error(`a lane cannot be named ${String(body.name).trim()}: "owner" and "hq" stand for the owner and HQ in questions and rooms, so pick another name`);
   const parent = body.parent === undefined ? undefined : underHq(body.parent) ? null : String(body.parent).trim();
   if (parent) checkParent(body.name, parent); // before any write: a refused parent changes nothing
   const now = Date.now();
@@ -87,14 +93,16 @@ function currentLevelNames() {
 
 // Each lane with its place in the tree: depth (HQ is 0) and path (its ancestors from the top), and its rank (1 = the
 // top level) with that level's name: the level set by hand (levelSet) if it is still one of the owner's names, else
-// the one its depth gives (a lane straight under HQ is the top level).
+// the one its depth gives (a lane straight under HQ is the top level). Also the floor it is on (see floorsOf), with
+// whether it heads that floor.
 export function withTree<T extends Lane>(lanes: T[]) {
   const names = currentLevelNames();
   const tree = laneTree(lanes);
+  const floors = floorsOf(lanes);
   return lanes.map((l) => {
     const t = tree.get(l.name)!;
     const set = rankOf(l.level, names);
     const rank = set ?? Math.max(1, t.depth);
-    return { ...l, parent: t.path.at(-1) ?? null, depth: t.depth, path: t.path, rank, level: levelName(rank, names), levelSet: !!set };
+    return { ...l, parent: t.path.at(-1) ?? null, depth: t.depth, path: t.path, rank, level: levelName(rank, names), levelSet: !!set, ...floors.get(l.name)! };
   });
 }

@@ -22,7 +22,7 @@ beforeAll(async () => {
   if (!chromeFound) return;
   chrome = await startChrome();
   server = await startServer(ROOT);
-  ids.decision = (await server.post("/api/asks", { title: "Ship the thing?", kind: "decision", options: ["Yes", "No"] })).id;
+  ids.decision = (await server.post("/api/asks", { title: "Ship the thing?", kind: "decision", options: ["Yes", "No"], recommended: "Yes" })).id;
   ids.action = (await server.post("/api/asks", { title: "Record the demo video", kind: "action", lane: "golf" })).id;
   ids.info = (await server.post("/api/asks", { title: "The deploy went out", kind: "info" })).id;
   page = await newSession(chrome.cdp, errors);

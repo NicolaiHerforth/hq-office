@@ -90,9 +90,56 @@ teaches it without any setup per session:
 
 ## The question panel and Tell HQ
 
-Questions from HQ appear at the top of the panel, most urgent first. Pick an option or type an answer; it goes to HQ the moment you send it. Tell HQ is a free-text box for anything HQ did not ask about, such as a new priority or a correction. Both are stored, so nothing is lost if HQ is busy.
+Questions from HQ appear at the top of the panel, most urgent first. Pick an option or type an answer; it goes to HQ the moment you send it. Tell HQ is a free-text box for anything HQ did not ask about, such as a new priority or a correction. Both are stored, so nothing is lost if HQ is busy. A plain Tell waits in HQ's queue (see HQ's queue below); the URGENT toggle puts it first and types one line into HQ's pane.
 
 HQ uses the CLI in `hud.ts` (the `hud` command after the install hud command action, or `bun hud.ts` from the plugin directory with `HUD_URL` set if you changed the port) to add lanes, ask questions and wait for your answers. HQ posts progress to the **FROM HQ** tab with `hud tell --title "PR is up" [--body "details"] [--lane NAME]` (`hud say` is the same command); the tab counts unread updates until you open them or mark them all read. `hud guide` prints how HQ should reach you.
+
+## HQ's queue
+
+Every message to HQ waits in one queue, so a lane never interrupts HQ's work and HQ never loses a message. HQ sees the count at every step and reads the queue when it chooses. The queue is the same list as the owner's desk, with a different recipient: an item is an ask whose recipient is HQ (or an orchestrator or PM) instead of the owner.
+
+A lane hands back or asks with `hud request`. It returns at once and types nothing into any pane:
+
+```sh
+hud request --lane NAME [--kind READY|BLOCK|QUESTION|DONE|NOTE] [--urgent] [--lead NAME] [--pr N] \
+            [--default "what I will do" --by HH:MM|+30m] ("text" | --file PATH)
+```
+
+- `NAME` is the lane's herdr agent name. The kind defaults to `NOTE`, a plain message.
+- `--file PATH` reads the text from a file; use it for long messages, which get truncated when typed on the line.
+- `--lead` names who must answer. Without it the server reads the orchestration registry (`HUD_ORCHESTRATION`, a JSON file): the PM the lane works under, else the orchestrator that lists it, else HQ.
+- `--default ... --by ...` (BLOCK and QUESTION only): when the time comes the item is marked `defaulted`, leaves the open queue, and the lane goes ahead on its own. HQ can still answer it.
+- `--urgent` puts the item first and also types one line into the recipient's pane: `URGENT from <lane>: <first line>`. Nothing else is ever typed. `hud ask --urgent` does the same for the owner's desk, where the question sorts to the top marked URGENT, and `hud urgent ID --by WHO` (or `--lane NAME`) pushes an open item up; the report counts uses by who made them.
+
+HQ reads and answers the queue:
+
+```sh
+hud req next [--lead NAME]          # the first open item: urgent first, then oldest
+hud req list [--lead NAME] [--all] [--json]
+hud req answer ID "text"            # types the answer into the lane's pane and closes the item
+hud req close ID "why"              # for a lane that is gone; refused for a live lane
+hud urgent --since 7d               # urgent uses by who and by recipient, with counts
+```
+
+An item closes only when its answer has reached the lane's pane: if the pane refuses it, the item stays open, `hud req answer` exits 1 and the item shows why. The owner's Tell HQ box files to the queue too; its URGENT toggle sends the note at once. Whether a plain Tell goes to the queue or straight into HQ's pane is the constant `TELL_GOES_TO_QUEUE` in `src/server/queue.ts`.
+
+The top bar shows the queue as a label over a value (`HQ QUEUE`, `4 OLDEST 12M 1 URGENT`), a green `0` when it is empty, red when an item is urgent or has waited over 30 minutes. `HUD_LEAD` (default `HQ`) says whose queue the bar shows; the hook shows nothing unless `HUD_LEAD` is set.
+
+### The hook: the count at every step
+
+`bin/hq-queue-hook.ts` is a Claude Code hook for HQ's own session. It prints one line, `HQ QUEUE 4 · oldest 12m · 1 URGENT`, and nothing when the queue is empty or the server is down. It gives up on the server after 150 ms, always exits 0, and never fails the session. On UserPromptSubmit and PostToolUse the line goes into HQ's context; on Stop it blocks once with the count and "`hud req next` to read", and lets HQ stop when `stop_hook_active` is true, so it never loops. It acts only where `HUD_LEAD` is set, to the name of the queue it shows; with no `HUD_LEAD` it prints nothing and exits 0. It edits no settings. Start HQ's session with `HUD_LEAD` set, for example `HUD_LEAD=HQ claude`: that is what marks the session as HQ's, and any other session stays silent even where the hook is installed. Then add the snippet to `.claude/settings.local.json` in the folder HQ's session starts in. That file is local and never committed, so it can't reach a lane through the repository. Never add it to `~/.claude/settings.json`: every lane runs as the same user, so a user-level file reaches every lane. Use the path to your copy of the plugin:
+
+```json
+{
+  "hooks": {
+    "UserPromptSubmit": [{ "hooks": [{ "type": "command", "command": "bun /path/to/hq-office/bin/hq-queue-hook.ts", "timeout": 5 }] }],
+    "PostToolUse": [{ "hooks": [{ "type": "command", "command": "bun /path/to/hq-office/bin/hq-queue-hook.ts", "timeout": 5 }] }],
+    "Stop": [{ "hooks": [{ "type": "command", "command": "bun /path/to/hq-office/bin/hq-queue-hook.ts", "timeout": 5 }] }]
+  }
+}
+```
+
+Set `HUD_URL` in the environment HQ's session runs in if it differs from `http://127.0.0.1:4747`. An orchestrator's queue is the same snippet in its own folder, with its own name in `HUD_LEAD` when its session starts. If a session's start can't carry the variable, put it in the command instead (`HUD_LEAD=HQ bun ...`); then any session started in that folder runs the hook as HQ.
 
 ## Secrets
 
@@ -143,6 +190,8 @@ our own, not any show's.
 ## The work board
 
 The WORK tab lists every piece of work in flight: an issue key, its pull requests and the lane that owns it. HQ adds one with `hud track ISSUE --lane L --pr N`, and `hud lane NAME --issue X --pr N` links a lane's work too. Each item's state is worked out from facts, in this order: done (all PRs merged or closed, or `hud done ISSUE`), waiting on you (an open question names its lane, issue or PR), waiting on CI (a check is running), paused (`hud pause ISSUE REASON`, undone with `hud resume ISSUE`), moving (the lane is working, or something changed in the last 45 minutes), and otherwise stalled. Stalled work shows red at the top of the question column and at the top of `hud board` (`--json` for JSON).
+
+Requests are the other direction: what a lane needs from HQ. A lane runs `hud request --kind READY|BLOCK|QUESTION|DONE --lane NAME [--pr N] "its own words"` (NAME is its herdr agent name), and the request stays open until HQ's answer has reached the lane. HQ drains the queue with `hud req next` and `hud req list` (`--all` includes closed and defaulted ones), and `hud req answer ID "text"` types the answer into the lane's pane and closes the request in the same step. If the answer cannot reach the pane, the request stays open and the command exits 1. A BLOCK or QUESTION may say what the lane will do on its own, `--default "what I will do" --by HH:MM` (or `+30m`): when that time comes the request is marked defaulted, drops out of the open queue, and the lane goes ahead. A product call is never a default. `GET /api/requests` lists the open ones and `GET /api/agents` lists every herdr agent with when its status began, for a sweep that watches panes.
 
 PR facts come from the `gh` CLI. The server caches them and refreshes them every 10 minutes while anything is open, and when HQ runs `hud board` if the cache is over a minute old. Page loads never call GitHub.
 
@@ -208,6 +257,8 @@ Set these in `config.env`. An empty value means the default.
 | `HUD_HQ_HINT` | on | `0` leaves out the one-line "reply through the HUD" reminder after every message typed into HQ. |
 | `HUD_HQ_BLOCKED` | on | `0` stops telling HQ when a lane's agent becomes blocked on a prompt in herdr (the page still shows it). |
 | `HUD_HQ_GREET` | on | `0` stops the plugin typing the HQ guide into each new HQ session. |
+| `HUD_LEAD` | `HQ` | Whose queue the top bar and `bin/hq-queue-hook.ts` show. |
+| `HUD_ORCHESTRATION` | empty | A JSON registry of orchestrators and PMs; a request's recipient is read from it. Empty sends every request to HQ. |
 | `HUD_OWNER` | empty | Your name: on the desk sign, on the default hero, and in the notes and answers HQ is sent. Empty means "the owner" (and "YOU" on the hero). |
 | `HUD_PORT` | `4747` | Port the server listens on. |
 | `HUD_HOST` | `127.0.0.1` | Address the server binds to. |

@@ -1,16 +1,21 @@
-// The worker card: the selected lane's status, links and open asks.
+// The worker card: the chosen agent's status, links and open asks (core/scope.js), whichever floor it is on.
 import { $ } from "../core/dom.js";
 import { CONFIG, S } from "../core/state.js";
-import { selected } from "../room/input.js";
+import { on } from "../core/bus.js";
+import { scope } from "../core/scope.js";
 import { STATUS_TEXT } from "../core/status.js";
 import { dur, esc, setHTML } from "../core/format.js";
 import { fence, md, mdInline } from "../core/markdown.js";
 import { ranked, themeOf } from "../room/looks.js";
 import { settings } from "../settings/prefs.js";
+import { issueLink, prLink } from "../core/floors.js";
+
+const words = (v) => String(v ?? "").split(/[ ,]+/).filter(Boolean);
+const linkTag = (href, text) => (href ? `<a class="tag" href="${esc(href)}" target="_blank" rel="noopener">${esc(text)}</a>` : `<span class="tag">${esc(text)}</span>`);
 
 export function renderCard() {
   const card = $("card");
-  const lane = S?.lanes.find((l) => l.name === selected);
+  const lane = S?.lanes.find((l) => l.name === scope().agent);
   if (!lane) {
     setHTML(card, `<h3>CLICK A WORKER</h3><div class="sub">Each worker is one lane. Click one to see what it does, where it is, and what it waits on.</div>`);
     return;
@@ -18,10 +23,8 @@ export function renderCard() {
   const [label, color] = STATUS_TEXT[lane.status] || [lane.status, "#6a6a82"];
   const asks = S.open.filter((a) => a.lane === lane.name);
   const links = [
-    ...(lane.issue && CONFIG.linearWorkspace ? lane.issue.split(/[ ,]+/).filter(Boolean).map((i) => `<a class="tag" href="https://linear.app/${esc(CONFIG.linearWorkspace)}/issue/${esc(i)}" target="_blank" rel="noopener">${esc(i)}</a>`) : []),
-    ...(lane.pr && CONFIG.githubRepo ? String(lane.pr).split(/[ ,]+/).filter(Boolean).map((p) => `<a class="tag" href="https://github.com/${CONFIG.githubRepo}/pull/${esc(p.replace("#", ""))}" target="_blank" rel="noopener">#${esc(p.replace("#", ""))}</a>`) : []),
-    ...(lane.issue && !CONFIG.linearWorkspace ? lane.issue.split(/[ ,]+/).filter(Boolean).map((i) => `<span class="tag">${esc(i)}</span>`) : []),
-    ...(lane.pr && !CONFIG.githubRepo ? String(lane.pr).split(/[ ,]+/).filter(Boolean).map((p) => `<span class="tag">#${esc(p.replace("#", ""))}</span>`) : []),
+    ...words(lane.issue).map((i) => linkTag(issueLink(CONFIG, i).href, i)),
+    ...words(lane.pr).map((p) => { const l = prLink(CONFIG, p); return linkTag(l.href, `#${l.num}`); }),
     lane.machine ? `<span class="tag">${esc(lane.machine)} ${esc(lane.pane || "")}</span>` : "",
   ].join("");
   // Where it sits, once the room shows ranks: its level and the chain up to HQ (each step selects that lane).
@@ -33,3 +36,5 @@ export function renderCard() {
     ${lane.note ? `<div class="note md">${md(lane.note)}</div>` : ""}
     ${asks.length ? `<div class="row">${asks.map((a) => `<button class="tag lane" data-select="${esc(lane.name)}">ANSWER: ${mdInline(a.title.length > 40 ? a.title.slice(0, 40) + "…" : a.title, { links: false })}</button>`).join("")}</div>` : ""}`);
 }
+
+on("scope", () => S && renderCard());

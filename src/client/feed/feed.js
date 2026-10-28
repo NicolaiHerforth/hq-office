@@ -6,23 +6,30 @@ import { clock, esc, setHTML } from "../core/format.js";
 import { mdClip, mdInline } from "../core/markdown.js";
 import { scheduleTick } from "../questions/questions.js";
 import { liveSecrets, lostSecrets, renderSecrets } from "../secrets/secrets.js";
+import { on } from "../core/bus.js";
+import { counts, inScope, othersLine } from "../core/floors.js";
+import { floorTagHTML } from "../floors/tag.js";
+import { scope, toggleAll, view } from "../core/scope.js";
 
 let seenUpdates = null, shownTab = null;
 
 // FROM HQ: information, not questions. Newest first; unread ones are tinted. Nothing here waits, times or scores.
-// It shares the box under the room with your sent log; the top bar's FROM HQ box opens this tab.
+// It shares the box under the room with your sent log; the MESSAGES tab carries the unread count.
 export let feedTab = "updates";
+// Scoped (core/scope.js), the list holds the updates in scope, and its first line says how many are left out.
 function updateRows() {
-  const rows = (S.updates ?? []).map((u) => `<article class="upd ${u.read_at ? "" : "unread"}" data-upd="${u.id}">
-      <div class="meta"><span class="tag">${clock(u.at)}</span>${u.lane ? `<span class="tag lane">${esc(u.lane)}</span>` : ""}${u.read_at ? "" : `<span class="tag new">NEW</span>`}</div>
+  const all = S.updates ?? [], shown = all.filter((u) => inScope(S, u, view()));
+  const line = othersLine(S, scope(), all.length - shown.length);
+  const rows = shown.map((u) => `<article class="upd ${u.read_at ? "" : "unread"}" data-upd="${u.id}">
+      <div class="meta"><span class="tag">${clock(u.at)}</span>${floorTagHTML(S, u)}${u.lane ? `<span class="tag lane">${esc(u.lane)}</span>` : ""}${u.read_at ? "" : `<span class="tag new">NEW</span>`}</div>
       <h3>${mdInline(u.title)}</h3>
       ${u.body ? `<div class="text md">${mdClip(u.body, `u${u.id}`)}</div>` : ""}
     </article>`).join("");
-  return rows || `<div class="empty">Nothing from HQ yet.</div>`;
+  return (line ? `<button class="scopeline" type="button" data-showall>${esc(line)}</button>` : "") + (rows || `<div class="empty">Nothing from HQ yet.</div>`);
 }
 // The SECRETS pane is built once and only its list is redrawn, so a value being pasted survives every refresh.
 export function renderFeed() {
-  const unread = S.updatesUnread ?? 0;
+  const unread = counts(S, view()).unread;
   const live = liveSecrets().length, lost = lostSecrets().length;
   const tab = (id, label, extra = "") => `<button class="tab ${feedTab === id ? "on" : ""}" type="button" data-tab="${id}">${label}${extra}</button>`;
   setHTML($("feedTabs"), `
@@ -67,6 +74,8 @@ export function renderLog() {
 // Where a note or an answer stands with HQ (S.hq.deliveries, see hq-link.ts): acked by HQ, delivered (HQ started
 // working on it), typed in while HQ was busy (sent again once it is free), or held (not typed in yet).
 const held = (ref) => (S.hq?.held ?? []).some((h) => h.ref === ref);
+// A Tell that went to the queue is qN here; only an urgent one is held, in the outbox as ask:N.
+const noteRef = (n) => (String(n.id).startsWith("q") ? `ask:${String(n.id).slice(1)}` : `note:${n.id}`);
 const mark = (color, text) => `<span style="color:var(--${color})">· ${text}</span>`;
 function deliveryMark(ref, acked, ackedText, waitingText) {
   if (acked) return mark("green", ackedText);
@@ -77,7 +86,7 @@ function deliveryMark(ref, acked, ackedText, waitingText) {
   if (d === "delivered") return mark("green", "delivered to HQ");
   return mark("amber", waitingText);
 }
-const noteMark = (n) => deliveryMark(`note:${n.id}`, !!n.acked_at, "HQ has it", "not picked up yet");
+const noteMark = (n) => deliveryMark(noteRef(n), !!n.acked_at, "HQ has it", "not picked up yet");
 function logRows() {
   // One list, newest first: your notes and HQ's answers interleaved by time.
   const notes = S.notes.slice(0, 5).map((n) => ({ at: n.at, html: `<div><b>${clock(n.at)} YOU</b><div class="md inl">${mdClip(n.text, `n${n.id}`)}</div> ${noteMark(n)}</div>` }));
@@ -85,5 +94,7 @@ function logRows() {
   const rows = [...notes, ...answered].sort((a, b) => (b.at ?? 0) - (a.at ?? 0));
   return rows.map((r) => r.html).join("") || `<div style="color:var(--muted)">Nothing yet today.</div>`;
 }
+$("feedBody").addEventListener("click", (e) => { if (e.target.closest("[data-showall]")) toggleAll(); });
+on("scope", () => S && renderFeed());
 $("feedBody").addEventListener("scroll", () => showEdges($("feedBody")), { passive: true });
 export function setFeedTab(v) { return (feedTab = v); }

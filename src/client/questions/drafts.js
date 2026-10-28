@@ -40,10 +40,10 @@ restoreDrafts();
 export const PANELS = [
   [["open", "lanes", "score", "updatesUnread", "hq"], () => renderStats()],
   [["machines"], () => renderMachines()],
-  [["open"], () => renderHud()],
+  [["open", "lanes"], () => renderHud()], // a lane that changes floor changes its questions' tags and the scope
   [["lanes", "open", "config"], () => renderCard()],
-  [["notes", "answered", "updates", "updatesUnread", "secrets", "secretsLost", "hq"], () => renderLog()],
-  [["open", "updatesUnread", "board"], () => renderQTabs()],
+  [["notes", "answered", "updates", "updatesUnread", "updatesUnreadByLane", "lanes", "secrets", "secretsLost", "hq"], () => renderLog()],
+  [["open", "updatesUnread", "updatesUnreadByLane", "lanes", "board"], () => renderQTabs()],
   [["board", "open"], () => renderWork()],
-  [["updates", "notes"], () => renderMsgs()],
+  [["updates", "updatesUnreadByLane", "notes", "lanes"], () => renderMsgs()],
 ];

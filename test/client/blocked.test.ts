@@ -1,5 +1,6 @@
 // The page for a lane blocked on a prompt in herdr: a BLOCKED count in the top bar (only while there is one), a red
-// bubble at the lane's desk (not the queue), the card with the excerpt and where to answer it, and the WORK board
+// bubble at the lane's desk (not the queue), the card with the excerpt and where to answer it (the click chooses the
+// lane), and the WORK board
 // with the blocked item on top. Needs Chrome (CHROME_BIN); skipped without it.
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -80,6 +81,9 @@ test.skipIf(!chromeFound)("a blocked lane: BLOCKED in the top bar, a red bubble 
   await page.evaluate(`document.querySelector("#sBlocked").click()`);
   await until(`!!document.querySelector("#card .prompt")`);
   const card = await page.evaluate(`document.querySelector("#card").innerText`);
+  // Choosing the lane scopes the page to it; the BLOCKED box itself stays, as it counts every blocked lane.
+  expect(await page.evaluate(`document.querySelector(".scopechip").textContent`)).toBe("alpha ✕");
+  expect(await page.evaluate(`!document.querySelector("#sBlocked").hidden`)).toBe(true);
   expect(card).toContain("BLOCKED ON A PROMPT");
   expect(card).toContain("ANSWER IT IN HERDR ON LOCAL, PANE w3:p2");
   expect(card).toContain("Remove the build folder · Do you want to proceed?\n1. Yes\n2. No, and tell Claude what to do differently (esc)");

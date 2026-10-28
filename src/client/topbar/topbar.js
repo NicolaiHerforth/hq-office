@@ -1,7 +1,10 @@
-// The top bar: waiting count, oldest wait, working, on HQ, bank, FROM HQ, machines.
+// The top bar: waiting count, oldest wait, working, on HQ, bank, machines.
 import { $ } from "../core/dom.js";
 import { S } from "../core/state.js";
 import { dur, esc, setClass, setHTML, setText } from "../core/format.js";
+import { on } from "../core/bus.js";
+import { counts } from "../core/floors.js";
+import { view } from "../core/scope.js";
 
 // All machines in one small box: one square per machine, and a word. It only speaks up when one is past 90% CPU or
 // memory, or offline. The per-machine numbers are in the tooltip.
@@ -23,18 +26,18 @@ export function renderMachines() {
 }
 
 // The top bar. The oldest wait ticks with the page clock (tick), the rest changes only with the state.
+// The numbers follow the scope (core/scope.js); the tab title and BANK are about the owner, not one floor.
 export function renderStats() {
-  const n = S.open.length;
+  const c = counts(S, view());
+  const n = c.waiting;
   const sw = $("sWait");
   setClass(sw, "box urgent " + (n ? "alert" : "ok"));
   setText(sw.querySelector(".count"), n);
-  const live = S.lanes.filter((l) => !["done", "parked"].includes(l.status));
-  setText($("sMove"), `${S.lanes.filter((l) => l.status === "moving").length}/${live.length}`);
-  setText($("sHq"), S.lanes.filter((l) => ["hq_turn", "stale", "gone"].includes(l.status)).length);
+  setText($("sMove"), `${c.working}/${c.live}`);
+  setText($("sHq"), c.onHq);
   setText($("sBank"), S.score.bank);
-  const unread = S.updatesUnread ?? 0;
-  setClass($("sFrom"), "box fromhq" + (unread ? " unread" : ""));
-  setText($("sFrom").querySelector(".v"), `${unread} NEW`);
-  const title = (S.hq?.ok === false ? "HQ ISN'T RECEIVING · " : "") + (n ? `(${n}) HQ Office` : "HQ Office");
+  const all = S.open.length;
+  const title = (S.hq?.ok === false ? "HQ ISN'T RECEIVING · " : "") + (all ? `(${all}) HQ Office` : "HQ Office");
   if (document.title !== title) document.title = title;
 }
+on("scope", () => S && renderStats());

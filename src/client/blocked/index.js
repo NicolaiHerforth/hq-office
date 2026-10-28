@@ -1,6 +1,7 @@
 // The top bar's BLOCKED count: lanes whose agent waits at a prompt in herdr. Shown only while there is one; the box
 // is made the first time it is needed, so a page with no blocked lane is exactly the page without this feature.
-// Clicking it selects the longest-blocked lane, whose card shows the prompt and where to answer it.
+// Clicking it chooses the longest-blocked lane (the scope follows it, as for any agent), whose card shows the prompt
+// and where to answer it. The box itself stays global: it counts every blocked lane, in or out of the scope.
 import { on } from "../core/bus.js";
 import { esc, setClass, setHTML } from "../core/format.js";
 

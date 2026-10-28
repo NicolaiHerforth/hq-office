@@ -57,7 +57,7 @@ beforeAll(async () => {
   chrome = await startChrome();
   server = await startServer(ROOT, { HERDR_BIN: herdr, HUD_HQ_RENAME: "0" });
   for (const name of ["alpha", "golf", "bravo"]) await server.post("/api/lanes", { name, machine: "local", title: INLINE, note: BLOCK });
-  const ask = (await server.post("/api/ledger/asks", { lane: "bravo", kind: "decision", title: INLINE, body: BLOCK, options: ["A", "B"], items: [INLINE] })).id;
+  const ask = (await server.post("/api/ledger/asks", { lane: "bravo", kind: "decision", title: INLINE, body: BLOCK, options: ["A", "B"], recommended: "A", items: [INLINE] })).id;
   await server.post(`/api/asks/${ask}/comment`, { text: INLINE });
   const done = (await server.post("/api/asks", { lane: "golf", kind: "info", title: INLINE })).id;
   await server.post(`/api/asks/${done}/answer`, { answer: BLOCK });
@@ -74,7 +74,6 @@ beforeAll(async () => {
   await page.s("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
   await page.s("Page.navigate", { url: `${server.base}/` });
   await until(`!!document.querySelector("#hud [data-ask] h3")`);
-  await page.evaluate(`import("/src/client/room/input.js").then((m) => m.select("alpha", true))`);
 }, 40_000);
 
 afterAll(async () => {
@@ -112,6 +111,8 @@ test.skipIf(!chromeFound)("FROM HQ, SENT & ANSWERED and the last note under Tell
 }, 20_000);
 
 test.skipIf(!chromeFound)("the worker card: the title, the note, and the blocked prompt verbatim in a code box", async () => {
+  // Floors keeps the chosen agent in the scope, and a chosen agent narrows the questions to its own: choose it only here.
+  await page.evaluate(`import("/src/client/core/scope.js").then((m) => m.chooseAgent("alpha"))`);
   await until(`!!document.querySelector("#card .prompt")`);
   expect(await look("#card .sub")).toMatchObject(inline);
   expect(await look("#card .note")).toMatchObject(block);

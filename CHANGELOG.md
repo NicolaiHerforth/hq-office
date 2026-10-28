@@ -3,6 +3,30 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [Unreleased]
+
+### Added
+
+- **HQ's queue.** Every message to HQ waits in one queue instead of being typed into its pane, so a lane never interrupts HQ and HQ never loses a message. Lanes send with `hud request` (`--file PATH` for long text, `--urgent` for what cannot wait; the kind is optional); HQ reads with `hud req next|list|answer|close`. An urgent item sorts first and also types one line into the recipient's pane. `hud urgent --since 7d` counts urgent uses by who and by recipient.
+- **The count at every step.** `bin/hq-queue-hook.ts` is a Claude Code hook (UserPromptSubmit, PostToolUse, Stop) that shows `HQ QUEUE 4 · oldest 12m · 1 URGENT` and keeps HQ from going idle on unread items. The hook acts only where `HUD_LEAD` is set, so put it in HQ's own project settings, never a user-wide file. The top bar shows the same box (a green 0 when empty), red when an item is urgent or older than 30 minutes.
+- **Tell HQ** has an URGENT toggle. A plain note waits in HQ's queue; an urgent one reaches HQ at once. Your notes and replies stay on your page, and HQ's answer to a note arrives in FROM HQ.
+- `hud ask --urgent` puts a question at the top of your desk, marked URGENT.
+- **`GET /api/agents`** lists every named herdr agent with when its status last changed, from the 20 second sync, so a sweep can tell how long a pane has really been quiet.
+- **Accounts.** An ACCOUNTS box beside MACHINES opens a panel over the room with every machine's Claude and Codex
+  accounts and what each has left of its 5-hour window and its week. The box says LOW or OUT before you open it.
+  Each Claude account is its own Claude home (`~/.claude` is `default`, `~/.claude-<name>` the rest). MAKE A HOME
+  builds a new one that links everything of the default home except its login files and starts from a short
+  allow-list of its settings (MCP servers, project trust, onboarding); you log in to it once. Each Claude lane has
+  a MOVE: once the lane is idle it exits Claude and starts it again on the other account with `--resume`, so the
+  conversation carries on. A working lane is refused, and a lane showing a limit, extra-usage or credits dialog is
+  never typed into: HQ Office files a question instead. A lane started this way records its account's rate limits
+  through its own status line. Codex accounts are read from the rate limits each Codex session records. The panel
+  shows account names and percentages only, never a token, an email or a credential file.
+
+### Changed
+
+- Lanes hand back with `hud request`, not by typing into a pane (`hud guide`).
+
 ## [0.18.0] - 2026-10-28
 
 ### Added

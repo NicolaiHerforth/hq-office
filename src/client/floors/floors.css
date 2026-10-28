@@ -1,0 +1,44 @@
+/* The building: the stage bar, a tile per floor, and the zoomed floor. With one floor only the bar is on the page, and it
+   holds RUNDOWN alone (building.js makes the tiles when there are two floors). */
+.stagebar { display: flex; flex-wrap: wrap; gap: 6px 8px; align-items: center; min-width: 0; }
+.stagebar .btn { padding: 7px 9px; font-size: 8px; border-width: 2px; border-radius: 6px; min-height: 32px; white-space: nowrap; }
+.stagebar .zout { background: var(--ink); color: #fff; border-color: var(--ink); }
+.stagebar .zout:hover { background: #3a3a58; }
+.stagebar .place { background: transparent; color: #f8f8f0; border-color: var(--edge-2); }
+.stagebar .place:hover { border-color: #f8f8f0; background: transparent; }
+.stagebar .place.on { background: var(--box); color: var(--ink); border-color: var(--box); }
+.stagebar [hidden] { display: none; }
+.stageslot:empty { display: none; }
+/* the bar is a row of the stage's grid of its own, over the room */
+@media (min-width: 1151px) {
+  .stage:has(> .stagebar) { grid-template-rows: auto minmax(0, 1fr) auto; }
+  .stage.inroom:has(> .stagebar) { grid-template-rows: minmax(0, 1fr) auto; }
+}
+.stage.inroom > .stagebar { display: none; }
+/* with two floors the building and the zoomed floor take the height their width gives them, and the column scrolls for
+   the rest, as the signed frame's does */
+@media (min-width: 1151px) {
+  .stage:not(.inroom):has(> .room[data-stage]) { grid-template-rows: none; grid-auto-rows: max-content; align-content: start; overflow-y: auto; overscroll-behavior: contain; }
+}
+
+.building { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: auto; width: 100%; min-width: 0; }
+@media (max-width: 600px) { .building { grid-template-columns: minmax(0, 1fr); } }
+.tile { display: grid; gap: 4px; align-content: start; min-width: 0; cursor: zoom-in; }
+.tlabel { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; max-width: 100%; min-height: 26px; padding: 4px 2px; border: 0; background: none; color: #f8f8f0; text-align: left; cursor: inherit; }
+.tlabel .dot { width: 8px; height: 8px; border-radius: 2px; box-shadow: 0 0 0 2px #f8f8f0; flex: none; }
+.tile:hover .scene canvas, .tlabel:focus-visible + .scene canvas { outline: 3px solid var(--fc, var(--edge-2)); outline-offset: 0; }
+.scene { display: grid; justify-items: center; align-content: start; position: relative; min-width: 0; }
+/* zoomed out a floor is framed like the room it was (building.js TILE_FRAME) */
+.tile .scene { padding: 3px; background: #1b1d2c; border: 3px solid var(--edge); border-radius: 10px; }
+
+/* zoomed in: one tile, at the room's size, with today's legend under it; zoomed out the legend goes */
+.room[data-stage="in"] .building { grid-template-columns: minmax(0, 1fr); width: 100%; }
+.room[data-stage="in"] .tile:not(.on) { display: none; }
+.room[data-stage="in"] .tile.on { cursor: default; }
+.room[data-stage="in"] .tile .scene { padding: 0; background: none; border: 0; border-radius: 0; }
+.room[data-stage="in"] .tlabel { display: none; }
+.room[data-stage="out"] > .legend { display: none; }
+@media (prefers-reduced-motion: reduce) { .tile:hover .scene canvas { outline-width: 2px; } }
+
+/* the floor's tag: on a tile's label, and on a question or an update (floors/tag.js) */
+.tag.floortag { color: #fff; }

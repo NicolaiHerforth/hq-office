@@ -38,12 +38,12 @@
   html .log { max-height: none; overflow: visible; }
   /* MESSAGES and FROM HQ have a bounded height and scroll inside themselves, so the page around them stays in reach
      (heights measured at 390x664 and 390x844): the thread leaves room for its tabs above it and Tell HQ under it on
-     one screen; FROM HQ for the room above it. Momentum on, and reaching an end does not drag the page. They lay out
+     one screen; FROM HQ for the room and the NEED HELP strip above it (--help-h, help/index.js). Momentum on, and reaching an end does not drag the page. They lay out
      as blocks so a fade can stick to each end without taking space: it shows where there is more that way
      (data-more, set by messages.js and feed.js). The thread's fades stay inside the box's inner frame. */
   html .msgs, html .feed .body { display: block; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
   html .msgs { max-height: max(240px, calc(100vh - 230px)); max-height: max(240px, calc(100svh - 230px)); }
-  html .feed .body { max-height: max(200px, calc(100vh - 430px)); max-height: max(200px, calc(100svh - 430px)); }
+  html .feed .body { max-height: max(120px, calc(100vh - 430px - var(--help-h, 0px))); max-height: max(120px, calc(100svh - 430px - var(--help-h, 0px))); }
   html .msgs > * + *, html .feed .body > * + * { margin-top: 8px; }
   html .msgs::before, html .msgs::after, html .feed .body::before, html .feed .body::after { content: ""; display: block; position: sticky; z-index: 1; pointer-events: none; opacity: 0; transition: opacity .15s; height: 36px; }
   html .msgs::before { top: 5px; margin: -7px -9px -29px; background: linear-gradient(var(--box), transparent); }

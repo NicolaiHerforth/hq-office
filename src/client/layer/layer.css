@@ -1,0 +1,8 @@
+/* The layer over each floor's room: its own canvas (frames and markers), and buttons where a click is wanted. */
+.layer { position: absolute; pointer-events: none; }
+.layer canvas, .layer .hits { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; border-radius: 0; pointer-events: none; }
+.layer .hit { position: absolute; padding: 0; background: transparent; border: 2px solid transparent; border-radius: 4px; pointer-events: auto; cursor: pointer; }
+.layer .hit:hover, .layer .hit:focus-visible { border-color: #fff; box-shadow: 0 0 0 2px var(--ink); outline: none; }
+.layer .hit .tag { position: absolute; top: -8px; right: -8px; padding: 3px 4px; }
+/* with one floor the scene sits in the room where the canvas always sat, and centres like it */
+.room > .scene { margin: auto; }

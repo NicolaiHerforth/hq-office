@@ -1,9 +1,12 @@
-// One worker per lane: where each one should be, and syncing them with the state.
+// One worker per lane on this floor (its head is the figure at the terminal): where each one should be, and syncing
+// them with the state.
 import { S } from "../core/state.js";
 import { hash } from "../core/format.js";
 import { dressWorkers } from "./looks.js";
 import { settings } from "../settings/prefs.js";
 import { on } from "../core/bus.js";
+import { floorLanes } from "../core/floors.js";
+import { FLOOR } from "./here.js";
 import { COUCH, DONE_SPOT, HQ_SPOT, QUEUE, SEATS, WAIT_SPOT, slot } from "./spots.js";
 import { rebuildBlocked, route } from "./collision.js";
 import { isIdle } from "./breakroom.js";
@@ -21,7 +24,7 @@ function targetFor(lane, i, counts) {
 }
 
 export function syncWorkers(initial) {
-  const lanes = S.lanes;
+  const lanes = floorLanes(S, FLOOR);
   const names = new Set(lanes.map((l) => l.name));
   for (const n of [...workers.keys()]) if (!names.has(n)) workers.delete(n);
   rebuildBlocked(lanes.length);
@@ -50,11 +53,11 @@ export function syncWorkers(initial) {
     else if (!prevTarget || prevTarget.x !== at.x || prevTarget.y !== at.y) w.path = route(w, at);
     if (isIdle(lane)) w.brain = { nextAt: 0, act: null, acting: false, until: 0 };
   }
-  dressWorkers(workers, lanes, settings.theme, seatIndex);
+  dressWorkers(workers, S.lanes, settings.theme, seatIndex); // the whole tree, so a look does not change when a general appears
 }
 
 // The theme changed: dress again (the room wakes on "settings" itself).
 on("settings", () => {
   if (!S) return;
-  dressWorkers(workers, S.lanes, settings.theme, new Map([...S.lanes].sort((a, b) => a.name.localeCompare(b.name)).map((l, i) => [l.name, i])));
+  dressWorkers(workers, S.lanes, settings.theme, new Map(floorLanes(S, FLOOR).sort((a, b) => a.name.localeCompare(b.name)).map((l, i) => [l.name, i])));
 });

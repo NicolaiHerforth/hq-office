@@ -43,6 +43,8 @@ test.skipIf(!chromeFound)("loads with no errors and no page scroll, the room dra
   // the room has drawn something besides the clear colour
   expect(await page.evaluate(ROOM_DRAWN)).toBeGreaterThan(100);
   expect(await page.evaluate(`document.querySelector("#sWait .count").textContent`)).toBe("2");
+  // Unread updates are counted on the MESSAGES tab and the FROM HQ tab, not in the top bar.
+  expect(await page.evaluate(`!document.getElementById("sFrom")`)).toBe(true);
   expect(errors).toEqual([]);
 });
 

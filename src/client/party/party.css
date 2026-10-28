@@ -1,0 +1,22 @@
+/* PARTY: over the room while open (desktop), or in the room's place in the page (narrow), like the project panel. The WORKING cell is
+   a button now: it shows it with a pointer and a ring when open or focused. */
+.partycell { cursor: pointer; border-radius: 6px; }
+.partycell.on { box-shadow: 0 0 0 2px var(--blue); }
+.partycell:focus-visible { outline: 2px solid var(--blue); outline-offset: 3px; }
+.room.party-open { position: relative; }
+.partyp:empty { display: none; }
+.partyp { position: absolute; inset: 0; z-index: 3; overflow-y: auto; overscroll-behavior: contain; display: grid; gap: 10px; align-content: start; padding: 10px; background: #1b1d2c; border-radius: 6px; }
+@media (max-width: 1150px) {
+  .partyp { position: static; inset: auto; overflow: visible; padding: 2px; }
+  .room.party-open > canvas, .room.party-open > .scene, .room.party-open > .building, .room.party-open > .legend { display: none; }
+}
+.pyhdr { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pyhdr h2 { margin: 0; color: #f8f8f0; font: 12px/1.3 var(--pixel); }
+.pyhdr .btn { margin-left: auto; min-height: 44px; }
+.pygrp { display: grid; gap: 6px; padding: 10px 12px; align-content: start; }
+.pygrp h3 { margin: 0; display: flex; align-items: center; gap: 6px; font: 8px/1 var(--pixel); color: var(--muted); }
+.pygrp .lrow { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; width: 100%; padding: 5px 8px; border: 2px solid #e2e2ee; border-radius: 6px; background: #fff; text-align: left; font-size: 13px; color: inherit; cursor: pointer; }
+.pygrp .lrow:hover { border-color: var(--edge-2); }
+.pygrp .lrow b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 800; }
+.pygrp .lrow .d { flex: 1 1 120px; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #3a3a52; }
+.pygrp .dot { display: inline-block; width: 9px; height: 9px; border-radius: 2px; box-shadow: 0 0 0 2px var(--ink); }

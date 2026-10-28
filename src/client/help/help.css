@@ -1,0 +1,18 @@
+/* The NEED HELP strip under the room. A box of its own in the stage; a conference room on the stage covers it too. */
+.needhelp { padding: 8px 10px; display: grid; gap: 6px; }
+.needhelp[hidden] { display: none; }
+.stage.inroom > .needhelp { display: none; }
+.needhelp h3 { margin: 0; font: 8px/1 var(--pixel); }
+.needhelp .helpzero { border: 0; background: none; padding: 4px 0; text-align: left; color: var(--muted); font: 8px/1 var(--pixel); cursor: default; }
+.helpl { display: grid; gap: 4px; max-height: 108px; overflow-y: auto; overscroll-behavior: contain; }
+.needhelp .lrow { display: grid; grid-template-columns: auto minmax(0, 150px) minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; width: 100%; min-height: 30px; padding: 4px 8px; border: 2px solid #e2e2ee; border-radius: 6px; background: #fff; text-align: left; font-size: 13px; color: inherit; cursor: pointer; }
+.needhelp .lrow:hover { border-color: var(--edge-2); }
+.needhelp .lrow b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 800; }
+.needhelp .lrow .d { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #3a3a52; }
+.needhelp .dot { display: inline-block; width: 9px; height: 9px; border-radius: 2px; box-shadow: 0 0 0 2px var(--ink); }
+@media (max-width: 1150px) {
+  .helpl { max-height: min(40dvh, 280px); }
+  .needhelp .lrow { min-height: 44px; grid-template-columns: auto minmax(0, 1fr) auto; }
+  .needhelp .lrow .tag { grid-column: 3; grid-row: 1; }
+  .needhelp .lrow .d { grid-column: 2 / -1; grid-row: 2; }
+}

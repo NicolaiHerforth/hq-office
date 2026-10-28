@@ -1,5 +1,5 @@
 // The room: a working lane with a question open stays at its desk, working, with a still "!" over it; only a lane
-// that is not working queues at the counter. Needs Chrome (CHROME_BIN); skipped without it.
+// that is not working queues at the counter. Choosing a lane narrows the questions and Escape goes back. Needs Chrome (CHROME_BIN); skipped without it.
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { join } from "node:path";
 import { findChrome, newSession, startChrome, startServer } from "../../scripts/room-hash.ts";
@@ -63,5 +63,36 @@ test.skipIf(!chromeFound)("a working lane with an open ask works at its desk und
   expect(after.alpha).toMatchObject({ status: "needs_you", asks: 1, desk: false, queue: true });
   // The top bar still counts both questions.
   expect(await page.evaluate(`document.querySelector("#sWait .count").textContent`)).toBe("2");
+  expect(errors).toEqual([]);
+}, 40_000);
+
+test.skipIf(!chromeFound)("choosing a lane narrows the questions, says so, and Escape and the chip go back", async () => {
+  const shown = () => page.evaluate(`[...document.querySelectorAll("#hud .ask")].map((a) => a.dataset.lane)`);
+  const text = (sel: string) => page.evaluate(`document.querySelector(${JSON.stringify(sel)})?.textContent ?? null`);
+  expect(await shown()).toEqual(["golf", "alpha"]);
+  // A question's lane tag chooses that lane: its question stays, the other's is counted in the first line.
+  await page.evaluate(`document.querySelector('#hud .ask[data-lane="golf"] [data-select]').click()`);
+  await until(`document.querySelectorAll("#hud .ask").length === 1`);
+  expect(await shown()).toEqual(["golf"]);
+  expect(await text(".scopechip")).toBe("golf ✕");
+  expect(await text("#hud .scopeline")).toBe("+1 FROM OTHER AGENTS · SHOW ALL");
+  expect(await text("#sWait .count")).toBe("1");
+  expect(await text("#card h3")).toBe("golf");
+  expect(await page.evaluate(`!document.querySelector(".scopeborder").hidden`)).toBe(true);
+  // SHOW ALL lists everything again and says how to narrow.
+  await page.evaluate(`document.querySelector("#hud .scopeline").click()`);
+  await until(`document.querySelectorAll("#hud .ask").length === 2`);
+  expect(await text("#hud .scopeline")).toBe("ALL AGENTS · ONLY golf");
+  // Escape goes out a level: nothing chosen, nothing narrowed, no chip, no border.
+  await page.evaluate(`document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }))`);
+  await until(`document.querySelector(".scopechip").hidden`);
+  expect(await page.evaluate(`document.querySelector(".scopeborder").hidden`)).toBe(true);
+  expect(await page.evaluate(`!document.querySelector("#hud .scopeline")`)).toBe(true);
+  expect(await shown()).toEqual(["golf", "alpha"]);
+  // The chip's ✕ does the same.
+  await page.evaluate(`document.querySelector('#hud .ask[data-lane="alpha"] [data-select]').click()`);
+  await until(`document.querySelectorAll("#hud .ask").length === 1`);
+  await page.evaluate(`document.querySelector(".scopechip").click()`);
+  await until(`document.querySelectorAll("#hud .ask").length === 2`);
   expect(errors).toEqual([]);
 }, 40_000);

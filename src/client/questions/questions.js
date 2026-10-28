@@ -8,6 +8,13 @@ import { clock, dur, esc, setClass, setHTML, setText } from "../core/format.js";
 import { mdClip, mdInline } from "../core/markdown.js";
 import { renderSecretTimes } from "../secrets/secrets.js";
 import { clearImages, composer, hasImages, imageKeys } from "../images/images.js";
+import { counts, inScope, jumpAsk, nothingLine, othersLine } from "../core/floors.js";
+import { floorTagHTML } from "../floors/tag.js";
+import { linksHTML, openLinkHTML } from "./links.js";
+import { setQTab } from "../messages/messages.js";
+import { scope, toggleAll, view } from "../core/scope.js";
+
+let shownScope = null;
 
 // A question below the fold gets a red pill at the bottom of the list. Click it to go to the next one.
 export function renderBelow() {
@@ -43,19 +50,24 @@ export function renderHud() {
   const caret = document.activeElement?.selectionStart;
   const focusedSecret = document.activeElement?.dataset?.secret;
   const focusedMin = document.activeElement?.dataset?.secretMin !== undefined;
-  // The count lives in the top bar now; the list only needs words when it is empty.
-  const head = S.open.length ? "" : `<div class="box"><h2>NOTHING NEEDS YOU</h2><div style="color:var(--muted);font-size:14px">Every worker is either at its desk or waiting on HQ or CI. Decisions and things only you can do land here.</div></div>`;
-  const html = head + S.open.map((a) => {
+  // The count lives in the top bar now; the list only needs words when it is empty. Scoped (core/scope.js), the list
+  // holds the asks in scope, and its first line says how many are left out.
+  const open = S.open.filter((a) => inScope(S, a, view()));
+  const line = othersLine(S, scope(), S.open.length - open.length);
+  const head = (line ? `<button class="scopeline" type="button" data-showall>${esc(line)}</button>` : "") +
+    (open.length ? "" : `<div class="box"><h2>${esc(nothingLine(S, scope()) || "NOTHING NEEDS YOU")}</h2><div style="color:var(--muted);font-size:14px">Every worker is either at its desk or waiting on HQ or CI. Decisions and things only you can do land here.</div></div>`);
+  const html = head + open.map((a) => {
     const d = drafts.get(a.id) || {};
     const kind = a.kind;
     const want = a.secrets ?? [];
     const opts = a.options.map((o) => `<button class="opt ${d.opt === o ? "sel" : ""}" data-opt="${esc(o)}">${esc(o)}${a.recommended === o ? ` <span class="pick">HQ PICK</span>` : ""}</button>`).join("");
     return `<article class="box ask" data-ask="${a.id}" data-lane="${esc(a.lane || "")}" data-created="${a.created_at}" data-due="${a.due || ""}">
-      <div class="meta">
-        ${a.lane ? `<button class="tag lane" data-select="${esc(a.lane)}">${esc(a.lane)}</button>` : ""}
+      <div class="meta">${floorTagHTML(S, a)}
+        ${a.lane ? `<button class="tag lane" data-select="${esc(a.lane)}">${esc(a.lane)}</button>` : ""}${linksHTML(S, a)}
+        ${a.urgent_at ? `<span class="tag urgent-tag">URGENT</span>` : ""}
         <span class="tag kind ${esc(kind)}">${esc(KIND_LABEL[kind] ?? kind.toUpperCase())}</span>
         ${want.length ? `<span class="tag secret">SECRETS</span>` : ""}
-        ${a.link ? `<a class="tag" href="${esc(a.link)}" target="_blank" rel="noopener">OPEN LINK</a>` : ""}
+        ${openLinkHTML(a)}
         <span class="due"></span>
         <span class="timer"></span>
       </div>
@@ -73,8 +85,11 @@ export function renderHud() {
   for (const key of imageKeys()) if (/^\d+$/.test(key) && !S.open.some((a) => String(a.id) === key)) clearImages(key);
   // The page scrolls on a phone, the list itself on a desktop: whichever moves, what you look at stays put.
   const place = pageScrolls() ? keepPlace(hud, "data-ask") : keepScroll(hud, "data-ask");
+  const newScope = JSON.stringify(scope()) !== shownScope;
+  shownScope = JSON.stringify(scope());
   if (!setHTML(hud, html)) return;
   place();
+  if (newScope && !pageScrolls()) hud.scrollTop = 0; // a new scope's list is read from its first line, not from where the old one was
   for (const inp of hud.querySelectorAll("[data-secret]")) {
     const v = secretDrafts.get(Number(inp.closest("[data-ask]").dataset.ask))?.[inp.dataset.secret];
     if (v) inp.value = v;
@@ -101,7 +116,7 @@ export function tick() {
   }
   for (const el of document.querySelectorAll("[data-since]")) setText(el, dur(now - Number(el.dataset.since)));
   if (S) {
-    const oldest = S.open.length ? Math.min(...S.open.map((a) => a.created_at)) : null;
+    const oldest = counts(S, view()).oldest;
     const age = oldest ? now - oldest : 0;
     setClass($("sOld"), "old" + (age > 30 * 60000 ? " hot" : age > 5 * 60000 ? " warm" : ""));
     setText($("sOld").querySelector(".v"), oldest ? dur(age) : "-");
@@ -132,3 +147,16 @@ export function scheduleTick() {
   if (wait < Infinity) clockTimer = setTimeout(() => { tick(); scheduleTick(); }, wait + 5);
 }
 document.addEventListener("visibilitychange", () => { if (!document.hidden && S) tick(); scheduleTick(); });
+
+// A change of scope draws the list again; asked to jump, it shows the question the jump names, or else the chosen
+// lane's first open one, in the QUESTIONS tab, however it was reached.
+$("hud").addEventListener("click", (e) => { if (e.target.closest("[data-showall]")) toggleAll(); });
+on("scope", ({ jump }) => {
+  if (!S) return;
+  const ask = jump && jumpAsk(S, scope().agent, jump);
+  if (ask) setQTab("questions");
+  renderHud();
+  tick();
+  const card = ask && document.querySelector(`.ask[data-ask="${ask.id}"]`);
+  if (card) { card.scrollIntoView({ behavior: "smooth", block: "center" }); card.classList.remove("flash"); void card.offsetWidth; card.classList.add("flash"); }
+});

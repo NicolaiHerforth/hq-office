@@ -479,6 +479,8 @@ export function leaveRoom() {
 }
 addEventListener("popstate", route);
 addEventListener("hashchange", route);
+// Another feature that shows the floor (the project panel) asks to step out of a conference room.
+on("room:leave", () => { if (slugInHash()) leaveRoom(); });
 
 // On a full-screen room the send box stays above the keyboard: the view follows the visible part of the screen.
 const vv = window.visualViewport;

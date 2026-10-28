@@ -5,7 +5,7 @@ import { listeners } from "./push.ts";
 
 export function inbox() {
   return {
-    answers: (db.query("SELECT * FROM asks WHERE status = 'answered' AND acked_at IS NULL ORDER BY answered_at").all() as Ask[]).map((a) => ({
+    answers: (db.query("SELECT * FROM asks WHERE status = 'answered' AND recipient = 'owner' AND acked_at IS NULL ORDER BY answered_at").all() as Ask[]).map((a) => ({
       ...a,
       options: a.options ? JSON.parse(a.options) : [],
       secrets: a.secrets ? JSON.parse(a.secrets) : [],

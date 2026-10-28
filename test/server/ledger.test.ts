@@ -18,7 +18,7 @@ describe("board.ts: PRs another feature follows", () => {
     const db = new Database(":memory:");
     db.exec(`
       CREATE TABLE lanes (name TEXT PRIMARY KEY, herdr TEXT, herdr_since INTEGER, issue TEXT, pr TEXT);
-      CREATE TABLE asks (id INTEGER PRIMARY KEY AUTOINCREMENT, lane TEXT, title TEXT NOT NULL, body TEXT, status TEXT NOT NULL DEFAULT 'open', created_at INTEGER NOT NULL, answered_at INTEGER);
+      CREATE TABLE asks (id INTEGER PRIMARY KEY AUTOINCREMENT, lane TEXT, title TEXT NOT NULL, body TEXT, status TEXT NOT NULL DEFAULT 'open', created_at INTEGER NOT NULL, answered_at INTEGER, recipient TEXT NOT NULL DEFAULT 'owner');
       CREATE TABLE events (id INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, lane TEXT, who TEXT NOT NULL, text TEXT NOT NULL);
     `);
     const clock = { t: Date.parse("2026-01-05T09:00:00Z") };
@@ -123,11 +123,12 @@ describe("server and hud CLI: the ask ledger", () => {
     const id = askId(await hud("ask", "--lane", "one", "--title", "Which way?", "--body", "Two roads.", "--opt", "Left", "--opt", "Middle", "--opt", "Right", "--rec", "Middle", "--link", "https://example.com/a"));
     const before = (await state()).open.find((a: any) => a.id === id);
     expect((await state()).ledger[id]).toBeUndefined();
-    await hud("update", String(id), "--title", "Which way now?", "--opt", "Left", "--opt", "Right");
+    // The new options keep the pick among them: options that drop it are refused (asks.ts, ask-rec.test.ts).
+    await hud("update", String(id), "--title", "Which way now?", "--opt", "Left", "--opt", "Middle");
     const s = await state();
     const after = s.open.find((a: any) => a.id === id);
     expect(after.title).toBe("Which way now?");
-    expect(after.options).toEqual(["Left", "Right"]);
+    expect(after.options).toEqual(["Left", "Middle"]);
     expect(after.body).toBe("Two roads.");
     expect(after.recommended).toBe("Middle");
     expect(after.link).toBe("https://example.com/a");

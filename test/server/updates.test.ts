@@ -62,3 +62,42 @@ test("hud tell and hud say both post an update", async () => {
   expect(s.updates.slice(0, 2).map((u: any) => [u.title, u.lane, u.body])).toEqual([["Said", null, "the alias"], ["Told", "build", null]]);
   expect(s.updatesUnread).toBe(2);
 });
+
+// Scoped reading: a floor's or an agent's updates, not everyone's. Lanes gen > mid > eng make gen a floor; an update
+// with no lane, or from a lane that is gone, is on HQ's floor.
+test("read-all with a floor or a lane marks only those updates; with nothing it marks all", async () => {
+  const lane = (name: string, parent?: string) => post("/api/lanes", { name, parent });
+  await lane("gen");
+  await lane("mid", "gen");
+  await lane("eng", "mid");
+  await lane("solo");
+  const seed = async () => {
+    await post("/api/updates/read-all", {});
+    for (const lane of ["gen", "eng", "solo", "ghost", undefined]) await post("/api/updates", { title: `from ${lane ?? "nobody"}`, lane });
+  };
+  const unread = async () => ((await state()).updates as any[]).filter((u) => !u.read_at).map((u) => u.lane ?? "").sort();
+
+  await seed();
+  await post("/api/updates/read-all", { floor: "gen" });
+  expect(await unread()).toEqual(["", "ghost", "solo"]);
+
+  await seed();
+  await post("/api/updates/read-all", { floor: "hq" });
+  expect(await unread()).toEqual(["eng", "gen"]);
+
+  await seed();
+  await post("/api/updates/read-all", { lane: "eng" });
+  expect(await unread()).toEqual(["", "gen", "ghost", "solo"]);
+
+  await seed();
+  await post("/api/updates/read-all", {});
+  expect(await unread()).toEqual([]);
+});
+
+test("the per-lane unread counts add up to updatesUnread", async () => {
+  await post("/api/updates/read-all", {});
+  for (const lane of ["solo", "solo", "eng", undefined]) await post("/api/updates", { title: "n", lane });
+  const s = await state();
+  expect(s.updatesUnreadByLane).toEqual({ solo: 2, eng: 1, "": 1 });
+  expect(Object.values(s.updatesUnreadByLane as Record<string, number>).reduce((a, b) => a + b, 0)).toBe(s.updatesUnread);
+});

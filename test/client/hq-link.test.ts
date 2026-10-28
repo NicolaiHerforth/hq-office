@@ -74,8 +74,9 @@ test.skipIf(!chromeFound)("HQ's name dropped: the banner shows on the next sync,
   expect(await page.evaluate(`${banner}.getBoundingClientRect().height`)).toBeLessThan(110);
 });
 
-test.skipIf(!chromeFound)("a note sent meanwhile is held, listed in the banner and marked HELD", async () => {
-  await page.evaluate(`(() => { const t = document.querySelector("#noteText"); t.value = "hello?"; document.querySelector("#compose").requestSubmit(); })()`);
+test.skipIf(!chromeFound)("an urgent note sent meanwhile is held, listed in the banner and marked HELD", async () => {
+  // A plain Tell waits in HQ's queue, so only an urgent one is typed into HQ's pane and can be held.
+  await page.evaluate(`(() => { const t = document.querySelector("#noteText"); t.value = "hello?"; document.querySelector(".urgent-toggle").click(); document.querySelector("#compose").requestSubmit(); })()`);
   await until(`${banner}.innerText.includes("HELD FOR HQ (1)")`);
   expect(await page.evaluate(`${banner}.querySelector(".held").textContent`)).toContain("hello?");
   await until(`document.querySelector("#lastNote").innerText.includes("HELD: HQ isn't receiving")`);

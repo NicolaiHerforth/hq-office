@@ -23,8 +23,9 @@ async function herdrList(machine: string): Promise<any[]> {
 
 // An idle agent can still be working. Its pane's tail says so: "· 2 shells still running", "monitor still running",
 // a status bar with "← 1 agent" or "1 shell, 1 monitor", or a running subagent listed as "◯ general-purpose  <task>  34m 0s".
-const BG = /(←\s*\d+\s+agents?|\d+\s+shells?(?:,\s*\d+\s+monitors?)?(?:\s+still running)?|\d+\s+monitors?|monitors?\s+still running)/i;
-const SUBAGENT = /^\s*◯\s+([\w.-]+)\s/m;
+// Exported: claude-accounts.ts reads a lane's background work the same way before it moves the lane.
+export const BG = /(←\s*\d+\s+agents?|\d+\s+shells?(?:,\s*\d+\s+monitors?)?(?:\s+still running)?|\d+\s+monitors?|monitors?\s+still running)/i;
+export const SUBAGENT = /^\s*◯\s+([\w.-]+)\s/m;
 // One pane read for a lane that is not working: what still runs in the background (the last 10 lines, as before),
 // and the prompt it waits on, if any (the last 30 lines; see prompt.ts).
 async function readPane(machine: string, pane: string, blocked: boolean): Promise<{ bg: string | null; prompt: string | null }> {
@@ -68,7 +69,7 @@ export async function syncHerdr() {
   // Only lanes that would otherwise read as HQ's turn or stale: any phase but done, parked or waiting (a phase HQ set
   // that the status does not know, such as "paused", also falls through to HQ's turn), agent not working, and no
   // open question waiting on the owner.
-  const asking = new Set((db.query("SELECT DISTINCT lane FROM asks WHERE status = 'open' AND lane IS NOT NULL").all() as { lane: string }[]).map((r) => r.lane));
+  const asking = new Set((db.query("SELECT DISTINCT lane FROM asks WHERE status = 'open' AND recipient = 'owner' AND lane IS NOT NULL").all() as { lane: string }[]).map((r) => r.lane));
   // A lane herdr reports blocked (at an approval or question UI) is read whatever its phase or asks: the read gives
   // the excerpt of what it asks. A working agent's pane is never read.
   const pane = new Map<string, { bg: string | null; prompt: string | null }>();
@@ -120,6 +121,17 @@ export async function syncHerdr() {
       }
       db.query("UPDATE lanes SET herdr_seen = ? WHERE name = ?").run(now, lane.name);
     }
+    // Every named agent, with when its status began: the real stop time of a lane that is in no list.
+    for (const [name, { machine, agent }] of seen) {
+      db.query(
+        `INSERT INTO agents (name, machine, pane, agent, status, since, seen) VALUES (?, ?, ?, ?, ?, ?, ?)
+         ON CONFLICT(name) DO UPDATE SET machine = excluded.machine, pane = excluded.pane, agent = excluded.agent,
+           since = CASE WHEN agents.status = excluded.status THEN agents.since ELSE excluded.since END,
+           status = excluded.status, seen = excluded.seen`,
+      ).run(name, machine, agent.pane_id, agent.agent, agent.agent_status, now, now);
+    }
+    // An agent that left, on a machine that answered, is no longer a live agent.
+    for (const machine of MACHINES) if (!errors.some((e) => e.startsWith(`${machine}:`))) db.query("DELETE FROM agents WHERE machine = ? AND seen < ?").run(machine, now);
   })();
   untracked = [...seen.entries()]
     .filter(([name]) => !known.has(name))
@@ -133,6 +145,9 @@ export async function syncHerdr() {
   if (changed) bump();
 }
 
+// Where a named agent lives, from the last sync (the agents table). Undefined when no sync has seen it.
+export const agentWhere = (name: string) => db.query("SELECT machine, pane FROM agents WHERE name = ?").get(name) as { machine: string; pane: string } | null;
+
 // HQ hears of a block once, when it starts; the same block never again until it clears. HUD_HQ_BLOCKED=0: never.
 function tellBlocked(lane: Lane) {
   event("herdr", `blocked on a prompt: ${lane.prompt.split("\n").join(" / ")}`, lane.name);
@@ -144,8 +159,9 @@ function tellBlocked(lane: Lane) {
 // prompts an agent: HQ (notifyHq) and a lane in a conference room (rooms.ts). It never throws: what it says is saved
 // first, and a herdr that cannot even start must not turn that into an error for the page. Resolves once herdr is done.
 // With confirm (for an idle agent), herdr waits until the agent starts working on it, and fails with
-// agent_prompt_stalled if it does not: proof that the agent took the text.
-export function promptAgent(name: string, text: string, machine?: string | null, opts: { confirm?: boolean } = {}): Promise<{ ok: true } | { ok: false; error: string }> {
+// agent_prompt_stalled if it does not: proof that the agent took the text. A herdr still running after
+// timeoutMs (30 s unless given) is killed, so a late prompt never lands after the caller recorded a failure.
+export function promptAgent(name: string, text: string, machine?: string | null, opts: { confirm?: boolean; timeoutMs?: number } = {}): Promise<{ ok: true } | { ok: false; error: string }> {
   const on = machine && machine !== LOCAL ? ["--machine", machine] : [];
   const wait = opts.confirm ? ["--wait", "--until", "working", "--timeout", "15000"] : [];
   let proc: ReturnType<typeof Bun.spawn>;
@@ -154,10 +170,14 @@ export function promptAgent(name: string, text: string, machine?: string | null,
   } catch (e) {
     return Promise.resolve({ ok: false, error: (e as Error).message });
   }
-  const timer = setTimeout(() => proc.kill(), 30_000);
+  let timedOut = false;
+  const timer = setTimeout(() => { timedOut = true; proc.kill(); }, opts.timeoutMs ?? 30_000);
   return proc.exited.then(async (code) => {
     clearTimeout(timer);
-    return code === 0 ? { ok: true as const } : { ok: false as const, error: (await new Response(proc.stderr as ReadableStream).text()).trim() || `exit ${code}` };
+    // Exit 0 first: a herdr that finished just as the timer fired did type, and a killed one never exits 0.
+    if (code === 0) return { ok: true as const };
+    if (timedOut) return { ok: false as const, error: "herdr did not answer in time" };
+    return { ok: false as const, error: (await new Response(proc.stderr as ReadableStream).text()).trim() || `exit ${code}` };
   });
 }
 

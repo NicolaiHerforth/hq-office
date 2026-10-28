@@ -34,7 +34,7 @@ beforeAll(async () => {
   server = await startServer(ROOT);
   // Nobody idle, so nobody runs errands: no one walks. One question open, so the hero does not dance.
   for (const name of ["alpha", "bravo", "charlie", "golf"]) await server.post("/api/lanes", { name, phase: name === "charlie" ? "waiting" : "running", title: name, machine: "local" });
-  await server.post("/api/asks", { lane: "bravo", kind: "decision", title: "Ship it?", options: ["Yes", "No"] });
+  await server.post("/api/asks", { lane: "bravo", kind: "decision", title: "Ship it?", options: ["Yes", "No"], recommended: "Yes" });
   await server.post("/api/settings", { settings: { performance: "saver" } });
   await server.post("/api/sync", {});
   page = await newSession(chrome.cdp, errors);

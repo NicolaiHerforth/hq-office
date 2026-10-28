@@ -43,3 +43,7 @@
 .qtabs .tag[hidden] { display: none; }
 .tag.count { background: var(--red); color: #fff; }
 .hud[hidden], .msgs[hidden] { display: none; }
+/* links on a question: its project, room, issue and pull requests */
+.ask .meta .tag.project { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; background: var(--box); border: 2px solid var(--edge-2); color: var(--ink); cursor: pointer; }
+.ask .meta .tag.project:hover { border-color: var(--edge); }
+.ask .meta a.tag.roomlink, .ask .meta .tag.key, .ask .meta .tag.pr { text-decoration: none; color: var(--ink); }

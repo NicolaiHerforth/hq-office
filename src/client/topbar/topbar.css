@@ -1,4 +1,4 @@
-/* The top bar: the waiting count, the office strip, FROM HQ, machines, the SETTINGS and SOUND buttons. */
+/* The top bar: the waiting count, the office strip, machines, the SETTINGS and SOUND buttons. */
 .stat { display: grid; gap: 6px; padding: 10px 14px; }
 .stat .k { font: 8px/1 var(--pixel); color: var(--muted); }
 .stat .v { font: 16px/1 var(--pixel); }
@@ -24,12 +24,6 @@
 .strip > div { display: grid; gap: 6px; }
 .strip .k { font: 8px/1 var(--pixel); color: var(--muted); }
 .strip .v { font: 13px/1 var(--pixel); }
-.fromhq { display: grid; gap: 6px; padding: 10px 14px; text-align: left; font: inherit; color: inherit; }
-.fromhq:hover { background: #fff; }
-.fromhq .k { font: 8px/1 var(--pixel); color: var(--muted); }
-.fromhq .v { font: 13px/1 var(--pixel); color: var(--muted); }
-.fromhq.unread { border-color: var(--amber); }
-.fromhq.unread .v { color: var(--amber); }
 .health { display: grid; gap: 6px; padding: 10px 14px; cursor: default; }
 .health .k { font: 8px/1 var(--pixel); color: var(--muted); }
 .health .v { display: flex; align-items: center; gap: 6px; font: 11px/1 var(--pixel); }

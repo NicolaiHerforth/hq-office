@@ -4,13 +4,15 @@ import { drafts, secretDrafts } from "./drafts.js";
 import { S } from "../core/state.js";
 import { copyCode } from "../core/markdown.js";
 import { post } from "../core/net.js";
+import { readAllBody } from "../core/floors.js";
+import { view } from "../core/scope.js";
 import { canSend, renderHud } from "./questions.js";
 import { clearImages, notReady, withImages } from "../images/images.js";
 
 $("main").addEventListener("click", async (e) => {
   const copyBtn = e.target.closest(".copy");
   if (copyBtn) { copyCode(copyBtn); return; }
-  if (e.target.closest("[data-readall]")) { await post("/api/updates/read-all", {}).catch(() => {}); return; }
+  if (e.target.closest("[data-readall]")) { await post("/api/updates/read-all", readAllBody(view())).catch(() => {}); return; }
   const rmBtn = e.target.closest("[data-secret-rm]");
   if (rmBtn) {
     rmBtn.disabled = true;

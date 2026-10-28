@@ -168,6 +168,17 @@ export function drawBubble(x, y, glyph, color, bounce, fill = "#ffffff") {
 
 // Label widths are measured once per text, weight and font load, not every frame.
 const labelWidths = new Map();
+const labelFont = (strong) => `${strong ? 700 : 600} ${4.2 * SC}px Nunito, system-ui, sans-serif`;
+function labelWidth(text, strong) {
+  const wk = `${strong}|${fontsLoaded}|${text}`;
+  let w = labelWidths.get(wk);
+  if (w === undefined) {
+    ctx.font = labelFont(strong);
+    if (labelWidths.size > 500) labelWidths.clear();
+    labelWidths.set(wk, (w = ctx.measureText(text).width + 8));
+  }
+  return w;
+}
 // mark (a worker with a rank): { color, pips } or { color, symbol } from room/themes.js, drawn before the name.
 const PIP = Math.round(2.4 * SC), PIP_GAP = SC;
 // The rank symbols, 5x5, the same shapes as the masks.
@@ -178,15 +189,13 @@ const SYMBOLS = {
   circle: [".xxx.", "x...x", "x...x", "x...x", ".xxx."],
 };
 const CELL = Math.max(1, Math.round(0.8 * SC));
-const markWidth = (mark) => (mark.symbol ? 5 * CELL + PIP_GAP : mark.pips * (PIP + PIP_GAP));
+const markWidth = (mark) => (!mark ? 0 : mark.symbol ? 5 * CELL + PIP_GAP : mark.pips * (PIP + PIP_GAP));
 export function drawLabel(text, cx, y, strong, mark = null) {
-  ctx.font = `${strong ? 700 : 600} ${4.2 * SC}px Nunito, system-ui, sans-serif`;
+  ctx.font = labelFont(strong);
   ctx.textAlign = "center";
   ctx.textBaseline = "top";
-  const wk = `${strong}|${fontsLoaded}|${text}`;
-  let w = labelWidths.get(wk);
-  if (w === undefined) { if (labelWidths.size > 500) labelWidths.clear(); labelWidths.set(wk, (w = ctx.measureText(text).width + 8)); }
-  const mw = mark ? markWidth(mark) : 0;
+  const w = labelWidth(text, strong);
+  const mw = markWidth(mark);
   ctx.fillStyle = strong ? "rgba(35,35,58,.92)" : "rgba(35,35,58,.62)";
   ctx.fillRect(cx * SC - (w + mw) / 2, y * SC, w + mw, 5.6 * SC);
   ctx.fillStyle = "#fff";
@@ -201,6 +210,12 @@ export function drawLabel(text, cx, y, strong, mark = null) {
   }
   const py = Math.round(y * SC + (5.6 * SC - PIP) / 2);
   for (let i = 0; i < mark.pips; i++) ctx.fillRect(x0 + i * (PIP + PIP_GAP), py, PIP, PIP);
+}
+// The box drawLabel paints for the same arguments, in the scene's units (the room is 384 by 256), so the layer over the
+// room can keep clear of a name it will not cover.
+export function labelBox(text, cx, y, strong, mark = null) {
+  const w = labelWidth(text, strong) + markWidth(mark);
+  return { x: cx - w / (2 * SC), y, w: w / SC, h: 5.6 };
 }
 
 // [glyph, colour, inside]: blocked is a white "!" in a red bubble, at the lane's desk.

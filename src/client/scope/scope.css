@@ -1,0 +1,12 @@
+/* The scope's chip, border and ring. Nothing here applies until the scope is set (scope/index.js makes the elements). */
+/* A row of its own under the tabs: beside them it was squeezed against ROOMS and clipped by the scrolling tab row. */
+.scopechip { justify-self: start; max-width: 100%; box-sizing: border-box; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 8px 10px; border: 2px solid currentColor; border-radius: 8px; color: var(--ink); font: 8px/1 var(--pixel); cursor: pointer; }
+.qwrap:has(> .scopechip:not([hidden])) { grid-template-rows: auto auto minmax(0, 1fr); }
+.qwrap:has(> .scopechip:not([hidden])):has(> .stall:not([hidden])) { grid-template-rows: auto auto auto minmax(0, 1fr); }
+.scopeborder, .scopering { position: fixed; pointer-events: none; z-index: 50; box-sizing: border-box; }
+.scopeborder { inset: 0; border: 5px solid; }
+.scopering { inset: 5px; border: 2px solid; opacity: 0.6; }
+.scopechip[hidden], .scopeborder[hidden], .scopering[hidden] { display: none; }
+/* The first line of a scoped list: what is left out, and the way to see it. */
+.scopeline { display: block; width: 100%; margin: 0 0 8px; padding: 9px 12px; border: 2px solid var(--muted); border-radius: 8px; background: #fff; color: var(--ink); font: 7px/1.5 var(--pixel); text-align: left; cursor: pointer; }
+.scopeline:hover { background: #f4f4fa; }

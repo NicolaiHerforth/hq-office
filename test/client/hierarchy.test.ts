@@ -63,6 +63,8 @@ test.skipIf(!chromeFound)("a room with no tree wears the everyday look, and the 
   await page.evaluate(`(() => { const b = document.createElement("button"); b.dataset.select = "web-pm"; document.body.append(b); b.click(); b.remove(); })()`);
   await until(`document.querySelector("#card h3")?.textContent === "web-pm"`);
   expect(await page.evaluate(`!!document.querySelector("#card .path")`)).toBe(false);
+  // Choosing a lane scopes the page to it; with one floor the chip names only the lane.
+  expect(await page.evaluate(`document.querySelector(".scopechip").textContent`)).toBe("web-pm ✕");
 });
 
 test.skipIf(!chromeFound)("each theme paints a distinct look for each depth, from the front and from behind", async () => {
@@ -84,18 +86,23 @@ test.skipIf(!chromeFound)("each theme paints a distinct look for each depth, fro
 
 test.skipIf(!chromeFound)("with a tree, workers dress by depth and theme, and the card shows the level and the path", async () => {
   for (const [name, parent] of TREE) if (parent) await server.post("/api/lanes", { name, parent });
-  const looksNow = `import("/src/client/room/workers.js").then(({ workers }) => JSON.stringify(Object.fromEntries([...workers].map(([n, w]) => [n, w.pal.look?.id ?? null]))))`;
-  await until(`${looksNow}.then((s) => JSON.parse(s)["api-auth"] === null && JSON.parse(s)["web-pm"] === "blazer")`);
-  expect(JSON.parse(await page.evaluate(looksNow))).toEqual({ "api-auth": null, "api-lead": "cardigan", "data-pm": "blazer", "web-pm": "blazer" });
+  // web-pm runs a lead with a report, so it heads a floor of its own: its lanes are workers on that floor's copy of the
+  // room (loaded from /floor/web-pm/...), and web-pm stands at that floor's terminal, not at a desk. Every floor's
+  // workers together are the office's.
+  await until(`!!document.getElementById("room-web-pm")`);
+  const everyFloor = (pick: string) => `Promise.all(["/src/client/room/workers.js", "/floor/web-pm/src/client/room/workers.js"].map((u) => import(u))).then((ms) => JSON.stringify(Object.fromEntries(ms.flatMap(({ workers }) => [...workers].map(([n, w]) => [n, ${pick}])))))`;
+  const looksNow = everyFloor("w.pal.look?.id ?? null");
+  await until(`${looksNow}.then((s) => JSON.parse(s)["api-auth"] === null && JSON.parse(s)["data-pm"] === "blazer")`);
+  expect(JSON.parse(await page.evaluate(looksNow))).toEqual({ "api-auth": null, "api-lead": "cardigan", "data-pm": "blazer" });
   // the label marks: three pips at the top level, then two, then one, so the level reads from behind too
-  const marks = `import("/src/client/room/workers.js").then(({ workers }) => JSON.stringify(Object.fromEntries([...workers].map(([n, w]) => [n, w.mark?.pips ?? null]))))`;
-  expect(JSON.parse(await page.evaluate(marks))).toEqual({ "api-auth": 1, "api-lead": 2, "data-pm": 3, "web-pm": 3 });
+  const marks = everyFloor("w.mark?.pips ?? null");
+  expect(JSON.parse(await page.evaluate(marks))).toEqual({ "api-auth": 1, "api-lead": 2, "data-pm": 3 });
   await server.post("/api/settings", { settings: { theme: "arena" } });
-  await until(`${looksNow}.then((s) => JSON.parse(s)["web-pm"] === "guard-star")`);
-  expect(JSON.parse(await page.evaluate(looksNow))).toEqual({ "api-auth": "guard-triangle", "api-lead": "guard-square", "data-pm": "guard-star", "web-pm": "guard-star" });
+  await until(`${looksNow}.then((s) => JSON.parse(s)["data-pm"] === "guard-star")`);
+  expect(JSON.parse(await page.evaluate(looksNow))).toEqual({ "api-auth": "guard-triangle", "api-lead": "guard-square", "data-pm": "guard-star" });
   // Arena's label marks are the masks' own shapes
-  const symbols = `import("/src/client/room/workers.js").then(({ workers }) => JSON.stringify(Object.fromEntries([...workers].map(([n, w]) => [n, w.mark?.symbol ?? null]))))`;
-  expect(JSON.parse(await page.evaluate(symbols))).toEqual({ "api-auth": "triangle", "api-lead": "square", "data-pm": "star", "web-pm": "star" });
+  const symbols = everyFloor("w.mark?.symbol ?? null");
+  expect(JSON.parse(await page.evaluate(symbols))).toEqual({ "api-auth": "triangle", "api-lead": "square", "data-pm": "star" });
   // a level set by hand wins over the tree: api-auth is made a Manager, the top rank
   await server.post("/api/lanes", { name: "api-auth", level: "manager" });
   await until(`${looksNow}.then((s) => JSON.parse(s)["api-auth"] === "guard-star")`);
@@ -106,10 +113,13 @@ test.skipIf(!chromeFound)("with a tree, workers dress by depth and theme, and th
   await until(`document.querySelector("#card h3")?.textContent === "api-auth" && !!document.querySelector("#card .path")`);
   expect(await page.evaluate(`document.querySelector("#card .path .level").textContent`)).toBe("ENGINEER");
   expect(await page.evaluate(`document.querySelector("#card .path .chain").textContent`)).toBe("HQ > web-pm > api-lead > api-auth");
+  // web-pm directs a lead, so it heads a floor of its own: the chip names the floor, then the lane.
+  expect(await page.evaluate(`document.querySelector(".scopechip").textContent`)).toBe("WEB-PM FLOOR › api-auth ✕");
   // a step in the path selects that lane
   await page.evaluate(`document.querySelector('#card .path [data-select="web-pm"]').click()`);
   await until(`document.querySelector("#card h3")?.textContent === "web-pm"`);
   expect(await page.evaluate(`document.querySelector("#card .path .level").textContent`)).toBe("MANAGER");
+  expect(await page.evaluate(`document.querySelector(".scopechip").textContent`)).toBe("WEB-PM FLOOR › web-pm ✕");
   expect(errors).toEqual([]);
 }, 30_000);
 

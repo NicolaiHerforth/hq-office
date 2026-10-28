@@ -51,7 +51,8 @@ function touch(slug: string) {
 // ---- writes ----
 
 // Create a room, or change one: a new title or owner, more members and more linked work. It also reopens an
-// archived room. A lane that stops owning the room stays in it as a member.
+// archived room. A lane that stops owning the room stays in it as a member. The questions that name the room stay with
+// it, so under a new owner they count on the new owner's floor.
 export function createRoom(body: any) {
   const slug = slugOf(body.slug);
   const before = room(slug);

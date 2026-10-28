@@ -27,6 +27,9 @@ const ALLOW = [
   { file: "src/client/rooms/index.js", has: '<div class="at" title="${esc(a.title)}">', why: "a tooltip attribute on a shelf card" },
   { file: "src/client/rooms/index.js", has: '>${esc(d.text)}</textarea>', why: "the owner's own draft, put back into a textarea" },
   { file: "src/client/questions/questions.js", has: '>${esc(d.text || "")}</textarea>', why: "the owner's own draft, put back into a textarea" },
+  { file: "src/client/core/floors.js", has: "`${f.title}: ${PROJECT_NAMES[f.state]}${f.calls", why: "a frame button's tooltip and aria-label: plain text, markup cannot go in an attribute" },
+  { file: "src/client/project/index.js", has: 'title="${esc(p.board.why)}"', why: "a tooltip attribute on a pull request's board tag" },
+  { file: "src/client/questions/links.js", has: 'title="${esc(p.title)}"', why: "a tooltip attribute on the project button" },
 ];
 
 test("the old renderers are gone and nothing imports them", () => {

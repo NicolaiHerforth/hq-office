@@ -1,8 +1,10 @@
-// The room's canvas, its pixel scale, px() and the cache of pre-painted art (bake, blit).
+// The room's canvas (one per floor), its pixel scale, px() and the cache of pre-painted art (bake, blit).
 import { $ } from "../core/dom.js";
+import { canvasId } from "../core/floors.js";
+import { FLOOR } from "./here.js";
 
 export const TS = 16, SC = 3, W = 24, H = 16;
-export const cv = $("room");
+export const cv = $(canvasId(FLOOR)); // "room" on HQ's floor, which is the page's own graph
 cv.width = W * TS * SC; cv.height = H * TS * SC;
 export let ctx = cv.getContext("2d");
 ctx.imageSmoothingEnabled = false;

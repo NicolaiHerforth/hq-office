@@ -2,6 +2,8 @@
 // --until working), or it is held and tried again. Typed in while HQ is mid-turn, it cannot be confirmed (a queued
 // message can be lost, as five answers were): it is typed in once more when HQ is next idle, unless HQ acked it
 // first. S.hq.deliveries says where each of the owner's notes and answers stands, for the page.
+// Under the queue only an urgent Tell is typed into HQ (queue.ts tellHq), so the notes here are urgent; a queued
+// Tell is qN on the page and its outbox ref is ask:N.
 // The stub herdr: status is "idle", "working" or "deaf" (idle, but a prompt never starts it working).
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -48,12 +50,13 @@ const queued = (part: string) => entries().filter((e) => e.startsWith("QUEUED ")
 const delivery = async (ref: string) => (await state()).hq.deliveries[ref];
 const until = async (ok: () => Promise<boolean> | boolean) => { for (let i = 0; i < 80; i++) { if (await ok()) return; await Bun.sleep(25); } throw new Error("timed out"); };
 const noteId = async (text: string) => (await state()).notes.find((n: any) => n.text === text).id;
+const noteRef = async (text: string) => { const id = String(await noteId(text)); return id.startsWith("q") ? `ask:${id.slice(1)}` : `note:${id}`; };
 
 test("HQ idle: typed in and confirmed (HQ started working on it)", async () => {
   await post("/api/sync");
-  await post("/api/notes", { text: "first note" });
+  await post("/api/notes", { text: "first note", urgent: true });
   await until(() => took("first note").length === 1);
-  await until(async () => (await delivery(`note:${await noteId("first note")}`)) === "delivered");
+  await until(async () => (await delivery(await noteRef("first note"))) === "delivered");
 });
 
 test("HQ mid-turn: typed in, unconfirmed; once HQ is idle it goes again, once, and is confirmed", async () => {
@@ -74,53 +77,53 @@ test("HQ mid-turn: typed in, unconfirmed; once HQ is idle it goes again, once, a
   expect(took(`HUD answer #${id}`)).toHaveLength(1);
 });
 
-test("HQ mid-turn, then acks it from its inbox: not typed in again", async () => {
+test("HQ mid-turn, then closes it from its queue: not typed in again", async () => {
   writeFileSync(status, "working");
   await post("/api/sync");
-  await post("/api/notes", { text: "read in the inbox" });
+  await post("/api/notes", { text: "read in the inbox", urgent: true });
   await until(() => queued("read in the inbox").length === 1);
-  const id = await noteId("read in the inbox");
-  await post(`/api/notes/${id}/ack`);
+  const ref = await noteRef("read in the inbox");
+  await post(`/api/requests/${ref.slice(4)}/close`, { reason: "read" }); // HQ closes a queued Tell: hud req close
   writeFileSync(status, "idle");
   await post("/api/hq/check");
   await Bun.sleep(200);
   expect(took("read in the inbox")).toHaveLength(0);
-  expect(await delivery(`note:${id}`)).toBe("acked");
+  expect(await delivery(ref)).toBe("acked");
 });
 
 test("HQ idle but deaf (the prompt never starts it): held, said on the page, and tried again until it takes", async () => {
   writeFileSync(status, "deaf");
   await post("/api/sync");
-  await post("/api/notes", { text: "into the void" });
-  const id = await noteId("into the void");
+  await post("/api/notes", { text: "into the void", urgent: true });
+  const ref = await noteRef("into the void");
   await until(async () => ((await state()).hq.reason ?? "").includes("did not start working")); // the attempt has failed
-  expect(await delivery(`note:${id}`)).toBe("held");
+  expect(await delivery(ref)).toBe("held");
   const link = (await state()).hq;
   expect(link.ok).toBe(false);
   expect(link.reason).toContain("did not start working");
   writeFileSync(status, "idle");
   await post("/api/hq/check");
-  await until(async () => (await delivery(`note:${id}`)) === "delivered");
+  await until(async () => (await delivery(ref)) === "delivered");
   expect((await state()).hq.ok).toBe(true);
 });
 
 test("only recent ones go again: one typed in mid-turn longer ago than the window is never sent again", async () => {
   writeFileSync(status, "working");
   await post("/api/sync");
-  await post("/api/notes", { text: "too old to replay" });
+  await post("/api/notes", { text: "too old to replay", urgent: true });
   await until(() => queued("too old to replay").length === 1);
   await Bun.sleep(1700); // past the window (1.5 s here, 3 h for real)
   writeFileSync(status, "idle");
   await post("/api/hq/check");
   await Bun.sleep(300);
   expect(took("too old to replay")).toHaveLength(0);
-  expect(await delivery(`note:${await noteId("too old to replay")}`)).toBe("delivered");
+  expect(await delivery(await noteRef("too old to replay"))).toBe("delivered");
 });
 
 test("at most 3 go again per idle check; the rest on the next", async () => {
   writeFileSync(status, "working");
   await post("/api/sync");
-  for (let i = 1; i <= 5; i++) await post("/api/notes", { text: `batch note ${i}` });
+  for (let i = 1; i <= 5; i++) await post("/api/notes", { text: `batch note ${i}`, urgent: true });
   await until(() => queued("batch note").length === 5);
   writeFileSync(status, "idle");
   await post("/api/hq/check");
@@ -128,4 +131,16 @@ test("at most 3 go again per idle check; the rest on the next", async () => {
   expect(took("batch note")).toHaveLength(3);
   await post("/api/hq/check");
   await until(() => took("batch note").length === 5);
+});
+
+test("a lane's urgent request typed in mid-turn goes again with its queue number, not hud ack", async () => {
+  writeFileSync(status, "working");
+  await post("/api/sync");
+  const { id } = await post("/api/requests", { lane: "some-lane", kind: "BLOCK", text: "stuck on the build", urgent: true });
+  await until(() => queued("stuck on the build").length === 1);
+  writeFileSync(status, "idle");
+  await post("/api/hq/check");
+  await until(() => took("stuck on the build").length === 1);
+  expect(took("stuck on the build")[0]).toContain(`it is #${id} in your queue (hud req next)`);
+  expect(took("stuck on the build")[0]).not.toContain("hud ack");
 });

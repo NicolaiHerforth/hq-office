@@ -58,13 +58,17 @@ const until = async (ok: () => Promise<boolean> | boolean) => {
   }
   throw new Error("timed out");
 };
-const noteRef = async (text: string) => `note:${(await (await fetch(`${server.base}/api/state`)).json()).notes.find((n: any) => n.text === text).id}`;
+// Tell HQ goes to HQ's queue; only an URGENT one types a line into HQ's pane, so these tests send urgent notes.
+const urgent = (text: string) => post("/api/notes", { text, urgent: true });
+const askRef = async (text: string) => `ask:${(await (await fetch(`${server.base}/api/requests`)).json()).find((r: any) => r.text === text).id}`;
 
-test("with HQ there, the page says nothing and a note is typed in", async () => {
+test("with HQ there, the page says nothing, a plain note waits in the queue and an urgent one is typed in", async () => {
   await post("/api/sync");
   expect(await hq()).toMatchObject({ ok: true, reason: null, held: [] });
-  await post("/api/notes", { text: "first" });
+  await post("/api/notes", { text: "plain" });
+  await urgent("first");
   await until(() => prompts().some((p) => p.includes("first")));
+  expect(prompts().some((p) => p.includes("plain"))).toBe(false);
 });
 
 test("herdr dropped HQ's name: the sync says so before anything is sent, and offers HQ's last pane", async () => {
@@ -78,9 +82,9 @@ test("herdr dropped HQ's name: the sync says so before anything is sent, and off
 });
 
 test("what the owner sends meanwhile is held, in order, and marked held", async () => {
-  await post("/api/notes", { text: "hello?" });
-  await post("/api/notes", { text: "anyone there?" });
-  const refs = [await noteRef("hello?"), await noteRef("anyone there?")];
+  await urgent("hello?");
+  await urgent("anyone there?");
+  const refs = [await askRef("hello?"), await askRef("anyone there?")];
   await until(async () => (await hq()).held.length === 2);
   expect((await hq()).held.map((h: any) => h.ref)).toEqual(refs);
   expect(prompts().some((p) => p.includes("hello?"))).toBe(false);
@@ -100,11 +104,11 @@ test("naming HQ's pane again sends what was held, oldest first", async () => {
 test("a note HQ already read from its inbox while held is not typed in again", async () => {
   writeFileSync(mode, "unnamed");
   await post("/api/sync");
-  await post("/api/notes", { text: "read it in the inbox" });
-  const ref = await noteRef("read it in the inbox");
+  await urgent("read it in the inbox");
+  const ref = await askRef("read it in the inbox");
   await until(async () => (await hq()).held.some((h: any) => h.ref === ref));
   await post("/api/hq/check"); // waits out the attempt to type it in, which fails while HQ has no name
-  await post(`/api/notes/${ref.split(":")[1]}/ack`);
+  await post(`/api/requests/${ref.split(":")[1]}/answer`, { text: "got it" }); // HQ read it from its queue
   writeFileSync(mode, "up");
   await post("/api/hq/check");
   await until(async () => (await hq()).held.length === 0);

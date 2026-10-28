@@ -23,7 +23,7 @@ beforeAll(async () => {
   if (!chromeFound) return;
   chrome = await startChrome();
   server = await startServer(ROOT);
-  for (let i = 1; i <= 6; i++) await server.post("/api/asks", { title: `Question ${i}`, kind: "decision", body: LONG, options: ["Yes", "No", "Later"], lane: "golf" });
+  for (let i = 1; i <= 6; i++) await server.post("/api/asks", { title: `Question ${i}`, kind: "decision", body: LONG, options: ["Yes", "No", "Later"], recommended: "Yes", lane: "golf" });
   page = await newSession(chrome.cdp, errors);
   // Web fonts arriving mid-test reflow the list: blocked, as in the other page tests, so what moves is the click.
   await page.s("Network.setBlockedURLs", { urls: ["*fonts.googleapis.com*", "*fonts.gstatic.com*"] });
@@ -59,7 +59,7 @@ test.skipIf(!chromeFound)("clicking an option leaves the list and the option whe
 
 test.skipIf(!chromeFound)("a question arriving while an option has focus does not move the list", async () => {
   const before = await page.evaluate(where);
-  await server.post("/api/asks", { title: "Question 7", kind: "decision", options: ["A", "B"] });
+  await server.post("/api/asks", { title: "Question 7", kind: "decision", options: ["A", "B"], recommended: "A" });
   await until(`document.querySelectorAll("#hud .ask").length === 7`);
   await Bun.sleep(200);
   const after = await page.evaluate(where);
