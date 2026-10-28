@@ -10,7 +10,7 @@ const STATS_SCRIPT = `${DIR}/src/server/machine-stats.sh`;
 
 // herdr's machine list changes rarely: asked again after ten minutes, or after a sample over ssh fails.
 const targets = new Map<string, { target: string; at: number }>();
-async function sshTarget(machine: string): Promise<string> {
+export async function sshTarget(machine: string): Promise<string> {
   const hit = targets.get(machine);
   if (hit && Date.now() - hit.at < 600_000) return hit.target;
   const proc = Bun.spawn([HERDR, "machine", "list", "--json"], { stdout: "pipe", stderr: "ignore" });
@@ -24,7 +24,7 @@ async function sshTarget(machine: string): Promise<string> {
 
 // One ssh connection per machine, kept open between samples (it closes 3 minutes after the last one), instead of
 // a new handshake every minute on both ends. The socket path must stay short, so it lives in /tmp.
-const SSH_REUSE = ["-o", "ControlMaster=auto", "-o", `ControlPath=/tmp/hq-office-${process.getuid?.() ?? 0}-%C`, "-o", "ControlPersist=180"];
+export const SSH_REUSE = ["-o", "ControlMaster=auto", "-o", `ControlPath=/tmp/hq-office-${process.getuid?.() ?? 0}-%C`, "-o", "ControlPersist=180"];
 async function readStats(machine: string): Promise<Record<string, string>> {
   const local = machine === LOCAL;
   const args = local ? ["sh", STATS_SCRIPT] : ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5", ...SSH_REUSE, await sshTarget(machine), "sh", "-s"];

@@ -372,6 +372,17 @@ All notable changes to HQ Office are listed here, newest first. The format follo
 - **`hud update ID --lane L` moves a question to another lane**, and `--lane hq` (or `--lane ""`) takes it off every
   lane.
 
+### Added
+
+- **Accounts.** An ACCOUNTS box beside MACHINES opens a panel over the room with every machine's Claude and Codex
+  accounts and what each has left of its 5-hour window and its week. The box says SET UP, LOW or OUT before you open
+  it. Claude's side comes from [grazr](https://github.com/wazum/herdr-grazr), the herdr plugin that moves Claude to
+  another of your accounts before a limit hits: the panel shows which account is active, the last few swaps, and a
+  SWAP NOW button that runs grazr's own swap. Where grazr is missing or has fewer than two accounts, the panel shows
+  the commands to set it up; logging in stays yours. Codex has no such plugin: each Codex account is its own Codex
+  home (`~/.codex`, `~/.codex-<name>`), and its usage is read from the rate limits each Codex session records. The
+  panel shows account names and percentages only, never a token, an email or a credential file.
+
 ## [0.8.1] - 2026-10-24
 
 ### Changed
