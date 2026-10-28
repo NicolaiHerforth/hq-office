@@ -2,7 +2,7 @@
 // or one floor's office, and the lists follow the floor you are in unless SHOW ALL is on. With one floor there is no
 // scope: every getter here answers as the page did before floors. Kept in sessionStorage so a reload keeps it, and
 // dropped when it no longer holds (its floor is gone). A change emits "scope" on the bus; floors/ draws it again.
-// Adapted from the scope in PR #8 by Aleksander.
+// Adapted from the scope in PR #8.
 import { emit } from "./bus.js";
 import { S } from "./state.js";
 import { floorById, multi } from "./floors.js";
@@ -43,3 +43,12 @@ export const others = (list) => { const f = listFloor(); return f ? (list ?? [])
 export const enter = (id) => set({ floor: id ?? null, all: id ? cur.all && cur.floor === id : false });
 export const toBuilding = () => set({ floor: null, all: false });
 export const toggleAll = () => { const s = scope(); if (s.floor) set({ floor: s.floor, all: !s.all }); };
+// Esc and the scope chip's ✕: one level out. SHOW ALL off first, then out of the floor to the building. Says whether
+// there was a level to step out of.
+export function outOne() {
+  const s = scope();
+  if (s.all) set({ floor: s.floor, all: false });
+  else if (s.floor) set({ floor: null, all: false });
+  else return false;
+  return true;
+}

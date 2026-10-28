@@ -3,6 +3,37 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.20.0] - 2026-10-28
+
+### Added
+
+- **The floor bar, always on the page.** Over the office, a tab for every floor in its colour, with dots for the
+  questions waiting on you there, and **+ FLOOR**. With one floor it is that floor's tab and + FLOOR, so you can find
+  floors and add one; nothing else on the page changes. With two or more, **BUILDING** shows them all.
+- **Inside a floor you can see where you are.** A header over the office says `◀ ALL FLOORS · BACKEND FLOOR · HQ:
+  hq-backend · 2 NEED YOU`, the whole page is framed in the floor's colour, and a chip under the question tabs names
+  the floor; its × (or Esc) steps back out, one level at a time.
+- **THE BUILDING is a grid of your floors**, each tile a small picture of that floor's office (its workers where they
+  are, its HQ at the terminal), with its name, what waits on you and ZOOM IN. A picture is redrawn only when that floor
+  changes. Then + ADD A FLOOR and a short legend.
+- **Adding a floor works end to end.** + FLOOR opens a panel: a name, a colour, and its HQ, either an agent that already
+  runs in herdr (a lane you promote to run a domain, for example) or **START A NEW HQ**: the HUD opens a herdr tab beside
+  your first HQ, in its folder, starts `hq-<floor>` in it and sends it the HQ guide for its floor. If herdr cannot, the
+  panel says why and no floor is added. From a terminal: `hud floor add ID --start`.
+- **EDIT** on a floor's tab, or in SETTINGS · FLOORS, renames it, recolours it, gives it another HQ, or removes an
+  empty one after asking in the page.
+- **TELL HQ has a floor select beside SEND** whenever you have floors, set to the floor you are in.
+- **On a phone** the floor bar is a row of tabs under the top bar that you scroll sideways, the building a list of
+  floors after your questions, and inside a floor its header and coloured frame.
+- Every floor's HQ gets the HQ guide when it starts (the plugin's greet), with a line saying which floor it owns.
+
+### Fixed
+
+- **A new floor no longer raises "HQ isn't receiving".** A floor whose HQ has never run shows STARTING (amber) on its
+  tab and tile, "waiting for <agent> in herdr", and holds what you send it until the HQ is up. After two minutes it says
+  "not started", calmly, on that floor only. The red alarm is for an HQ that was running and stopped.
+- A room opened from its address (`#room/...`) could stay closed when the page loaded quickly.
+
 ## [0.19.1] - 2026-10-28
 
 ### Fixed

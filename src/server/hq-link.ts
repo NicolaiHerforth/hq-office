@@ -28,15 +28,31 @@ type Link = {
   workingAt: number;
   flushing: Promise<void> | null;
   again: boolean;
+  // When this link started (the floor added, or given another HQ): a new HQ has STARTING_MS to show up in herdr.
+  startedAt: number;
 };
 const links = new Map<string, Link>();
 function linkOf(floor: string): Link {
   let l = links.get(floor);
-  if (!l) links.set(floor, (l = { seen: null, sent: null, since: 0, candidate: null, checked: false, tracked: null, status: null, workingAt: 0, flushing: null, again: false }));
+  if (!l) links.set(floor, (l = { seen: null, sent: null, since: 0, candidate: null, checked: false, tracked: null, status: null, workingAt: 0, flushing: null, again: false, startedAt: Date.now() }));
   return l;
 }
+// A new floor's HQ that has never been seen in herdr is STARTING, not "not receiving": no alarm, no red strip, and
+// nothing typed into it (what is meant for it is held) until the first sync that finds it. After STARTING_MS it is
+// "not started", a calm note on that floor only. An HQ seen once (floors.hq_seen_at) and then gone is the alarm, as
+// before. The first floor's HQ is never STARTING: it is the HQ the HUD was set up with, and its alarm stays.
+const STARTING_MS = Number(process.env.HUD_HQ_STARTING_MS) || 2 * 60_000;
+export function neverSeen(floor: string) {
+  if (floor === firstFloor()) return false;
+  const row = db.query("SELECT hq_seen_at AS at FROM floors WHERE id = ?").get(floor) as { at: number | null } | null;
+  return !!row && row.at == null;
+}
+const notStarted = (floor: string) => Date.now() - linkOf(floor).startedAt >= STARTING_MS;
+// What the page says about a STARTING floor, and whether the last sync said it was not started yet (to bump once).
+const notStartedShown = new Map<string, boolean>();
+
 // A floor's HQ changed or the floor went: its link starts over.
-export const forgetLink = (floor: string) => void links.delete(floor);
+export const forgetLink = (floor: string) => { links.delete(floor); notStartedShown.delete(floor); };
 // HQ's herdr status at the last sync, and when it last worked (the sweep nudge).
 export const hqNowOf = (floor: string) => ({ status: linkOf(floor).status, workingAt: linkOf(floor).workingAt });
 
@@ -95,6 +111,19 @@ export async function checkHq(agents: any[] | null, error?: string) {
 async function checkFloor(floor: string, agent: string, agents: any[] | null, error?: string) {
   const l = linkOf(floor);
   l.checked = true;
+  // STARTING: until herdr first shows this floor's HQ, no reason is set and nothing is typed in.
+  if (neverSeen(floor) && !agents?.some((a) => a.name === agent)) {
+    l.seen = l.sent = null;
+    l.candidate = null;
+    l.status = null;
+    const late = notStarted(floor);
+    if (notStartedShown.get(floor) !== late) {
+      notStartedShown.set(floor, late);
+      if (late) event("hud", `${agent} has not started in herdr yet`, null, floor);
+      bump();
+    }
+    return;
+  }
   if (!agents) {
     l.candidate = null;
     l.status = null;
@@ -173,6 +202,7 @@ const held = (floor: string) => db.query("SELECT * FROM hq_outbox WHERE sent_at 
 // they were written. One flush per floor at a time; a call during one runs another when it ends.
 function flush(floor: string): Promise<void> {
   const l = linkOf(floor);
+  if (neverSeen(floor)) return Promise.resolve(); // STARTING: held until the first sync that finds its HQ
   if (l.flushing) {
     l.again = true;
     return l.flushing;
@@ -267,9 +297,13 @@ export function hqLink(floor = firstFloor()) {
   const l = linkOf(floor);
   const rows = held(floor);
   const reason = l.seen ?? l.sent;
+  const starting = neverSeen(floor);
   return {
     agent: hqOf(floor),
-    ok: l.checked ? !reason : null,
+    ok: starting ? null : l.checked ? !reason : null,
+    // A new floor's HQ not seen in herdr yet: STARTING, and after a while "not started"; never the alarm.
+    starting,
+    notStarted: starting && notStarted(floor),
     reason,
     since: reason ? l.since : null,
     candidate: l.candidate,
@@ -287,6 +321,12 @@ addStatePart("floors", () =>
   floorList().map((f) => {
     const l = linkOf(f.id);
     const reason = l.seen ?? l.sent;
-    return { id: f.id, name: f.name, color: f.color, hq: f.hq, receiving: l.checked ? !reason : null, reason, counts: floorCounts(f.id) };
+    const starting = neverSeen(f.id);
+    return {
+      id: f.id, name: f.name, color: f.color, hq: f.hq,
+      receiving: starting ? null : l.checked ? !reason : null, reason,
+      starting, notStarted: starting && notStarted(f.id),
+      counts: floorCounts(f.id),
+    };
   }),
 );

@@ -1,11 +1,11 @@
-// The plugin's greet command (run by herdr on pane.agent_detected): the HQ agent's pane gets the HQ guide once per
-// session, other agents get nothing. A fake herdr serves `agent list` from a file and records every prompt; nothing
+// The plugin's greet command (run by herdr on pane.agent_detected): the HQ agent's pane, and any floor's HQ, gets the
+// HQ guide once per session (a floor's HQ with the line naming its floor), other agents get nothing. A fake herdr serves `agent list` from a file and records every prompt; nothing
 // is written outside a temporary directory and the real herdr is never run.
 import { afterAll, expect, test } from "bun:test";
 import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { GUIDE } from "../../src/hq-guide.ts";
+import { GUIDE, guideFor } from "../../src/hq-guide.ts";
 import { freePort } from "../../scripts/room-hash.ts";
 
 const ROOT = join(import.meta.dir, "..", "..");
@@ -107,7 +107,7 @@ test("a new session of the HQ agent gets it again", () => {
 test("another agent's pane sends nothing", () => {
   const r = greet("w1:p2");
   expect(r.code).toBe(0);
-  expect(r.out).toContain("w1:p2 runs worker, not the HQ agent lead; nothing sent");
+  expect(r.out).toContain("w1:p2 runs worker, not the HQ agent lead or a floor's HQ; nothing sent");
   expect(prompts()).toHaveLength(2);
 });
 
@@ -156,4 +156,31 @@ test("without a config, the agent named hq is the HQ agent (herdr's own HERDR_BI
   expect(r.code).toBe(0);
   expect(prompts().at(-1)).toEqual({ to: "hq", text: GUIDE });
   expect(prompts()).toHaveLength(5);
+});
+
+test("any floor's HQ is an HQ: it gets the guide naming its floor; the HUD is asked which agents run floors", async () => {
+  const port = freePort();
+  const hud = Bun.serve({ port, hostname: "127.0.0.1", fetch: (req) => (new URL(req.url).pathname === "/api/floors"
+    ? Response.json({ floors: [{ id: "hq", name: "HQ", hq: "lead" }, { id: "ops", name: "Ops", hq: "hq-ops" }], caller: "hq" })
+    : new Response("{}", { status: 404 })) });
+  try {
+    const floors = makeConfig("floors", `HUD_HQ_AGENT=lead\nHUD_PORT=${port}\nHERDR_BIN=${herdr}\n`);
+    setAgents([{ name: "hq-ops", pane_id: "w5:p1", session: "s-ops" }, { name: "worker", pane_id: "w5:p2", session: "s-w" }]);
+    const before = prompts().length;
+    // Run without blocking this process: the fake HUD above answers from it.
+    const greetNow = async (pane: string) => {
+      const p = Bun.spawn([process.execPath, "bin/hud-plugin.ts", "greet"], { cwd: ROOT, env: { PATH: process.env.PATH ?? "/usr/bin:/bin", HOME: join(dir, "home"), TMPDIR: tmpdir(), HERDR_PLUGIN_STATE_DIR: floors.state, HERDR_PLUGIN_CONFIG_DIR: floors.config, HERDR_PLUGIN_EVENT: "pane.agent_detected", HQ_OFFICE_PLATFORM: "none", HQ_OFFICE_GREET_WAIT_MS: "400", HERDR_BIN_PATH: herdr, HERDR_PANE_ID: pane }, stdout: "pipe", stderr: "pipe" });
+      const [out, err] = await Promise.all([new Response(p.stdout).text(), new Response(p.stderr).text(), p.exited]);
+      return { out: out + err };
+    };
+    const r = await greetNow("w5:p1");
+    expect(r.out).toContain("greet: sent the HQ guide to hq-ops");
+    const sent = prompts().slice(before);
+    expect(sent).toEqual([{ to: "hq-ops", text: guideFor({ id: "ops", name: "Ops" }) }]);
+    expect(sent[0].text).toContain("You are the HQ of the Ops floor");
+    expect((await greetNow("w5:p2")).out).toContain("not the HQ agent lead or a floor's HQ");
+    expect(prompts().length).toBe(before + 1);
+  } finally {
+    hud.stop(true);
+  }
 });

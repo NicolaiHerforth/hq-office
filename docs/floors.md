@@ -2,9 +2,10 @@
 
 A floor is one HQ agent and everything it runs. One HQ can direct only so many lanes; floors let the owner run
 several HQs side by side, each owning a domain (frontend, backend, legal...). One floor behaves exactly as HQ Office
-did before floors, and nothing about floors shows until there is a second one.
+did before floors; the page shows only the floor bar over the office (that floor's tab and + FLOOR), so floors can be
+found and added.
 
-Phase 1 is the server and `hud`. Phase 2 is the page, built on the state contract below (see "The page").
+The server and `hud` come first; the page is built on the state contract below (see "The page").
 
 ## The model
 
@@ -53,6 +54,29 @@ records each named agent's pane (by machine). The caller's floor is:
 - a secret the owner sets, and secrets lost in a restart: every floor's HQ;
 - `hud floor tell FLOOR TEXT`: that floor's HQ, as `HUD from floor <caller's floor>: TEXT`, with an event line.
 
+## A new floor's HQ: STARTING, never the alarm
+
+A floor other than the first whose HQ herdr has never shown (`floors.hq_seen_at` is null: a new floor, or one given
+another HQ) is STARTING. Its link sets no reason, raises no "HQ isn't receiving" event, strip or toast, and types
+nothing into it: what is meant for its HQ is held, and goes, in order and confirmed, on the first sync that finds it.
+After 2 minutes (`HUD_HQ_STARTING_MS`) it is "not started": a calm note on that floor only. An HQ seen once and then
+gone is the alarm, as before. The first floor's HQ is never STARTING: it is the HQ the HUD was set up with.
+
+## Adding a floor
+
+- **An agent that runs** (USE AN AGENT on the page, `hud floor add ID --hq AGENT`): any named agent, a lane too (a lane
+  promoted to run a domain). When it runs in herdr on this machine, the HUD sends it the HQ guide for its floor
+  (`guideFor` in `src/hq-guide.ts`: the guide, with a line naming the floor it owns) through its outbox.
+- **START A NEW HQ** (`POST /api/floors` with `start: true`, `hud floor add ID --start`): the server (`floor-start.ts`)
+  reads `herdr agent list` for the first floor's HQ's `workspace_id` and `cwd`, runs
+  `herdr tab create --workspace W --cwd C --label "<Name> HQ" --no-focus`, and starts `hq-<id>` in the new tab's root
+  pane with `herdr agent start hq-<id> --kind claude --pane P`. Only once herdr says the agent is ready is the floor
+  stored, and its HQ sent the guide for its floor. On any failure the tab is closed again, no floor is added, and the
+  error is the reply (the page shows it in the panel). An id or agent name that is taken is refused before herdr is
+  asked anything.
+- **The plugin's greet** (`bin/hud-plugin.ts`, on `pane.agent_detected`) treats every floor's HQ as an HQ: it asks the
+  HUD for `GET /api/floors` and sends a floor's HQ the guide for its floor, once per session.
+
 ## Per floor, inside the 20 s sync
 
 No new timers. Each sync, for each floor in order: the HQ link (receiving or not, the reason, since when, the
@@ -72,7 +96,8 @@ not scoped: the page gets every floor, each row tagged.
 
 ```
 hud floor add ID --hq AGENT [--name N] [--color #hex]
-hud floor list [--json]          id, name, HQ, receiving, lanes, waiting on the owner (* marks your floor)
+hud floor add ID --start [--name N] [--color #hex]   the HUD starts its HQ, hq-ID, in a new herdr tab
+hud floor list [--json]          id, name, HQ, receiving (or STARTING), lanes, waiting on the owner (* marks your floor)
 hud floor set ID [--name N] [--hq AGENT] [--color #hex]
 hud floor rm ID                  refused unless the floor is empty (no lanes, open questions, open rooms,
                                  open board items, or messages held for its HQ); the last floor never goes
@@ -88,7 +113,8 @@ What a removed floor leaves behind (answered questions, updates, notes, the log)
 | Route | Body | Reply |
 | --- | --- | --- |
 | `GET /api/floors` | | `{ floors: S.floors, caller: "<floor id>" }` |
-| `POST /api/floors` | `{ id, hq, name?, color? }` | `{ id }` |
+| `GET /api/floors/agents` | | `{ agents: [{ name, machine, status, lane, floor }] }`: herdr's live named agents at the last sync, lanes too, and the floor each runs (null for none) |
+| `POST /api/floors` | `{ id, hq, name?, color? }`, or `{ id, name?, color?, start: true }` | `{ id }`, once the floor is stored (with `start`, once its HQ runs) |
 | `POST /api/floors/ID` | `{ name?, hq?, color? }`, or `{ rm: true }` | `{ ok: true }`, or `{ floors: [ids] }` after a remove |
 | `POST /api/floors/ID/tell` | `{ text }` | `{ ok: true }` |
 | `POST /api/notes` | `{ text, floor? }` | `{ ok: true }` |
@@ -98,55 +124,74 @@ What a removed floor leaves behind (answered questions, updates, notes, the log)
 ## State contract for the page
 
 - `S.floors`: an array, by position, of
-  `{ id, name, color, hq, receiving: true | false | null, reason, counts: { needsYou, blocked, working, lanes, unreadMessages } }`.
-  `receiving` is null until the first sync has checked that floor's HQ. `needsYou` counts the floor's open
+  `{ id, name, color, hq, receiving: true | false | null, reason, starting, notStarted, counts: { needsYou, blocked, working, lanes, unreadMessages } }`.
+  `receiving` is null until the first sync has checked that floor's HQ, and while it is `starting` (its HQ never seen);
+  `notStarted` is true once a starting HQ has been waited on for 2 minutes. `needsYou` counts the floor's open
   questions, `blocked` its lanes blocked on a prompt, `working` its lanes at work (herdr working, or something still
   running in the background), `lanes` all its lanes, `unreadMessages` its unread updates from HQ.
 - Every lane, open ask, answered ask, update, note, room (`S.rooms[i].floor`) and board item
   (`S.board.items[i].floor`) carries `floor`. Events carry `floor` too (null for one about no floor).
-- `S.hq` stays the first floor's link, unchanged in shape: `{ agent, ok, reason, since, candidate, deliveries, held }`.
+- `S.hq` stays the first floor's link: `{ agent, ok, starting, notStarted, reason, since, candidate, deliveries, held }`.
   `S.hqLinks` maps floor id to the same shape for every floor (the first floor's included); `deliveries` and `held`
-  hold that floor's messages only.
+  hold that floor's messages only. `ok` is null while the floor is `starting`.
 - `S.sweep` keeps its shape (`{ on, minutes, hours, lastAt, nextAt, backoff }`) for the first floor.
   `S.sweepByFloor` maps floor id to `{ lastAt, nextAt, backoff }`.
 - `S.board.counts` and `S.board.blockedLanes` count every floor; a page scoped to a floor filters `items` by `floor`.
 
 ## The page
 
-One floor (`S.floors` has one entry) is the page as it was before floors: no element, tag or border more. The room's
-pixel and layout test proves it (`PIXEL_BASE=<ref> bun test test/client/room-pixels.test.ts`); the only addition is the
-FLOORS section in SETTINGS, which the hash leaves out as it does other new settings rows. With two or more floors:
+One floor (`S.floors` has one entry) is the page as it was before floors, plus the floor bar over the office: that
+floor's tab (with EDIT) and + FLOOR. No building, header, frame, chip, tag, scope line or FLOOR select. The room's
+pixel and layout test proves the rest is unchanged (`PIXEL_BASE=<ref> bun test test/client/room-pixels.test.ts`): it
+leaves the bar out of its style hash, as it leaves out the FLOORS section in SETTINGS. With two or more floors:
 
+- **The floor bar** (`src/client/floors/index.js`), first on the stage: BUILDING, then a tab per floor in its colour
+  with its name, its need-you dots (one per open question, the count past five), STARTING or NOT STARTED in amber
+  while its new HQ is not up, and a red ! when its HQ was receiving and stopped; the tab of the floor you are in is
+  filled with its colour and carries EDIT. Then + FLOOR. A tab enters its floor.
+- **Inside a floor**: a header over the office, `◀ ALL FLOORS · <NAME> FLOOR · HQ: <agent> · N need you` (and the
+  HQ's state when it is not up), with EDIT; the whole page framed in the floor's colour; a scope chip
+  `<NAME> FLOOR ×` under the question tabs; and "+N on other floors · show all" at the top of each list. Esc and the
+  chip's × step out one level: SHOW ALL off first, then out to the building (Esc closes the floor panel before
+  anything; not while typing, in SETTINGS, a conference room or a preview). The office's workers are that floor's
+  lanes (`officeLanes()` in `room/workers.js`), HQ at the terminal is labelled with that floor's HQ, and the room's
+  frame takes the floor's colour.
+- **THE BUILDING** (`floors/building.js`): a grid of tiles, two to a row (one on a narrow screen), each with the floor's
+  name tag in its colour, its need-you count and dots, its HQ's state and ZOOM IN ›, over a still picture of its
+  office, and its HQ, lanes and working count under it. The picture is drawn by the room's own code
+  (`room/still.js`: the room, the hero, that floor's HQ and a worker per lane where its status puts it, with its bubble
+  and name) into the tile's own canvas at half the room's size, and drawn again only when what it shows changes (its
+  lanes, their status and rank, its HQ, the theme, the season) and only while the building shows. No frame loop per
+  tile and no second copy of the room's modules: only the floor you are in runs the live loop, which rests while the
+  building shows. Then a + ADD A FLOOR slot, and the legend: CLICK A FLOOR TO ZOOM IN.
+- **The floor panel** (`floors/panel.js`), over the stage (a sheet on a phone): + FLOOR, + ADD A FLOOR and SETTINGS ·
+  FLOORS open it to add a floor (a name, a colour from the palette, and its HQ: USE AN AGENT, a select of herdr's live
+  named agents that run no floor, read from `GET /api/floors/agents` when it opens, or a name typed; or START A NEW HQ).
+  An error from the server shows in the panel and nothing is added. EDIT opens it for one floor: rename, recolour,
+  another HQ, or REMOVE an empty floor after a confirm in the page (never a browser dialog).
 - **The scope** (`src/client/core/scope.js`): the floor you are in, or none (the building), and SHOW ALL. It is kept in
   sessionStorage, dropped when its floor is gone, and every change emits `scope` on the bus. `listFloor()` is the
   floor the lists show (none in the building or under SHOW ALL), `pick(list)` a list's rows on it by their `floor`,
-  `others(list)` how many are left out, `tagged()` whether cards carry their floor's tag. Pure helpers of `S` (the
-  floor list, a floor's HQ link, the tag and the "+N on other floors · show all" line) are in `core/floors.js`.
-- **The stage** (`src/client/floors/`): a bar over it, and THE BUILDING or the floor's office. The building is one
-  tile per floor, the first at the bottom, each a button with a small plan of its office drawn on a 64x30 canvas once
-  and again only when its lanes or colour change (no live canvas per tile), its name, its HQ, `S.floors[i].counts`
-  and a red mark when `receiving` is false. Inside a floor the office's workers are that floor's lanes
-  (`officeLanes()` in `room/workers.js`), HQ at the terminal is labelled with that floor's HQ agent, and the room's
-  frame takes the floor's colour. The office's frame loop rests while the building shows, as it does under a
-  conference room. Esc steps out of a floor (not while typing, in SETTINGS, a conference room or a preview). A lane's
-  tag on another floor's card takes you to that floor before it selects the worker.
+  `others(list)` how many are left out, `tagged()` whether cards carry their floor's tag, `outOne()` one level out.
+  Pure helpers of `S` (the floor list, a floor's HQ link and state, need-you dots, the tag and the scope line) are in
+  `core/floors.js`.
 - **Lists and counts**: NEEDS YOU, MESSAGES, WORK (and its STALLED strip), ROOMS, FROM HQ and SENT & ANSWERED, and
   the tab counts, follow `listFloor()`. A floor's unread messages count is `S.floors[i].counts.unreadMessages`; WORK
   counts its own items. The top bar counts every floor. Opening MESSAGES marks only the shown updates read; MARK ALL
   READ sends `{ floor }`. A note's and an answer's delivery mark reads its own floor's link in `S.hqLinks`.
-- **TELL HQ** sends `floor` with the note: the floor you are in, else the one in the FLOOR select beside SEND (made
-  the first time the building or SHOW ALL shows; it defaults to the last floor used, kept in localStorage). The
-  placeholder names the floor (`Tell HQ (Backend)…`), or says its HQ isn't receiving. A reply in MESSAGES goes to
-  the floor of what it answers.
+- **TELL HQ**: a FLOOR select beside SEND whenever there are floors. It shows the floor you are in, or in the building
+  the last floor used (kept in localStorage); set to another floor inside a floor, it holds until you go elsewhere.
+  The placeholder names the floor (`Tell HQ (Backend)…`), says its HQ isn't receiving, or that the note is kept until
+  a STARTING HQ runs. A reply in MESSAGES goes to the floor of what it answers.
 - **HQ isn't receiving**: the strip shows the link of the floor you are in; in the building, one line per floor whose
-  HQ isn't receiving, each with its own NAME and CHECK NOW (they send `{ floor }`). A toast says when any floor's HQ
-  stops receiving; the window title says it while any is down.
-- **SETTINGS · FLOORS** (`settings/floors.js`) lists the floors and adds one (`POST /api/floors` with an id made from
-  its name), changes one (`POST /api/floors/ID`), or removes an empty one (`{ rm: true }`) after a confirm in the
-  page. The HQ is picked from herdr's agents that are not lanes and run no floor (`untracked` in `/api/state`, read
-  once when the form opens: the page's stream leaves it out), or typed. Colours come from a fixed palette.
-- SECRETS stay global. Phase 3 polishes the phone; at 390 px the building is one column of tiles and the bar wraps.
+  HQ isn't receiving (a STARTING floor is never one), each with its own NAME and CHECK NOW (they send `{ floor }`). A
+  toast says when a floor's HQ that was receiving stops; the window title says it while any is down.
+- **A phone** (under 1151 px): the floor bar and a floor's header sit under the top bar, the bar one row of tabs that
+  scrolls sideways (44 px targets on touch); the building is a list of tiles after the questions; inside a floor the
+  header and the coloured frame; no sideways page scroll.
+- SECRETS stay global.
 
-The building, the scope (SHOW ALL, marking read within it, the scope kept in sessionStorage) and floor tags are
-adapted from PR #8 by Aleksander. Floors themselves come from `S.floors`, not the depth of the lane tree, and only the
-floor you are in has a live office.
+The navigation (the stage bar with BUILDING and a tab per floor, a floor's header, the coloured page border, the scope
+chip, the building's grid of tiles with ZOOM IN and its legend, TELL HQ's floor select) and the scope (SHOW ALL,
+marking read within it, the scope kept in sessionStorage) and floor tags are adapted from PR #8. Floors
+themselves come from `S.floors`, not the depth of the lane tree, and only the floor you are in has a live office.

@@ -14,6 +14,28 @@ export const linkOf = (S, id) => S?.hqLinks?.[id ?? firstFloor(S)] ?? (!id || id
 export const floorLabel = (f) => String(f?.name || f?.id || "").toUpperCase();
 export const cut = (s, n = 14) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
 
+// How a floor's HQ is doing, for its tab, tile and header: "starting" (a new floor whose HQ herdr has not shown yet),
+// "late" (still not there after a while: a calm note), "down" (it was receiving and stopped: the alarm), "ok", or
+// "unknown" (not checked yet).
+export function hqMood(f) {
+  if (f?.starting) return f.notStarted ? "late" : "starting";
+  return f?.receiving === false ? "down" : f?.receiving === true ? "ok" : "unknown";
+}
+export const MOOD_TEXT = { starting: "STARTING", late: "NOT STARTED", down: "HQ ISN'T RECEIVING" };
+// What a floor's mood says in words, for a title or a line under its name.
+export function moodLine(f) {
+  const m = hqMood(f);
+  if (m === "starting") return `waiting for ${f.hq} in herdr`;
+  if (m === "late") return `${f.hq} has not started in herdr yet`;
+  if (m === "down") return f.reason ?? "HQ isn't receiving";
+  return "";
+}
+// Need-you dots: one per open question up to five; more than that, the count.
+export function needDotsHTML(n) {
+  if (!n) return "";
+  return n > 5 ? `<span class="fneed n">${n}</span>` : `<span class="fneed" aria-hidden="true">${"<i></i>".repeat(n)}</span>`;
+}
+
 // Ink or white on a floor's colour, whichever reads: the colour is the owner's choice (or hud's), any #rrggbb.
 export function inkOn(color) {
   const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(color ?? "");

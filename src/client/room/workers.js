@@ -28,6 +28,7 @@ const atDesk = (lane) => !AWAY_FROM_DESK.has(lane.status);
 // the aisles (OVERFLOW), by name.
 function assignDesks(lanes) {
   const desk = new Map();
+  const aisle = new Map(); // lane -> where it stands without a desk
   const taken = new Map(); // seat index -> lane name
   const index = (seat) => SEATS.indexOf(seat);
   const sitting = lanes.filter(atDesk).sort((a, b) => a.name.localeCompare(b.name));
@@ -46,22 +47,38 @@ function assignDesks(lanes) {
       desk.set(lane.name, SEATS[i]);
     } else {
       desk.set(lane.name, null);
-      overflowAt.set(lane.name, slot(OVERFLOW, overflow++));
+      aisle.set(lane.name, slot(OVERFLOW, overflow++));
     }
   }
-  return desk;
+  return { desks: desk, aisle };
 }
-// Where each worker without a desk stands, from the last assignDesks.
-const overflowAt = new Map();
 
-function targetFor(lane, seat, counts) {
+function targetFor(lane, seat, aisle, counts) {
   const st = lane.status;
   if (st === "needs_you") return { at: slot(QUEUE, counts.queue++), face: "up" };
   if (st === "hq_turn" || st === "stale") return { at: slot(HQ_SPOT, counts.hq++), face: "left" };
   if (st === "waiting") return { at: slot(WAIT_SPOT, counts.wait++), face: "down" };
   if (st === "parked") return { at: slot(COUCH, counts.couch++), face: "down" };
   if (st === "done") return { at: slot(DONE_SPOT, counts.done++), face: "down" };
-  return { at: seat ?? overflowAt.get(lane.name), face: "up" }; // moving, blocked or gone: at its desk, or in the aisle
+  return { at: seat ?? aisle.get(lane.name), face: "up" }; // moving, blocked or gone: at its desk, or in the aisle
+}
+
+// Where each lane's worker belongs: its seat, and the spot its status puts it at (the queue, HQ, the couch...).
+// Shared by the live office and the building's still renders (room/still.js).
+export function placeLanes(lanes, open = S.open) {
+  // queue order: oldest open ask first
+  const oldest = new Map();
+  for (const a of open) if (a.lane) oldest.set(a.lane, Math.min(oldest.get(a.lane) ?? Infinity, a.created_at));
+  const ordered = [...lanes].sort((a, b) => (oldest.get(a.name) ?? Infinity) - (oldest.get(b.name) ?? Infinity) || a.name.localeCompare(b.name));
+  // seatIndex numbers the lanes by name for the costumes (a player's number); desks come from assignDesks.
+  const seatIndex = new Map([...lanes].sort((a, b) => a.name.localeCompare(b.name)).map((l, i) => [l.name, i]));
+  const { desks, aisle } = assignDesks(lanes);
+  const counts = { queue: 0, hq: 0, wait: 0, couch: 0, done: 0 };
+  const places = ordered.map((lane) => {
+    const seat = desks.get(lane.name) ?? null;
+    return { lane, seat, ...targetFor(lane, seat, aisle, counts) };
+  });
+  return { places, seatIndex };
 }
 
 export function syncWorkers(initial) {
@@ -69,18 +86,8 @@ export function syncWorkers(initial) {
   const names = new Set(lanes.map((l) => l.name));
   for (const n of [...workers.keys()]) if (!names.has(n)) workers.delete(n);
   rebuildBlocked(lanes.length);
-  // queue order: oldest open ask first
-  const oldest = new Map();
-  for (const a of S.open) if (a.lane) oldest.set(a.lane, Math.min(oldest.get(a.lane) ?? Infinity, a.created_at));
-  const ordered = [...lanes].sort((a, b) => (oldest.get(a.name) ?? Infinity) - (oldest.get(b.name) ?? Infinity) || a.name.localeCompare(b.name));
-  // seatIndex numbers the lanes by name for the costumes (a player's number); desks come from assignDesks.
-  const seatIndex = new Map([...lanes].sort((a, b) => a.name.localeCompare(b.name)).map((l, i) => [l.name, i]));
-  overflowAt.clear();
-  const desks = assignDesks(lanes);
-  const counts = { queue: 0, hq: 0, wait: 0, couch: 0, done: 0 };
-  for (const lane of ordered) {
-    const seat = desks.get(lane.name) ?? null;
-    const { at, face } = targetFor(lane, seat, counts);
+  const { places, seatIndex } = placeLanes(lanes);
+  for (const { lane, seat, at, face } of places) {
     let w = workers.get(lane.name);
     if (!w) {
       w = { x: at.x, y: at.y, path: [], dir: face, step: 0, t: 0, pal: null, bob: hash(lane.name) % 1000 };

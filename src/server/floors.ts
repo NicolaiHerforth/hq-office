@@ -82,17 +82,29 @@ function checkColor(color: unknown) {
   return c.toLowerCase();
 }
 
-export function addFloor(body: any) {
+// A new floor as asked for, checked but not yet stored: { id, name, color, hq }. With `start` its HQ is the one the
+// server starts for it (floor-start.ts): hq-<id>.
+export function newFloor(body: any, start = false) {
   const id = String(body.id ?? "").trim();
   if (!FLOOR_ID.test(id) || id === "all") throw new Error("a floor's id is 1 to 32 lowercase letters, digits and dashes, such as backend (and not all)");
   if (floorOf(id)) throw new Error(`floor ${id} exists: hud floor set ${id} changes it`);
-  const hq = checkHq(body.hq);
   const n = floorList().length;
-  const color = body.color ? checkColor(body.color) : COLORS[n % COLORS.length];
-  const name = String(body.name ?? "").trim() || id;
+  return {
+    id,
+    name: String(body.name ?? "").trim() || id,
+    color: body.color ? checkColor(body.color) : COLORS[n % COLORS.length],
+    hq: checkHq(start ? `hq-${id}` : body.hq),
+  };
+}
+export function addFloor(body: any) {
+  const f = newFloor(body);
+  insertFloor(f);
+  return floorOf(f.id)!;
+}
+export function insertFloor(f: { id: string; name: string; color: string; hq: string }) {
   const position = ((db.query("SELECT MAX(position) AS p FROM floors").get() as { p: number | null }).p ?? -1) + 1;
-  db.query("INSERT INTO floors (id, name, color, hq, position, created_at) VALUES (?, ?, ?, ?, ?, ?)").run(id, name, color, hq, position, Date.now());
-  return floorOf(id)!;
+  db.query("INSERT INTO floors (id, name, color, hq, position, created_at) VALUES (?, ?, ?, ?, ?, ?)").run(f.id, f.name, f.color, f.hq, position, Date.now());
+  return floorOf(f.id)!;
 }
 
 // Returns whether the floor's HQ changed (its link starts over).

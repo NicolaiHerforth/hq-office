@@ -1,13 +1,18 @@
 // Routes for floors (see src/server/floors.ts): list them, add one, change or remove one, and one HQ telling another
 // floor's HQ something. The router loads every file in this folder.
 //   GET  /api/floors                 { floors: S.floors, caller: the caller's floor id }
-//   POST /api/floors                 { id, name?, hq, color? }  add
+//   GET  /api/floors/agents          { agents: [{ name, machine, status, lane, floor }] } herdr's live named agents
+//   POST /api/floors                 { id, name?, hq, color? }  add;  { id, name?, color?, start: true }  start its HQ
+//                                    (hq-<id>, in a new herdr tab) and add the floor once it runs
 //   POST /api/floors/ID              { name?, hq?, color? }  change;  { rm: true }  remove (only an empty floor)
 //   POST /api/floors/ID/tell         { text }  types "HUD from floor <caller's floor>: TEXT" into that floor's HQ
-import { addFloor, floorList, mustFloor, removeFloor, setFloor } from "../floors.ts";
+import { addFloor, floorList, floorOfHq, insertFloor, mustFloor, newFloor, removeFloor, setFloor } from "../floors.ts";
 import { event } from "../events.ts";
 import { forgetLink, notifyHq } from "../hq-link.ts";
-import { syncHerdr } from "../herdr.ts";
+import { live, syncHerdr } from "../herdr.ts";
+import { startHq } from "../floor-start.ts";
+import { guideFor } from "../../hq-guide.ts";
+import { LOCAL } from "../config.ts";
 import { state } from "../state.ts";
 import { json } from "../json.ts";
 import type { Route } from "../router.ts";
@@ -18,9 +23,21 @@ const recheck = () => void syncHerdr().catch(() => {});
 
 const routes: Route[] = [
   { method: "GET", path: "/api/floors", handle: ({ caller }) => json({ floors: (state() as any).floors, caller: caller().floor }) },
-  { method: "POST", path: "/api/floors", handle: ({ body }) => {
-    const f = addFloor(body);
-    event("hud", `floor ${f.id} added (${f.name}, HQ ${f.hq})`, null, f.id);
+  { method: "GET", path: "/api/floors/agents", handle: () => json({ agents: live.map((a) => ({ ...a, floor: floorOfHq(a.name) })) }) },
+  { method: "POST", path: "/api/floors", handle: async ({ body }) => {
+    let f;
+    if (body.start === true) {
+      const want = newFloor(body, true);
+      await startHq(want);
+      f = insertFloor(newFloor(body, true)); // checked again: another floor may have taken the id meanwhile
+      event("hud", `floor ${f.id} added (${f.name}); started its HQ ${f.hq} in herdr`, null, f.id);
+    } else {
+      f = addFloor(body);
+      event("hud", `floor ${f.id} added (${f.name}, HQ ${f.hq})`, null, f.id);
+    }
+    // The new HQ hears which floor it owns: held until the sync that first finds it in herdr, then typed in and
+    // confirmed. An agent that is not running yet gets it from the plugin's greet when it starts.
+    if (body.start === true || live.some((a) => a.name === f.hq && a.machine === LOCAL)) notifyHq(guideFor(f), undefined, f.id);
     recheck();
     return { id: f.id };
   } },

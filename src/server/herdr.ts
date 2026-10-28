@@ -10,9 +10,11 @@ import { sweep } from "./hq-sweep.ts";
 import { isHqAgent, setPanes } from "./floors.ts";
 
 export let untracked: { name: string; machine: string; status: string }[] = [];
+// Every named agent herdr runs, lanes too, from the last sync: what the page offers as a floor's HQ.
+export let live: { name: string; machine: string; status: string; lane: boolean }[] = [];
 export let lastSync: { at: number; errors: string[] } = { at: 0, errors: [] };
 
-async function herdrList(machine: string): Promise<any[]> {
+export async function herdrList(machine: string): Promise<any[]> {
   const args = machine === LOCAL ? [HERDR, "agent", "list"] : [HERDR, "--machine", machine, "agent", "list"];
   const proc = Bun.spawn(args, { stdout: "pipe", stderr: "pipe" });
   const timer = setTimeout(() => proc.kill(), 15_000);
@@ -128,6 +130,7 @@ export async function syncHerdr() {
   untracked = [...seen.entries()]
     .filter(([name]) => !known.has(name))
     .map(([name, { machine, agent }]) => ({ name, machine, status: agent.agent_status }));
+  live = [...seen.entries()].map(([name, { machine, agent }]) => ({ name, machine, status: agent.agent_status, lane: known.has(name) }));
   lastSync = { at: now, errors };
   // HQ is typed into on this machine: check it there even when this machine's lanes are not tracked.
   if (!MACHINES.includes(LOCAL)) local = await herdrList(LOCAL).catch((e) => (errors.push(`${LOCAL}: ${(e as Error).message}`), null));

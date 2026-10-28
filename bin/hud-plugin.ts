@@ -8,7 +8,7 @@ import { createHash } from "node:crypto";
 import { dirname, join, resolve as resolvePath } from "node:path";
 import { platform, pluginId, serviceFor, servicePath, type ServiceSpec } from "./service.ts";
 import { installHud } from "./hud-command.ts";
-import { GUIDE } from "../src/hq-guide.ts";
+import { GUIDE, guideFor } from "../src/hq-guide.ts";
 import { herdrConfigDir, resolveDirs } from "./dirs.ts";
 import { giveSecrets, takeSecrets, type Held } from "../src/secret-handover.ts";
 
@@ -347,7 +347,7 @@ async function status() {
   }
 }
 
-// ---- the HQ guide: typed once into each new session of the HQ agent ----
+// ---- the HQ guide: typed once into each new session of an HQ agent (the configured one, or any floor's) ----
 // The owner reads the HUD, not HQ's terminal; an HQ that does not know that answers into a terminal nobody reads.
 // herdr runs `greet` on pane.agent_detected with HERDR_PANE_ID set. A session is remembered by herdr's
 // agent_session (or, without one, the pane and its terminal), so a re-detection never types the guide twice.
@@ -355,6 +355,22 @@ async function status() {
 const greetOff = () => setting("HUD_HQ_GREET") === "0";
 const sessionKey = (a: any) => (a?.agent_session?.value ? `session:${a.agent_session.value}` : `pane:${a?.pane_id}:${a?.terminal_id ?? ""}`);
 const greetFile = (key: string) => join(GREETED, `${createHash("sha256").update(key).digest("hex").slice(0, 24)}.json`);
+
+// Every floor's HQ is an HQ (docs/floors.md): agent name -> the floor it runs (null for the first floor, whose HQ gets
+// the guide as it is). Asked of the HUD once per greet; without an answer, only the configured HQ agent counts.
+let floorHqs: Map<string, { id: string; name: string } | null> | null = null;
+async function hqFloorOf(name: string): Promise<{ id: string; name: string } | null | undefined> {
+  if (name === HQ_NAME) return null;
+  if (!floorHqs) {
+    floorHqs = new Map();
+    try {
+      const res = await fetch(`${URL_BASE}/api/floors`, { signal: AbortSignal.timeout(1500) });
+      const floors = res.ok ? ((await res.json()).floors ?? []) : [];
+      floors.forEach((f: any, i: number) => f?.hq && floorHqs!.set(f.hq, i === 0 ? null : { id: f.id, name: f.name }));
+    } catch {}
+  }
+  return floorHqs.get(name);
+}
 
 async function greet() {
   if (greetOff()) return console.log("greet: off (HUD_HQ_GREET=0)");
@@ -371,14 +387,15 @@ async function greet() {
   for (;;) {
     const late = Date.now() >= deadline;
     const agent = herdrAgents()?.find((a) => a?.pane_id === pane);
-    if (agent?.name && agent.name !== HQ_NAME) return console.log(`greet: ${pane} runs ${agent.name}, not the HQ agent ${HQ_NAME}; nothing sent`);
-    if (agent?.name === HQ_NAME && agent.interactive_ready !== false && (agent.agent_session?.value || late)) return sendGuide(agent);
+    const floor = agent?.name ? await hqFloorOf(agent.name) : undefined;
+    if (agent?.name && floor === undefined) return console.log(`greet: ${pane} runs ${agent.name}, not the HQ agent ${HQ_NAME} or a floor's HQ; nothing sent`);
+    if (agent?.name && agent.interactive_ready !== false && (agent.agent_session?.value || late)) return sendGuide(agent, guideFor(floor));
     if (late) return console.log(`greet: no HQ agent ready in ${pane} after ${waitMs / 1000}s; nothing sent`);
     await Bun.sleep(Math.min(1000, Math.max(10, waitMs / 20)));
   }
 }
 
-function sendGuide(agent: any) {
+function sendGuide(agent: any, guide = GUIDE) {
   const key = sessionKey(agent);
   const file = greetFile(key);
   mkdirSync(GREETED, { recursive: true });
@@ -388,7 +405,7 @@ function sendGuide(agent: any) {
   } catch {
     return console.log(`greet: ${agent.name} (${key}) already has the guide; nothing sent`);
   }
-  const proc = Bun.spawnSync([HERDR, "agent", "prompt", agent.name, GUIDE], { stdout: "ignore", stderr: "pipe", timeout: 15_000 });
+  const proc = Bun.spawnSync([HERDR, "agent", "prompt", agent.name, guide], { stdout: "ignore", stderr: "pipe", timeout: 15_000 });
   if (proc.exitCode !== 0) {
     rmSync(file, { force: true }); // not sent, so the next detection tries again
     fail(`could not send the guide to ${agent.name}: ${proc.stderr.toString().trim() || `exit ${proc.exitCode}`}`);

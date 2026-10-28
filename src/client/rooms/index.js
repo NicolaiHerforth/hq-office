@@ -673,6 +673,8 @@ document.addEventListener("paste", (e) => {
 }, true);
 on("attach", (k) => { if (openSlug && k === key(openSlug)) sendState(); });
 on("state", render);
+// The page loads its feature folders after its first state may already be in: follow the address now too.
+if (S) render();
 on("scope", () => { renderCount(); if (qTab === "rooms") renderList(); });
 on("settings", () => { if (openSlug) renderStrip(roomOf(openSlug)); });
 on("qtab", (t) => { if (t === "rooms") render(); });

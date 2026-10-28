@@ -13,6 +13,13 @@ The owner reads the HQ Office page (the HUD), usually on a second screen, and do
 - What the owner attaches comes at the end of a note, an answer or a room message as \`[image: PATH]\` or \`[file: PATH]\`: the full path of the file on the HUD's machine. Open it from there.
 - This terminal is for your own work.`;
 
+// The guide for the HQ of one floor (not the first): the same, with which floor it owns.
+export function guideFor(floor?: { id: string; name: string } | null) {
+  if (!floor) return GUIDE;
+  const i = GUIDE.indexOf("\n");
+  return `${GUIDE.slice(0, i)}\nYou are the HQ of the ${floor.name} floor (floor id ${floor.id}). \`hud\` files your questions, updates, lanes, rooms and board items on it by itself; the owner sees them under that floor.${GUIDE.slice(i)}`;
+}
+
 // One line, so it never swamps the message it follows.
 export const HINT = "Reply through the HUD (hud tell --title T, or hud comment ID TEXT on an open question); the owner does not read this terminal.";
 

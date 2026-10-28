@@ -295,6 +295,12 @@ export async function capture(dir: string, opts: { timing?: boolean } = {}): Pro
       await evaluate(`__hq.advance(${FRAMES})`);
       return { name, first, later: await evaluate(hash) };
     };
+    // The floor bar (BUILDING, a tab per floor, + FLOOR) is on the stage since floors' navigation, also with one floor;
+    // it is left out of the style hash so the rest of the page compares with a tree from before. It comes back when the
+    // window narrows (it moves under the top bar), so it goes before every hash; the room then fits its box again.
+    const noBar = async () => {
+      if (await evaluate(`(() => { const n = document.querySelector(".floornav"); n?.remove(); return !!n; })()`)) await Bun.sleep(200);
+    };
     const noScroll = () => evaluate("document.documentElement.scrollHeight <= innerHeight && document.documentElement.scrollWidth <= innerWidth");
 
     await size(1440, 900);
@@ -306,6 +312,7 @@ export async function capture(dir: string, opts: { timing?: boolean } = {}): Pro
     const scroll: Record<string, boolean> = {};
     await open("", DAY);
     captures.push(await shot("day, asks open"));
+    await noBar();
     styles["1440x900"] = await evaluate(STYLE_HASH);
     scroll["1440x900"] = await noScroll();
     await evaluate(`document.getElementById("settingsBtn").click()`);
@@ -315,13 +322,17 @@ export async function capture(dir: string, opts: { timing?: boolean } = {}): Pro
     await evaluate(`document.querySelector("[data-levels]")?.remove(); document.querySelector('[data-set="theme"]')?.closest(".srow").remove()`);
     // The FLOORS section is new with floors' page (where a second floor is added); left out the same way.
     await evaluate(`document.querySelector("#settings [data-floors]")?.remove()`);
+    await noBar();
     styles["1440x900 settings open"] = await evaluate(STYLE_HASH);
     await evaluate(`document.querySelector('[data-qtab="messages"]').click()`);
+    await noBar();
     styles["1440x900 messages tab"] = await evaluate(STYLE_HASH);
     await evaluate(`document.querySelector('[data-qtab="questions"]').click()`);
     await evaluate(`document.querySelector('[data-select="bravo"]').click()`);
+    await noBar();
     styles["1440x900 worker selected"] = await evaluate(STYLE_HASH);
     await size(800, 900);
+    await noBar();
     styles["800x900"] = await evaluate(STYLE_HASH);
     await size(1440, 900);
     // The room with a worker selected, on a fresh page: the same first seconds after load as every other capture,
@@ -344,6 +355,7 @@ export async function capture(dir: string, opts: { timing?: boolean } = {}): Pro
       await open(`?season=${season}`, NIGHT);
       captures.push(await shot(`night, idle, ${season}`));
     }
+    await noBar();
     styles["1440x900 idle"] = await evaluate(STYLE_HASH);
     let timing: Record<string, number> | undefined;
     if (opts.timing) {

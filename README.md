@@ -147,8 +147,14 @@ A floor is one HQ agent and everything it runs. When one HQ has too many lanes, 
 nudge. Secrets, settings and machines are shared. Everything you have starts as the first floor (`HUD_FLOOR_NAME`
 names it, `HQ` by default), and one floor works exactly as HQ Office always has.
 
+On the page, the floor bar over the office shows every floor as a tab, and **+ FLOOR** adds one: give it a name and a
+colour, and either pick an agent that already runs in herdr as its HQ, or **START A NEW HQ**: the HUD opens a herdr tab
+beside your first HQ and starts `hq-<floor>` in it. A new floor shows STARTING until its HQ is up; only an HQ that was
+running and stopped raises the "HQ isn't receiving" alarm. With two or more floors, BUILDING shows them all.
+
 ```
 hud floor add backend --hq hq-backend --name Backend --color #4a90d9   # hq-backend is that HQ's name in herdr
+hud floor add legal --start --name Legal                                  # the HUD starts its HQ, hq-legal
 hud floor list                                                            # HQ, receiving, lanes, waiting on you
 hud floor set backend --name "Back end"
 hud floor rm backend                                                      # only an empty floor

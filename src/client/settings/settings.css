@@ -22,10 +22,6 @@
 .frow .fh { color: var(--muted); overflow-wrap: anywhere; }
 .frow .btn-s { margin-left: auto; font-size: 7px; padding: 5px 6px; }
 .fsw { width: 12px; height: 12px; border-radius: 3px; flex: none; }
-.fform { display: grid; gap: 6px; padding: 8px; border: 2px solid var(--edge-2); border-radius: 8px; background: #fff; }
-.fform .frow2 { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
-.fform .sk { font: 7px/1 var(--pixel); color: var(--muted); min-width: 52px; }
-.fform select.levels { flex: 1 1 180px; min-width: 0; }
 .fcolor { width: 24px; height: 24px; padding: 0; border: 2px solid var(--edge-2); border-radius: 6px; }
 .fcolor.on { border-color: var(--ink); box-shadow: 0 0 0 2px var(--box), 0 0 0 4px var(--ink); }
 .fconfirm { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 13px; padding: 6px 8px; border-radius: 6px; background: #fff0f0; }

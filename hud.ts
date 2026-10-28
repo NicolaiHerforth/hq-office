@@ -40,7 +40,7 @@
 // floors: one HQ agent and everything it runs (see floorCmd below). hud tells the server which pane it runs in
 // ($HERDR_PANE_ID), so an HQ's or a lane's writes land on its own floor, and inbox, wait, ack, board, tree and
 // room list show its own floor only; --all shows every floor, and --floor ID picks a floor by hand.
-//   hud floor add ID --hq AGENT [--name N] [--color #hex]  |  list  |  set ID [--name] [--hq] [--color]  |  rm ID
+//   hud floor add ID (--hq AGENT | --start) [--name N] [--color #hex]  |  list  |  set ID [--name] [--hq] [--color]  |  rm ID
 //   hud floor tell FLOOR TEXT    type a line into another floor's HQ
 //   hud lane NAME --floor ID     move a lane, with every lane under it, to another floor
 import { GUIDE } from "./src/hq-guide.ts";
@@ -96,7 +96,9 @@ function dueAt(hhmm?: string) {
 const [cmd, ...argv] = process.argv.slice(2);
 // --all (every floor) takes no value; --json neither (read with `"json" in flags`, so it goes last or alone).
 const ALL = argv.includes("--all");
-const { flags, rest, one } = parse(argv.filter((a) => a !== "--all"));
+// --start (hud floor add: the server starts the new floor's HQ) takes no value either.
+const START = cmd === "floor" && argv.includes("--start");
+const { flags, rest, one } = parse(argv.filter((a) => a !== "--all" && !(cmd === "floor" && a === "--start")));
 // `hud floor` names its floor as an argument; everywhere else --floor ID picks the floor by hand.
 const FLOOR = ALL ? "all" : cmd === "floor" ? undefined : one("floor");
 
@@ -476,6 +478,7 @@ async function floorCmd() {
     console.error(`usage:
   hud floor list [--json]                                  every floor: its HQ, whether it is receiving, lanes, waiting on the owner
   hud floor add ID --hq AGENT [--name N] [--color #hex]    a new floor, run by the herdr agent AGENT
+  hud floor add ID --start [--name N] [--color #hex]       a new floor whose HQ the HUD starts: hq-ID, in a new herdr tab
   hud floor set ID [--name N] [--hq AGENT] [--color #hex]
   hud floor rm ID                                          only an empty floor (move its lanes first: hud lane NAME --floor OTHER)
   hud floor tell FLOOR TEXT                                type a line into that floor's HQ, from your floor`);
@@ -489,15 +492,18 @@ async function floorCmd() {
         break;
       }
       for (const f of floors) {
-        const link = f.receiving === true ? "receiving" : f.receiving === false ? `NOT receiving (${f.reason})` : "not checked yet";
+        const link = f.starting ? (f.notStarted ? `not started: waiting for ${f.hq} in herdr` : `STARTING: waiting for ${f.hq} in herdr`)
+          : f.receiving === true ? "receiving" : f.receiving === false ? `NOT receiving (${f.reason})` : "not checked yet";
         console.log(`${f.id === caller ? "*" : " "} ${f.id}  "${f.name}"  HQ ${f.hq}  ${link}  ${f.counts.lanes} lanes  ${f.counts.needsYou} waiting on the owner`);
       }
       break;
     }
     case "add":
       if (!id) usage();
-      await call("POST", "/api/floors", { id, name: one("name"), hq: one("hq"), color: one("color") });
-      console.log(`floor ${id} added`);
+      if (START && one("hq")) usage();
+      if (START) console.log(`starting hq-${id} in a new herdr tab…`);
+      await call("POST", "/api/floors", { id, name: one("name"), color: one("color"), ...(START ? { start: true } : { hq: one("hq") }) });
+      console.log(START ? `floor ${id} added; its HQ hq-${id} is running and gets the HQ guide` : `floor ${id} added`);
       break;
     case "set":
       if (!id) usage();

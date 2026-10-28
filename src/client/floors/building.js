@@ -1,74 +1,67 @@
-// THE BUILDING: one tile per floor, the top floor first and the first floor at the bottom, each with its name, its HQ,
-// what it counts (needs you, blocked, working, lanes) and a red mark when its HQ isn't receiving. A tile's picture is
-// a small plan of its office, drawn once and again only when its lanes or its colour change: no live canvas, no
-// frame loop. A click enters the floor (floors/index.js). Adapted from the building in PR #8 by Aleksander.
+// THE BUILDING: a grid of floors, each a tile with its name tag in its colour, its need-you dots, its HQ's state and
+// ZOOM IN ›, over a small picture of its office drawn by the room's own code (room/still.js), then a + ADD A FLOOR
+// slot and a legend: CLICK A FLOOR TO ZOOM IN. A tile's picture is drawn again only when what it shows changes (its
+// lanes, its HQ, the theme or the season) and only while the building shows: no frame loop, no live canvas per tile.
+// The layout follows the building frame in PR #8.
 import { esc, setHTML } from "../core/format.js";
-import { floorLabel, floorsOf } from "../core/floors.js";
-import { STATUS_TEXT } from "../core/status.js";
+import { MOOD_TEXT, floorLabel, floorsOf, hqMood, inkOn, moodLine, needDotsHTML } from "../core/floors.js";
+import { STILL_H, STILL_W, drawStill, stillKey } from "../room/still.js";
 
-const MAP_W = 64, MAP_H = 30, SEATS = 30;
-const drawn = new Map(); // floor id -> what its plan was drawn from
+const tiles = new Map(); // floor id -> { el, canvas, key }
+let grid = null, slot = null, legend = null;
 
-// The plan: desks with a figure per lane in its status colour, a red pixel over one that waits on you or is blocked,
-// and the floor's HQ at its terminal on the right.
-function paintMap(c, f, lanes) {
-  const key = `${f.color}|${lanes.map((l) => `${l.name}:${l.status}`).join(",")}`;
-  if (drawn.get(f.id) === key && c.dataset.drawn) return;
-  drawn.set(f.id, key);
-  c.dataset.drawn = "1";
-  const g = c.getContext("2d");
-  const r = (x, y, w, h, col) => { g.fillStyle = col; g.fillRect(x, y, w, h); };
-  r(0, 0, MAP_W, MAP_H, "#eadfc4");
-  r(51, 0, MAP_W - 51, MAP_H, "#cfe0e6");
-  r(0, 0, MAP_W, 4, f.color);
-  r(0, 4, MAP_W, 1, "#56688a");
-  lanes.slice(0, SEATS).forEach((l, i) => {
-    const x = 2 + (i % 10) * 5, y = 8 + Math.floor(i / 10) * 7;
-    const color = ["done", "parked"].includes(l.status) ? "#a8a8b8" : STATUS_TEXT[l.status]?.[1] ?? "#6a6a82";
-    r(x, y + 4, 4, 2, "#9a6a3a");
-    r(x + 1, y, 2, 2, "#f2c79a");
-    r(x + 1, y + 2, 2, 2, color);
-    if (l.status === "needs_you" || l.status === "blocked" || l.asks) r(x + 1, y - 2, 2, 1, "#d63c3c");
-  });
-  r(54, 11, 4, 4, "#1d2733");
-  r(55, 12, 2, 1, "#3ee08f");
-  r(59, 10, 2, 2, "#f2c79a");
-  r(59, 12, 2, 3, f.color);
+const LEGEND = `<b class="lhead">CLICK A FLOOR TO ZOOM IN</b>
+  <span class="lrow"><span class="fneed"><i></i></span>WAITING ON YOU</span>
+  <span class="lrow"><span class="fmark starting">STARTING</span>ITS NEW HQ IS STARTING IN HERDR</span>
+  <span class="lrow"><span class="fmark down">!</span>ITS HQ STOPPED RECEIVING</span>
+  <span class="ltext">A floor is one HQ agent and everything it runs. + FLOOR adds one: an agent that already runs, or a new HQ the HUD starts for you. Esc steps back out.</span>`;
+
+function tile(f) {
+  let t = tiles.get(f.id);
+  if (t) return t;
+  const el = document.createElement("button");
+  el.type = "button";
+  el.className = "ftile";
+  el.dataset.floor = el.dataset.floorGo = f.id;
+  el.innerHTML = `<span class="tlabel"></span><span class="tscene"><canvas class="fstill" width="${STILL_W}" height="${STILL_H}" aria-hidden="true"></canvas></span><span class="tfoot"></span>`;
+  t = { el, canvas: el.querySelector("canvas"), key: null };
+  tiles.set(f.id, t);
+  return t;
 }
 
-const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
-function infoHTML(f) {
-  const c = f.counts ?? {};
-  const counts = [
-    `<span class="${c.needsYou ? "hot" : ""}">${plural(c.needsYou ?? 0, "NEEDS YOU", "NEED YOU")}</span>`,
-    `<span class="${c.blocked ? "hot" : ""}">${c.blocked ?? 0} BLOCKED</span>`,
-    `<span>${c.working ?? 0} WORKING</span>`,
-    `<span>${plural(c.lanes ?? 0, "LANE", "LANES")}</span>`,
-  ].join(" · ");
-  return `<span class="finfo"><span class="fhead"><b class="fname">${esc(floorLabel(f))}</b><span class="fhq">HQ: ${esc(f.hq)}</span></span><span class="fcounts">${counts}</span></span>`
-    + (f.receiving === false ? `<span class="fdown" title="${esc(f.reason ?? "")}">HQ ISN'T RECEIVING</span>` : "");
-}
-
-export function renderTiles(box, S) {
-  const floors = [...floorsOf(S)].reverse();
-  const ids = floors.map((f) => f.id).join(",");
-  if (box.dataset.ids !== ids) {
-    box.dataset.ids = ids;
-    box.replaceChildren(...floors.map((f) => {
-      const t = document.createElement("button");
-      t.type = "button";
-      t.className = "ftile";
-      t.dataset.floor = t.dataset.floorGo = f.id;
-      t.innerHTML = `<canvas class="fmap" width="${MAP_W}" height="${MAP_H}" aria-hidden="true"></canvas><span class="fbody"></span>`;
-      return t;
-    }));
-    for (const id of [...drawn.keys()]) if (!floors.some((f) => f.id === id)) drawn.delete(id);
+export function renderBuilding(box, S) {
+  if (!grid) {
+    grid = document.createElement("div");
+    grid.className = "bgrid";
+    slot = document.createElement("button");
+    slot.type = "button";
+    slot.className = "ftile fslot";
+    slot.dataset.floorAdd = "";
+    slot.innerHTML = `<span class="fslotin">+ ADD A FLOOR</span>`;
+    legend = document.createElement("div");
+    legend.className = "flegend";
+    legend.innerHTML = LEGEND;
+    box.append(grid);
   }
+  const floors = floorsOf(S);
+  for (const id of [...tiles.keys()]) if (!floors.some((f) => f.id === id)) { tiles.get(id).el.remove(); tiles.delete(id); }
+  const order = [...floors.map((f) => tile(f).el), slot, legend];
+  if (order.length !== grid.children.length || order.some((el, i) => grid.children[i] !== el)) grid.replaceChildren(...order);
   for (const f of floors) {
-    const t = box.querySelector(`[data-floor-go="${CSS.escape(f.id)}"]`);
-    t.style.setProperty("--fc", f.color);
-    t.setAttribute("aria-label", `Go into the ${f.name} floor`);
-    setHTML(t.querySelector(".fbody"), infoHTML(f));
-    paintMap(t.querySelector(".fmap"), f, (S.lanes ?? []).filter((l) => l.floor === f.id));
+    const t = tiles.get(f.id), c = f.counts ?? {}, mood = hqMood(f), line = moodLine(f);
+    t.el.className = `ftile mood-${mood}`;
+    t.el.style.setProperty("--fc", f.color);
+    t.el.setAttribute("aria-label", `Zoom into the ${f.name} floor: ${c.needsYou ?? 0} waiting on you${line ? `, ${line}` : ""}`);
+    const mark = mood === "down" ? `<span class="fmark down">HQ ISN'T RECEIVING</span>` : MOOD_TEXT[mood] ? `<span class="fmark ${mood}">${MOOD_TEXT[mood]}</span>` : "";
+    setHTML(t.el.querySelector(".tlabel"), `<span class="tag floortag" style="background:${esc(f.color)};color:${inkOn(f.color)}">${esc(floorLabel(f))}</span>`
+      + (c.needsYou ? `<span class="tag count">${c.needsYou}</span>` : "") + needDotsHTML(Math.min(c.needsYou ?? 0, 5)) + mark + `<span class="zoom">ZOOM IN ›</span>`);
+    setHTML(t.el.querySelector(".tfoot"), `<span>HQ: ${esc(f.hq)}</span><span>${c.lanes ?? 0} ${c.lanes === 1 ? "LANE" : "LANES"} · ${c.working ?? 0} WORKING${c.blocked ? ` · <b class="hot">${c.blocked} BLOCKED</b>` : ""}</span>`
+      + (line ? `<span class="twhy mood-${mood}">${esc(line)}</span>` : ""));
+    const lanes = (S.lanes ?? []).filter((l) => l.floor === f.id), open = (S.open ?? []).filter((a) => a.floor === f.id);
+    const key = stillKey(f, lanes, open);
+    if (t.key !== key) {
+      t.key = key;
+      drawStill(t.canvas, f, lanes, open);
+    }
   }
 }
