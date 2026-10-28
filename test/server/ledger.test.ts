@@ -123,11 +123,11 @@ describe("server and hud CLI: the ask ledger", () => {
     const id = askId(await hud("ask", "--lane", "one", "--title", "Which way?", "--body", "Two roads.", "--opt", "Left", "--opt", "Middle", "--opt", "Right", "--rec", "Middle", "--link", "https://example.com/a"));
     const before = (await state()).open.find((a: any) => a.id === id);
     expect((await state()).ledger[id]).toBeUndefined();
-    await hud("update", String(id), "--title", "Which way now?", "--opt", "Left", "--opt", "Right");
+    await hud("update", String(id), "--title", "Which way now?", "--opt", "Left", "--opt", "Middle");
     const s = await state();
     const after = s.open.find((a: any) => a.id === id);
     expect(after.title).toBe("Which way now?");
-    expect(after.options).toEqual(["Left", "Right"]);
+    expect(after.options).toEqual(["Left", "Middle"]);
     expect(after.body).toBe("Two roads.");
     expect(after.recommended).toBe("Middle");
     expect(after.link).toBe("https://example.com/a");
@@ -142,6 +142,36 @@ describe("server and hud CLI: the ask ledger", () => {
     await hud("withdraw", String(id));
     await expect(hud("update", String(id), "--title", "x")).rejects.toThrow(/already withdrawn/);
   });
+
+  test("a2) --rec is an option's exact text or its own label's letter, stored as the full option; anything else is refused", async () => {
+    const recOf = async (id: number) => (await state()).open.find((a: any) => a.id === id)?.recommended;
+    const ask = async (title: string, opts: string[], r: string) => askId(await hud("ask", "--title", title, ...opts.flatMap((o) => ["--opt", o]), "--rec", r));
+    const refused = /is not one of the options|is the label of/;
+    const ab = ["A: Allow the two, named", "B. Allow neither"];
+    // The two rules: exact text, and a bare letter with its "A:" or "A." label.
+    expect(await recOf(await ask("Text", ab, "A: Allow the two, named"))).toBe("A: Allow the two, named");
+    expect(await recOf(await ask("Colon", ab, "A"))).toBe("A: Allow the two, named");
+    expect(await recOf(await ask("Dot", ab, "B"))).toBe("B. Allow neither");
+    // The letter goes by the option's own label, never its place.
+    expect(await recOf(await ask("Labels", ["Recommended: ship", "B: build", "A: refuse"], "A"))).toBe("A: refuse");
+    // Refused, with the options listed: an absent letter, a duplicated letter, a bare letter on unlettered options,
+    // and text that is not exact.
+    await expect(ask("Absent", ab, "C")).rejects.toThrow(/"C" is not one of the options \("A: Allow the two, named", "B. Allow neither"\)/);
+    await expect(ask("Twice", ["A: Ship", "A. Wait"], "A")).rejects.toThrow(/"A" is the label of 2 options/);
+    await expect(ask("Plain", ["Ship it", "Wait"], "A")).rejects.toThrow(refused);
+    for (const r of ["a", "Allow neither", "b. allow neither"]) await expect(ask(`Loose ${r}`, ab, r)).rejects.toThrow(refused);
+    await expect(hud("ask", "--title", "Rec none", "--rec", "A")).rejects.toThrow(/no options/);
+    // update: --rec resolves against the options it ends up with; new options that drop the recommendation need a new --rec.
+    const plain = await ask("Update", ["Ship it", "Wait"], "Wait");
+    await hud("update", String(plain), "--rec", "Ship it");
+    expect(await recOf(plain)).toBe("Ship it");
+    await expect(hud("update", String(plain), "--opt", "Wait", "--opt", "Drop it")).rejects.toThrow(/not one of the new options/);
+    await hud("update", String(plain), "--opt", "Wait", "--opt", "Drop it", "--rec", "Drop it");
+    const after = (await state()).open.find((a: any) => a.id === plain);
+    expect([after.options, after.recommended]).toEqual([["Wait", "Drop it"], "Drop it"]);
+    await expect(hud("update", String(plain), "--rec", "ship it")).rejects.toThrow(refused);
+  });
+
 
   test("b) a comment shows under its question and never reaches the inbox, the score or the timer", async () => {
     const id = askId(await hud("ask", "--lane", "two", "--title", "Merge order?"));

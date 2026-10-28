@@ -10,10 +10,28 @@ import { notifyHq } from "./hq-link.ts";
 import { commentAsk } from "./ledger.ts";
 import { floorOr, laneFloor } from "./floors.ts";
 
+// The options as given: one or many, never empty strings. createAsk and updateAsk read them the same way.
+export const optionsOf = (raw: unknown): string[] => (raw == null ? [] : Array.isArray(raw) ? raw : [raw]).map(String).filter(Boolean);
+
+// --rec names one of the options, and is stored as the full option, which is what the page marks HQ PICK. It is
+// either the option's exact text, or a bare letter that exactly one option has as its own label ("A" for
+// "A: Allow the two" or "A. Allow the two"). Anything else is refused with the options listed, never guessed.
+export function resolveRec(rec: unknown, options: string[]): string | null {
+  const r = String(rec ?? "").trim();
+  if (!r) return null;
+  if (!options.length) throw new Error(`--rec "${r}" has no options to pick from: give them with --opt`);
+  const hits = options.includes(r) ? [r] : /^[A-Za-z]$/.test(r) ? options.filter((o) => o.startsWith(`${r}:`) || o.startsWith(`${r}.`)) : [];
+  if (hits.length === 1) return hits[0];
+  const why = hits.length ? `is the label of ${hits.length} options` : "is not one of the options";
+  throw new Error(`--rec "${r}" ${why} (${options.map((o) => `"${o}"`).join(", ")}): give an option's exact text, or the letter of its "A:" label`);
+}
+
 // On its lane's floor, else the caller's (the first floor when no caller is known).
 export function createAsk(body: any, callerFloor?: string) {
   if (!body.title) throw new Error("title is required");
   const floor = laneFloor(body.lane) ?? floorOr(callerFloor);
+  const options = optionsOf(body.options);
+  const recommended = resolveRec(body.recommended, options);
   const wanted = [...new Set<string>((body.secrets ?? []).map(checkName))];
   const res = db
     .query("INSERT INTO asks (lane, kind, title, body, options, recommended, link, due, created_at, secrets, floor) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)")
@@ -22,8 +40,8 @@ export function createAsk(body: any, callerFloor?: string) {
       body.kind ?? "decision",
       body.title,
       body.body ?? null,
-      body.options?.length ? JSON.stringify(body.options) : null,
-      body.recommended ?? null,
+      options.length ? JSON.stringify(options) : null,
+      recommended,
       body.link ?? null,
       body.due ?? null,
       body.created_at ?? Date.now(),

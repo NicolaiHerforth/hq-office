@@ -9,7 +9,7 @@ import { event } from "./events.ts";
 import { addStatePart } from "./state.ts";
 import { board } from "./work-board.ts";
 import { parsePr } from "./board.ts";
-import { createAsk } from "./asks.ts";
+import { createAsk, optionsOf, resolveRec } from "./asks.ts";
 import type { Ask } from "./types.ts";
 import { underHq } from "../lane-tree.ts";
 
@@ -38,13 +38,17 @@ export function updateAsk(id: number, body: any) {
   const ask = openAsk(id);
   const set: string[] = [];
   const values: (string | null)[] = [];
+  const newOpts = body.options === undefined ? null : optionsOf(body.options);
+  const opts: string[] = newOpts ?? (ask.options ? JSON.parse(ask.options) : []);
+  // New options must still hold the recommendation, or come with a new one: a stale HQ PICK would mark nothing.
+  if (newOpts && body.recommended === undefined && ask.recommended && !opts.includes(ask.recommended))
+    throw new Error(`the recommendation "${ask.recommended}" is not one of the new options: give --rec with them`);
   for (const f of FIELDS) {
     if (body[f] === undefined) continue;
     let v: string | null;
-    if (f === "options") {
-      const opts = (Array.isArray(body.options) ? body.options : [body.options]).map(String).filter(Boolean);
-      v = opts.length ? JSON.stringify(opts) : null;
-    } else v = String(body[f]).trim() || null;
+    if (f === "options") v = opts.length ? JSON.stringify(opts) : null;
+    else if (f === "recommended") v = resolveRec(body.recommended, opts);
+    else v = String(body[f]).trim() || null;
     if (f === "title" && !v) throw new Error("title cannot be empty");
     set.push(`${f} = ?`);
     values.push(v);
