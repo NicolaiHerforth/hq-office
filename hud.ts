@@ -76,6 +76,10 @@ async function call(method: string, path: string, body?: unknown) {
     method,
     headers: { "content-type": "application/json", "x-hud": "1", ...who() },
     body: body === undefined ? undefined : JSON.stringify(body),
+  }).catch((e: unknown) => {
+    // One line instead of a stack trace when the server cannot be reached (not running, wrong HUD_URL, a sandbox).
+    console.error(`HUD unreachable at ${BASE} (${e instanceof Error ? e.message : String(e)})`);
+    process.exit(2);
   });
   const data = await res.json();
   if (!res.ok) {
@@ -170,7 +174,7 @@ switch (cmd) {
     break;
   case "tell":
   case "say":
-    await call("POST", "/api/updates", { lane: one("lane"), title: one("title"), body: one("body") });
+    await call("POST", "/api/updates", { lane: one("lane"), title: one("title"), body: one("body") ?? (rest.join(" ") || undefined) });
     break;
   case "inbox":
     console.log(JSON.stringify(await call("GET", "/api/inbox"), null, 2));

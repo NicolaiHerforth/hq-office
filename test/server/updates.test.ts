@@ -62,3 +62,21 @@ test("hud tell and hud say both post an update", async () => {
   expect(s.updates.slice(0, 2).map((u: any) => [u.title, u.lane, u.body])).toEqual([["Said", null, "the alias"], ["Told", "build", null]]);
   expect(s.updatesUnread).toBe(2);
 });
+
+test("hud tell takes the trailing words as the body when --body is absent, and --body wins when given", async () => {
+  await hud("tell", "--title", "Words", "the", "text", "of", "it");
+  await hud("tell", "--title", "Both", "--body", "flag", "ignored", "words");
+  const s = await state();
+  expect(s.updates.slice(0, 2).map((u: any) => [u.title, u.body])).toEqual([["Both", "flag"], ["Words", "the text of it"]]);
+});
+
+test("hud exits 2 with one line, not a stack trace, when the HUD cannot be reached", async () => {
+  const spare = Bun.serve({ port: 0, fetch: () => new Response("") });
+  const closed = `http://127.0.0.1:${spare.port}`;
+  await spare.stop(true);
+  const p = Bun.spawn([process.execPath, join(ROOT, "hud.ts"), "tell", "--title", "x"], { env: { ...process.env, HUD_URL: closed }, stdout: "pipe", stderr: "pipe" });
+  const [err, code] = await Promise.all([new Response(p.stderr).text(), p.exited]);
+  expect(code).toBe(2);
+  expect(err.trim().split("\n")).toHaveLength(1);
+  expect(err).toStartWith(`HUD unreachable at ${closed} (`);
+});
