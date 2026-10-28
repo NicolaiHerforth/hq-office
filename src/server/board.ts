@@ -87,7 +87,15 @@ function readChecks(rollup: any[]): { ci: PrFact["ci"]; ciAt: number | null } {
   let running = false;
   let failed = false;
   let at: number | null = null;
+  // The rollup keeps every run at the head sha, so a run superseded by a newer one (CANCELLED when a push
+  // restarts CI) still shows. Only the newest run per check counts.
+  const newest = new Map<string, any>();
   for (const c of rollup) {
+    const key = `${c.workflowName ?? ""}\u0000${c.name ?? c.context ?? ""}`;
+    const prev = newest.get(key);
+    if (!prev || (ts(c.startedAt) ?? 0) >= (ts(prev.startedAt) ?? 0)) newest.set(key, c);
+  }
+  for (const c of newest.values()) {
     const isRun = c.__typename === "CheckRun" || "conclusion" in c;
     if (isRun) {
       if (c.status && c.status !== "COMPLETED") running = true;
