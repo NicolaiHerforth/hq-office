@@ -372,6 +372,19 @@ All notable changes to HQ Office are listed here, newest first. The format follo
 - **`hud update ID --lane L` moves a question to another lane**, and `--lane hq` (or `--lane ""`) takes it off every
   lane.
 
+### Added
+
+- **Accounts.** An ACCOUNTS box beside MACHINES opens a panel over the room with every machine's Claude and Codex
+  accounts and what each has left of its 5-hour window and its week. The box says LOW or OUT before you open it.
+  Each Claude account is its own Claude home (`~/.claude` is `default`, `~/.claude-<name>` the rest). MAKE A HOME
+  builds a new one that links everything of the default home except its login files and starts from a short
+  allow-list of its settings (MCP servers, project trust, onboarding); you log in to it once. Each Claude lane has
+  a MOVE: once the lane is idle it exits Claude and starts it again on the other account with `--resume`, so the
+  conversation carries on. A working lane is refused, and a lane showing a limit, extra-usage or credits dialog is
+  never typed into: HQ Office files a question instead. A lane started this way records its account's rate limits
+  through its own status line. Codex accounts are read from the rate limits each Codex session records. The panel
+  shows account names and percentages only, never a token, an email or a credential file.
+
 ## [0.8.1] - 2026-10-24
 
 ### Changed

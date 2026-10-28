@@ -24,8 +24,8 @@ async function herdrList(machine: string): Promise<any[]> {
 
 // An idle agent can still be working. Its pane's tail says so: "· 2 shells still running", "monitor still running",
 // a status bar with "← 1 agent" or "1 shell, 1 monitor", or a running subagent listed as "◯ general-purpose  <task>  34m 0s".
-const BG = /(←\s*\d+\s+agents?|\d+\s+shells?(?:,\s*\d+\s+monitors?)?(?:\s+still running)?|\d+\s+monitors?|monitors?\s+still running)/i;
-const SUBAGENT = /^\s*◯\s+([\w.-]+)\s/m;
+export const BG = /(←\s*\d+\s+agents?|\d+\s+shells?(?:,\s*\d+\s+monitors?)?(?:\s+still running)?|\d+\s+monitors?|monitors?\s+still running)/i;
+export const SUBAGENT = /^\s*◯\s+([\w.-]+)\s/m;
 // One pane read for a lane that is not working: what still runs in the background (the last 10 lines, as before),
 // and the prompt it waits on, if any (the last 30 lines; see prompt.ts).
 async function readPane(machine: string, pane: string, blocked: boolean): Promise<{ bg: string | null; prompt: string | null }> {

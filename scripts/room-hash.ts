@@ -168,7 +168,7 @@ export async function startChrome() {
   const bin = findChrome();
   if (!bin) throw new Error("no Chrome found; set CHROME_BIN");
   const profile = mkdtempSync(join(tmpdir(), "hq-office-chrome-"));
-  const proc = Bun.spawn([bin, "--headless=new", "--remote-debugging-port=0", `--user-data-dir=${profile}`, "--no-first-run", "--no-default-browser-check", "--mute-audio", "--hide-scrollbars", "--force-device-scale-factor=1", "--disable-background-timer-throttling", "--disable-renderer-backgrounding", "about:blank"], { stdout: "ignore", stderr: "ignore" });
+  const proc = Bun.spawn([bin, "--headless=new", "--remote-debugging-port=0", `--user-data-dir=${profile}`, "--no-first-run", "--no-default-browser-check", "--use-mock-keychain", "--password-store=basic", "--mute-audio", "--hide-scrollbars", "--force-device-scale-factor=1", "--disable-background-timer-throttling", "--disable-renderer-backgrounding", "about:blank"], { stdout: "ignore", stderr: "ignore" });
   let port = "";
   for (let i = 0; i < 100 && !port; i++) {
     try { port = readFileSync(join(profile, "DevToolsActivePort"), "utf8").split("\n")[0]; } catch {}
@@ -196,7 +196,7 @@ export function freePort() {
 export async function spawnServer(opts: { cwd: string; env: Record<string, string | undefined>; out?: (chunk: Uint8Array) => void }) {
   for (let attempt = 1; ; attempt++) {
     const port = freePort();
-    const proc = Bun.spawn([process.execPath, "server.ts"], { cwd: opts.cwd, env: { ...opts.env, HUD_PORT: String(port) }, stdout: "pipe", stderr: "pipe" });
+    const proc = Bun.spawn([process.execPath, "server.ts"], { cwd: opts.cwd, env: { HQ_SECURITY_BIN: "/usr/bin/false", ...opts.env, HUD_PORT: String(port) }, stdout: "pipe", stderr: "pipe" });
     let said = "";
     let listening!: (ok: boolean) => void;
     const up = new Promise<boolean>((ok) => (listening = ok));
