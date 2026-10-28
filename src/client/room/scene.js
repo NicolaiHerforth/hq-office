@@ -128,7 +128,7 @@ export function drawRoom(now, still) {
   ctx.drawImage(still, 0, 0);
   const t = steadyClock(now);
   // desk screens: lit and scrolling while the worker sits at it
-  const atDesk = new Set([...workers.values()].filter((w) => w.lane.status === "moving" && Math.abs(w.x - w.target.x) < 0.05 && Math.abs(w.y - w.target.y) < 0.05).map((w) => `${w.seat.x},${w.seat.y}`));
+  const atDesk = new Set([...workers.values()].filter((w) => w.seat && w.lane.status === "moving" && Math.abs(w.x - w.target.x) < 0.05 && Math.abs(w.y - w.target.y) < 0.05).map((w) => `${w.seat.x},${w.seat.y}`));
   for (const s of SEATS.slice(0, used)) {
     const dx = s.x * TS, dy = (s.y - 1) * TS;
     const on = atDesk.has(`${s.x},${s.y}`);

@@ -4,7 +4,7 @@ import { hash } from "../core/format.js";
 import { dressWorkers } from "./looks.js";
 import { settings } from "../settings/prefs.js";
 import { on } from "../core/bus.js";
-import { COUCH, DONE_SPOT, HQ_SPOT, QUEUE, SEATS, WAIT_SPOT, slot } from "./spots.js";
+import { COUCH, DONE_SPOT, HQ_SPOT, OVERFLOW, QUEUE, SEATS, WAIT_SPOT, slot } from "./spots.js";
 import { rebuildBlocked, route } from "./collision.js";
 import { isIdle } from "./breakroom.js";
 import { multi } from "../core/floors.js";
@@ -18,14 +18,50 @@ export function officeLanes() {
   return f ? S.lanes.filter((l) => l.floor === f) : [];
 }
 
-function targetFor(lane, i, counts) {
+// Who works at a desk: a lane that is moving, blocked or gone (the default in targetFor).
+const AWAY_FROM_DESK = new Set(["needs_you", "hq_turn", "stale", "waiting", "parked", "done"]);
+const atDesk = (lane) => !AWAY_FROM_DESK.has(lane.status);
+
+// Desks hold one worker each. A worker at a desk keeps it while it stays there. A worker sitting down takes the desk
+// its name points to (a hash, so it does not depend on the other lanes), or the next free one; desks are handed out in
+// name order, so the same lanes always get the same desks. With more workers at desks than desks, the rest stand in
+// the aisles (OVERFLOW), by name.
+function assignDesks(lanes) {
+  const desk = new Map();
+  const taken = new Map(); // seat index -> lane name
+  const index = (seat) => SEATS.indexOf(seat);
+  const sitting = lanes.filter(atDesk).sort((a, b) => a.name.localeCompare(b.name));
+  for (const lane of sitting) {
+    const kept = workers.get(lane.name)?.seat;
+    const i = kept ? index(kept) : -1;
+    if (i >= 0 && !taken.has(i)) { taken.set(i, lane.name); desk.set(lane.name, SEATS[i]); }
+  }
+  let overflow = 0;
+  for (const lane of sitting) {
+    if (desk.has(lane.name)) continue;
+    let i = hash(lane.name) % SEATS.length;
+    for (let k = 0; k < SEATS.length && taken.has(i); k++) i = (i + 1) % SEATS.length;
+    if (!taken.has(i)) {
+      taken.set(i, lane.name);
+      desk.set(lane.name, SEATS[i]);
+    } else {
+      desk.set(lane.name, null);
+      overflowAt.set(lane.name, slot(OVERFLOW, overflow++));
+    }
+  }
+  return desk;
+}
+// Where each worker without a desk stands, from the last assignDesks.
+const overflowAt = new Map();
+
+function targetFor(lane, seat, counts) {
   const st = lane.status;
   if (st === "needs_you") return { at: slot(QUEUE, counts.queue++), face: "up" };
   if (st === "hq_turn" || st === "stale") return { at: slot(HQ_SPOT, counts.hq++), face: "left" };
   if (st === "waiting") return { at: slot(WAIT_SPOT, counts.wait++), face: "down" };
   if (st === "parked") return { at: slot(COUCH, counts.couch++), face: "down" };
   if (st === "done") return { at: slot(DONE_SPOT, counts.done++), face: "down" };
-  return { at: SEATS[i % SEATS.length], face: "up" }; // moving or gone: at the desk
+  return { at: seat ?? overflowAt.get(lane.name), face: "up" }; // moving, blocked or gone: at its desk, or in the aisle
 }
 
 export function syncWorkers(initial) {
@@ -37,10 +73,13 @@ export function syncWorkers(initial) {
   const oldest = new Map();
   for (const a of S.open) if (a.lane) oldest.set(a.lane, Math.min(oldest.get(a.lane) ?? Infinity, a.created_at));
   const ordered = [...lanes].sort((a, b) => (oldest.get(a.name) ?? Infinity) - (oldest.get(b.name) ?? Infinity) || a.name.localeCompare(b.name));
+  // seatIndex numbers the lanes by name for the costumes (a player's number); desks come from assignDesks.
   const seatIndex = new Map([...lanes].sort((a, b) => a.name.localeCompare(b.name)).map((l, i) => [l.name, i]));
+  overflowAt.clear();
+  const desks = assignDesks(lanes);
   const counts = { queue: 0, hq: 0, wait: 0, couch: 0, done: 0 };
   for (const lane of ordered) {
-    const seat = seatIndex.get(lane.name);
+    const seat = desks.get(lane.name) ?? null;
     const { at, face } = targetFor(lane, seat, counts);
     let w = workers.get(lane.name);
     if (!w) {
@@ -51,7 +90,8 @@ export function syncWorkers(initial) {
     if (w.brain) { w.lane = lane; continue; } // the break room decides where idle workers go
     const prevTarget = w.target;
     w.lane = lane;
-    w.seat = SEATS[seat % SEATS.length];
+    // A lane away from its desk (queue, HQ, couch...) keeps the desk it had, so it comes back to the same one.
+    if (atDesk(lane)) w.seat = seat;
     w.face = face;
     w.target = at;
     if (initial) { w.x = at.x; w.y = at.y; w.dir = face; w.path = []; }

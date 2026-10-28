@@ -2,6 +2,9 @@
 // layout, in tiles
 export const SEATS = [];
 for (let row = 0; row < 4; row++) for (let col = 0; col < 7; col++) SEATS.push({ x: 1 + col * 2, y: 4 + row * 3 });
+// More workers at desks than desks: the rest stand in the aisles between the desk rows, in this order.
+export const OVERFLOW = [];
+for (const y of [5.6, 8.6, 11.6]) for (let col = 0; col < 7; col++) OVERFLOW.push({ x: 2 + col * 2, y });
 export const QUEUE = [];
 for (let k = 0; k < 8; k++) QUEUE.push({ x: 20, y: 4 + k });
 for (let k = 0; k < 8; k++) QUEUE.push({ x: 21.2, y: 4 + k });

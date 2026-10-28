@@ -3,6 +3,16 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.19.1] - 2026-10-28
+
+### Fixed
+
+- **One worker per desk.** With more than 28 lanes, two workers could sit at the same desk, because desks were
+  counted out by name across every lane, even lanes in the queue or on the couch. Now:
+  - only workers at their desks take one, and each keeps its desk while it stays there;
+  - a newcomer takes the desk its name points to, or the next free one, so the same lanes always get the same desks;
+  - with more workers at desks than desks, the rest stand in the aisles between the desk rows, one per spot.
+
 ## [0.19.0] - 2026-10-28
 
 ### Added
