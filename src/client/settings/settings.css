@@ -3,6 +3,8 @@
    stays in view: a click on a hero or a hat shows its result at once. */
 .settings { position: fixed; bottom: 14px; right: 14px; width: 360px; max-width: calc(100vw - 28px); max-height: calc(100vh - 28px); overflow: auto; z-index: 50; display: grid; gap: 10px; padding: 12px 14px; }
 .settings[hidden] { display: none; }
+/* CLOSE stays in reach while the panel scrolls */
+.settings > .shead { position: sticky; top: -12px; z-index: 2; background: var(--box); box-shadow: 0 -12px 0 var(--box); }
 .shead { display: flex; align-items: center; gap: 8px; }
 .srow { display: grid; gap: 6px; }
 .opts2 { display: flex; flex-wrap: wrap; gap: 5px; }
@@ -18,7 +20,7 @@
 /* FLOORS: a row per floor, and the form that adds or changes one */
 .flist { display: grid; gap: 4px; }
 .frow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 13px; }
-.frow b { font: 8px/1.4 var(--pixel); }
+.frow b { font: 700 14px/1.3 var(--text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60%; }
 .frow .fh { color: var(--muted); overflow-wrap: anywhere; }
 .frow .btn-s { margin-left: auto; font-size: 7px; padding: 5px 6px; }
 .fsw { width: 12px; height: 12px; border-radius: 3px; flex: none; }

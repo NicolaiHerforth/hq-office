@@ -75,3 +75,34 @@ test("HUD_FLOOR_NAME names the first floor, and its id is that name as a slug", 
     await server.stop();
   }
 });
+
+test("red, amber and green are the readings' colours: a floor that wears one moves to the nearest allowed colour", async () => {
+  const { data, herdr } = oldData();
+  const env = { ...process.env, HUD_FLOOR_NAME: undefined, HUD_HOST: "127.0.0.1", HUD_DATA_DIR: data, HERDR_BIN: herdr, HUD_MACHINES: "local", HUD_LOCAL_MACHINE: "local", HUD_GH_BIN: "false", HUD_HQ_AGENT: "hq" };
+  let server = await spawnServer({ cwd: ROOT, env });
+  await server.stop();
+  // Floors as 0.20.0 coloured them: amber (the first floor's old default), green, red, and a blue that stays.
+  const db = new Database(join(data, "hud.db"));
+  db.query("UPDATE floors SET color = '#e0b040'").run();
+  const add = db.query("INSERT INTO floors (id, name, color, hq, position, created_at) VALUES (?, ?, ?, ?, ?, ?)");
+  add.run("be", "Backend", "#2f9e57", "hq-be", 1, Date.now());
+  add.run("lg", "Legal", "#d63c3c", "hq-lg", 2, Date.now());
+  add.run("fe", "Frontend", "#3c6fd6", "hq-fe", 3, Date.now());
+  // Two more that would land on colours already worn: a second green and a second blue.
+  add.run("ops", "Ops", "#5cb85c", "hq-ops", 4, Date.now());
+  add.run("web", "Web", "#3c6fd6", "hq-web", 5, Date.now());
+  db.close();
+  server = await spawnServer({ cwd: ROOT, env });
+  try {
+    const s = await (await fetch(`${server.base}/api/state`)).json();
+    const colors = s.floors.map((f: any) => [f.id, f.color]);
+    expect(colors.slice(0, 4)).toEqual([["hq", "#8a5a3c"], ["be", "#1a9a8a"], ["lg", "#b0469a"], ["fe", "#3c6fd6"]]);
+    // No two floors share a colour: the second green and the second blue move to the nearest one nobody wears.
+    expect(new Set(s.floors.map((f: any) => f.color)).size).toBe(6);
+    expect(colors[4]).toEqual(["ops", "#2a9fc9"]); // green would be teal, which Backend wears: cyan is nearest
+    expect(colors[5]).toEqual(["web", "#5f6b85"]); // blue, which Frontend wears: slate is nearest
+  } finally {
+    await server.stop();
+  }
+});
+

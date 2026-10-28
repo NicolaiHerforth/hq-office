@@ -84,7 +84,7 @@ test("one floor behaves as today: S.floors has the first floor, S.hq its link, S
   const s = await state();
   expect(s.floors).toHaveLength(1);
   expect(s.floors[0]).toMatchObject({ id: "hq", name: "HQ", hq: "hq", receiving: true, reason: null });
-  expect(s.floors[0].counts).toEqual({ needsYou: 0, blocked: 0, working: 0, lanes: 0, unreadMessages: 0 });
+  expect(s.floors[0].counts).toEqual({ needsYou: 0, blocking: 0, oldestWaitAt: null, blocked: 0, working: 0, active: 0, idleSince: expect.any(Number), lanes: 0, unreadMessages: 0 });
   expect(s.hq).toMatchObject({ agent: "hq", ok: true, reason: null });
   expect(s.hqLinks.hq).toEqual(s.hq);
   expect(s.sweepByFloor.hq).toEqual({ lastAt: s.sweep.lastAt, nextAt: s.sweep.nextAt, backoff: s.sweep.backoff });
@@ -98,7 +98,7 @@ test("hud floor add, list and set; a bad id, colour or a taken HQ is refused", a
   expect(hud(null, "floor", "add", "three", "--hq", "hq-3", "--color", "green").code).not.toBe(0);
   await sync();
   const s = await state();
-  expect(s.floors.map((f: any) => [f.id, f.name, f.hq, f.color])).toEqual([["hq", "HQ", "hq", expect.any(String)], ["two", "Floor Two", "hq-two", "#33aa55"]]);
+  expect(s.floors.map((f: any) => [f.id, f.name, f.hq, f.color])).toEqual([["hq", "HQ", "hq", expect.any(String)], ["two", "Floor Two", "hq-two", "#1a9a8a"]]);
   expect(s.hqLinks.two).toMatchObject({ agent: "hq-two", ok: true });
   expect(hud(null, "floor", "set", "two", "--name", "Second").code).toBe(0);
   expect((await state()).floors[1].name).toBe("Second");
@@ -165,7 +165,7 @@ test("asks, updates and rooms: the lane's floor, else the caller's", async () =>
   expect(room("two-room")).toBe("two");
   expect(s.floors.find((f: any) => f.id === "two").counts.needsYou).toBe(2);
   expect(s.floors.find((f: any) => f.id === "two").counts.unreadMessages).toBe(2);
-});
+}, 30_000); // six hud commands, each a process: slow on a busy machine
 
 test("an answer and a NOT YET reach the ask's floor's HQ only", async () => {
   const s = await state();
@@ -316,11 +316,39 @@ test("hud floor rm is refused while the floor has work; an empty floor goes", as
   const refused = hud(null, "floor", "rm", "two");
   expect(refused.code).not.toBe(0);
   expect(refused.err).toContain("lanes");
+  // A floor's HQ must run in herdr here: hq-three does not, and is refused; once it runs it is taken.
+  expect(hud(null, "floor", "add", "three", "--hq", "hq-three").err).toContain("hq-three is not running in herdr");
+  world([HQ1, HQ2, ...LANES.map((n) => lane(n)), lane("hq-three", "idle"), lane("hq-four", "idle")]);
   expect(hud(null, "floor", "add", "three", "--hq", "hq-three").code).toBe(0);
-  expect(hud(null, "floor", "rm", "three").code).toBe(0);
+  // hq-three runs, so its guide is held for it until the sync types it in: then the floor is empty and goes.
+  await until(() => hud(null, "floor", "rm", "three").code === 0, "three's guide delivered and the floor removed");
   expect((await state()).floors.map((f: any) => f.id)).toEqual(["hq", "two"]);
   // POST /api/floors/ID with rm.
   expect((await post("/api/floors", { id: "four", hq: "hq-four" })).status).toBe(200);
-  expect((await post("/api/floors/four", { rm: true })).status).toBe(200);
+  await until(async () => (await post("/api/floors/four", { rm: true })).status === 200, "four's guide delivered and the floor removed");
+});
+
+test("no two floors share a colour: a colour another floor wears moves to the nearest free one; all seven taken, a repeat", async () => {
+  const PALETTE = ["#3c6fd6", "#1a9a8a", "#7a4fc9", "#b0469a", "#5f6b85", "#8a5a3c", "#2a9fc9"];
+  const colors = async () => (await state()).floors.map((f: any) => f.color);
+  // Floor two wears teal; asking for teal again gives the nearest free colour (cyan); asking for nothing, an unused one.
+  expect((await colors())[1]).toBe("#1a9a8a");
+  const names = ["c1", "c2", "c3", "c4", "c5", "c6"];
+  world([HQ1, HQ2, ...LANES.map((n) => lane(n)), ...names.map((n) => lane(`hq-${n}`, "idle"))]);
+  await sync();
+  expect((await post("/api/floors", { id: "c1", hq: "hq-c1", color: "#1a9a8a" })).status).toBe(200);
+  expect((await colors())[2]).toBe("#2a9fc9");
+  for (const id of ["c2", "c3", "c4", "c5"]) expect((await post("/api/floors", { id, hq: `hq-${id}` })).status).toBe(200);
+  const seven = await colors();
+  expect(seven).toHaveLength(7);
+  expect(new Set(seven).size).toBe(7);
+  expect([...seven].sort()).toEqual([...PALETTE].sort());
+  // An edit to a worn colour moves too.
+  expect((await post("/api/floors/c5", { color: "#3c6fd6" })).status).toBe(200);
+  expect(new Set(await colors()).size).toBe(7);
+  // An eighth floor: every colour is worn, so it repeats one.
+  expect((await post("/api/floors", { id: "c6", hq: "hq-c6" })).status).toBe(200);
+  expect(PALETTE).toContain((await colors())[7]);
+  for (const id of ["c1", "c2", "c3", "c4", "c5", "c6"]) await until(async () => (await post(`/api/floors/${id}`, { rm: true })).status === 200, `${id} removed`);
   expect((await post("/api/floors/two", { rm: true })).status).toBe(400);
 });

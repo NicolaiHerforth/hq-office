@@ -17,5 +17,10 @@ export function dur(ms) {
   if (h) return `${h}h${String(m % 60).padStart(2, "0")}`;
   return `${m}:${String(Math.floor(ms / 1000) % 60).padStart(2, "0")}`;
 }
+// A coarse age for a reading that changes by the minute: "4 min", "2h", "3d".
+export function ago(ms) {
+  const m = Math.max(1, Math.floor(Math.max(0, ms) / 60000)), h = Math.floor(m / 60);
+  return m < 60 ? `${m} min` : h < 48 ? `${h}h` : `${Math.floor(h / 24)}d`;
+}
 export function clock(t) { return new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); }
 export function hash(s) { let h = 2166136261; for (const c of s) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0; }

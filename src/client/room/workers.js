@@ -5,7 +5,7 @@ import { dressWorkers } from "./looks.js";
 import { settings } from "../settings/prefs.js";
 import { on } from "../core/bus.js";
 import { COUCH, DONE_SPOT, HQ_SPOT, OVERFLOW, QUEUE, SEATS, WAIT_SPOT, slot } from "./spots.js";
-import { rebuildBlocked, route } from "./collision.js";
+import { deskCount, rebuildBlocked, route } from "./collision.js";
 import { isIdle } from "./breakroom.js";
 import { multi } from "../core/floors.js";
 import { officeFloor } from "../core/scope.js";
@@ -22,26 +22,28 @@ export function officeLanes() {
 const AWAY_FROM_DESK = new Set(["needs_you", "hq_turn", "stale", "waiting", "parked", "done"]);
 const atDesk = (lane) => !AWAY_FROM_DESK.has(lane.status);
 
-// Desks hold one worker each. A worker at a desk keeps it while it stays there. A worker sitting down takes the desk
-// its name points to (a hash, so it does not depend on the other lanes), or the next free one; desks are handed out in
-// name order, so the same lanes always get the same desks. With more workers at desks than desks, the rest stand in
-// the aisles (OVERFLOW), by name.
+// Desks hold one worker each, and only the desks the room draws count: deskCount(lanes), the same number the room
+// and a building tile's still draw (collision.js). A worker at a drawn desk keeps it while it stays there. A worker
+// sitting down takes the desk its name points to (a hash, so it does not depend on the other lanes), or the next free
+// one; desks are handed out in name order, so the same lanes always get the same desks. With more workers at desks
+// than desks, the rest stand in the aisles (OVERFLOW), by name.
 function assignDesks(lanes) {
   const desk = new Map();
   const aisle = new Map(); // lane -> where it stands without a desk
   const taken = new Map(); // seat index -> lane name
+  const n = deskCount(lanes.length);
   const index = (seat) => SEATS.indexOf(seat);
   const sitting = lanes.filter(atDesk).sort((a, b) => a.name.localeCompare(b.name));
   for (const lane of sitting) {
     const kept = workers.get(lane.name)?.seat;
     const i = kept ? index(kept) : -1;
-    if (i >= 0 && !taken.has(i)) { taken.set(i, lane.name); desk.set(lane.name, SEATS[i]); }
+    if (i >= 0 && i < n && !taken.has(i)) { taken.set(i, lane.name); desk.set(lane.name, SEATS[i]); }
   }
   let overflow = 0;
   for (const lane of sitting) {
     if (desk.has(lane.name)) continue;
-    let i = hash(lane.name) % SEATS.length;
-    for (let k = 0; k < SEATS.length && taken.has(i); k++) i = (i + 1) % SEATS.length;
+    let i = hash(lane.name) % n;
+    for (let k = 0; k < n && taken.has(i); k++) i = (i + 1) % n;
     if (!taken.has(i)) {
       taken.set(i, lane.name);
       desk.set(lane.name, SEATS[i]);

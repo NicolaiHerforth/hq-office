@@ -2,6 +2,14 @@
 /* "more below" pill over the bottom of the question list, so a question past the fold is never silent */
 .below { margin-left: auto; align-self: center; background: var(--red); color: #fff; border: 2px solid #8a2020; border-radius: 6px; padding: 5px 8px; font: 7px/1 var(--pixel); white-space: nowrap; }
 .below[hidden] { display: none; }
+/* at the foot of the question list, over its last card */
+.qwrap > .below { position: absolute; z-index: 4; left: 50%; bottom: 10px; transform: translateX(-50%); margin: 0; box-shadow: 0 4px 12px rgba(0, 0, 0, .35); cursor: pointer; }
+/* NEEDS YOU, empty, inside a floor where nothing moves: not "all good" */
+.stallnote { display: grid; gap: 8px; justify-items: start; border-color: var(--amber); }
+.stallnote.late { border-color: var(--red); }
+.stallnote h2 { margin: 0; font: 10px/1.4 var(--pixel); color: #8a5a10; }
+.stallnote.late h2 { color: var(--red); }
+.stallnote p { margin: 0; font-size: 14px; }
 /* questions */
 .hud { display: grid; gap: 12px; }
 .hud h2 { margin: 0 0 4px; font: 11px/1.4 var(--pixel); }

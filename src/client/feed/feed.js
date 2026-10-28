@@ -6,8 +6,8 @@ import { clock, esc, setHTML } from "../core/format.js";
 import { mdClip, mdInline } from "../core/markdown.js";
 import { scheduleTick } from "../questions/questions.js";
 import { liveSecrets, lostSecrets, renderSecrets } from "../secrets/secrets.js";
-import { listFloor, others, pick, scope, tagged } from "../core/scope.js";
-import { floorTagHTML, linkOf, scopeLineHTML } from "../core/floors.js";
+import { listFloor, pick, tagged } from "../core/scope.js";
+import { floorTagHTML, linkOf } from "../core/floors.js";
 import { unreadIn } from "../messages/messages.js";
 
 let seenUpdates = null, shownTab = null;
@@ -23,7 +23,7 @@ function updateRows() {
       <h3>${mdInline(u.title)}</h3>
       ${u.body ? `<div class="text md">${mdClip(u.body, `u${u.id}`)}</div>` : ""}
     </article>`).join("");
-  return scopeLineHTML(S, scope(), others(S.updates)) + (rows || `<div class="empty">Nothing from HQ yet.</div>`);
+  return (rows || `<div class="empty">Nothing from HQ yet.</div>`);
 }
 // The SECRETS pane is built once and only its list is redrawn, so a value being pasted survives every refresh.
 export function renderFeed() {
@@ -91,7 +91,7 @@ function logRows() {
   const notes = pick(S.notes).slice(0, 5).map((n) => ({ at: n.at, html: `<div>${tag(n)}<b>${clock(n.at)} YOU</b><div class="md inl">${mdClip(n.text, `n${n.id}`)}</div> ${noteMark(n)}</div>` }));
   const answered = pick(S.answered).slice(0, 8).map((a) => ({ at: a.answered_at, html: `<div>${tag(a)}<b>${clock(a.answered_at)} ${a.status === "withdrawn" ? "WITHDRAWN" : "ANSWERED"}</b>${esc(a.lane ? a.lane + ": " : "")}${mdInline(a.title)} → <div class="md inl ans">${mdClip(a.answer, `a${a.id}`)}</div> ${a.status === "withdrawn" ? "" : deliveryMark(`ask:${a.id}`, !!a.acked_at, "HQ acted", "HQ to act", a.floor)}</div>` }));
   const rows = [...notes, ...answered].sort((a, b) => (b.at ?? 0) - (a.at ?? 0));
-  return scopeLineHTML(S, scope(), others(S.notes) + others(S.answered)) + (rows.map((r) => r.html).join("") || `<div style="color:var(--muted)">Nothing yet today.</div>`);
+  return (rows.map((r) => r.html).join("") || `<div style="color:var(--muted)">Nothing yet today.</div>`);
 }
 $("feedBody").addEventListener("scroll", () => showEdges($("feedBody")), { passive: true });
 export function setFeedTab(v) { return (feedTab = v); }

@@ -38,3 +38,14 @@
 .health i.off { background: var(--amber); }
 .health.bad .v { color: var(--red); }
 .health.off .v { color: var(--amber); }
+/* NOTHING MOVING in the whole office: as loud as WAITING ON YOU, amber, then red after 20 minutes */
+.strip.stall { border-color: var(--amber); }
+.strip.stall > div:first-child .k, .strip.stall > div:first-child .v { color: #a86410; }
+.strip.stall.late { border-color: var(--red); }
+.strip.stall.late > div:first-child .k, .strip.stall.late > div:first-child .v { color: var(--red); }
+/* 1151 to 1300 px: the title box goes first, and no label wraps */
+@media (min-width: 1151px) and (max-width: 1300px) {
+  .top .title { display: none; }
+  .top .right .k, .top .right .v { white-space: nowrap; }
+  .strip { gap: 12px; }
+}

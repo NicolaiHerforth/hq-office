@@ -4,12 +4,12 @@ import { emit, on } from "../core/bus.js";
 import { $, keepPlace, keepScroll, pageScrolls } from "../core/dom.js";
 import { drafts, secretDrafts } from "./drafts.js";
 import { S } from "../core/state.js";
-import { clock, dur, esc, setClass, setHTML, setText } from "../core/format.js";
+import { ago, clock, dur, esc, setClass, setHTML, setText } from "../core/format.js";
 import { mdClip, mdInline } from "../core/markdown.js";
 import { renderSecretTimes } from "../secrets/secrets.js";
 import { clearImages, composer, hasImages, imageKeys } from "../images/images.js";
-import { others, pick, scope, tagged } from "../core/scope.js";
-import { floorById, floorLabel, floorTagHTML, scopeLineHTML } from "../core/floors.js";
+import { pick, scope, tagged } from "../core/scope.js";
+import { floorById, floorTagHTML, hqShown, readingOf } from "../core/floors.js";
 
 // A question below the fold gets a red pill at the bottom of the list. Click it to go to the next one.
 export function renderBelow() {
@@ -37,6 +37,16 @@ on("attach", (key) => {
 
 const KIND_LABEL = { decision: "QUESTION", action: "TO DO", info: "FYI" };
 
+// Nothing waits on you on this floor. When nothing moves either, that is not "all good": it says so, and whose it is.
+function emptyFloorHTML(f) {
+  const r = readingOf(f.counts), hq = hqShown(f) || f.hq;
+  if (!r.stall) return `<div class="box"><h2>NOTHING ON THIS FLOOR NEEDS YOU</h2></div>`;
+  const idle = r.idleSince ? ` for <span data-since="${r.idleSince}" data-ago>${ago(Date.now() - r.idleSince)}</span>` : "";
+  return `<div class="box stallnote${r.stall === 2 ? " late" : ""}"><h2>NOTHING IS MOVING</h2><p>${mdInline(`Nothing waits on you here, but nothing is moving: ${r.active} ${r.active === 1 ? "lane" : "lanes"} idle`)}${idle}. ${mdInline(`That's on **${hq}**.`)}</p><button class="btn-s" type="button" data-tell-floor="${esc(f.id)}">TELL ${esc(hq.toUpperCase())}</button></div>`;
+}
+// The +N MORE OUT OF VIEW pill sits at the foot of the list it is about.
+document.querySelector(".qwrap")?.append($("below"));
+
 export function renderHud() {
   const hud = $("hud");
   // Focus goes back only to a field being typed in (not a clicked button), and never scrolls anything to it.
@@ -46,12 +56,11 @@ export function renderHud() {
   const focusedSecret = document.activeElement?.dataset?.secret;
   const focusedMin = document.activeElement?.dataset?.secretMin !== undefined;
   // The count lives in the top bar now; the list only needs words when it is empty.
-  // Inside a floor (docs/floors.md): that floor's asks, under a line that says how many wait on other floors.
+  // Inside a floor (docs/floors.md): that floor's asks; the scope row over the list says what other floors hold.
   const open = pick(S.open), tags = tagged();
-  const line = scopeLineHTML(S, scope(), others(S.open));
-  const here = floorById(S, scope().floor);
-  const head = open.length ? "" : here && line ? `<div class="box"><h2>NOTHING ON ${esc(floorLabel(here))} NEEDS YOU</h2></div>` : `<div class="box"><h2>NOTHING NEEDS YOU</h2><div style="color:var(--muted);font-size:14px">Every worker is either at its desk or waiting on HQ or CI. Decisions and things only you can do land here.</div></div>`;
-  const html = line + head + open.map((a) => {
+  const here = scope().all ? null : floorById(S, scope().floor);
+  const head = open.length ? "" : here ? emptyFloorHTML(here) : `<div class="box"><h2>NOTHING NEEDS YOU</h2><div style="color:var(--muted);font-size:14px">Every worker is either at its desk or waiting on HQ or CI. Decisions and things only you can do land here.</div></div>`;
+  const html = head + open.map((a) => {
     const d = drafts.get(a.id) || {};
     const kind = a.kind;
     const want = a.secrets ?? [];
@@ -105,7 +114,8 @@ export function tick() {
     const de = el.querySelector(".due");
     if (due) { setText(de, due > now ? `DUE ${clock(due)}` : `OVERDUE ${clock(due)}`); setClass(de, "due" + (due <= now ? " late" : "")); }
   }
-  for (const el of document.querySelectorAll("[data-since]")) setText(el, dur(now - Number(el.dataset.since)));
+  // data-ago: a coarse age ("4 min", "2h") that wakes the clock once a minute.
+  for (const el of document.querySelectorAll("[data-since]")) setText(el, (el.hasAttribute("data-ago") ? ago : dur)(now - Number(el.dataset.since)));
   if (S) {
     const oldest = S.open.length ? Math.min(...S.open.map((a) => a.created_at)) : null;
     const age = oldest ? now - oldest : 0;
@@ -129,7 +139,7 @@ export function scheduleTick() {
   const now = Date.now();
   let wait = Infinity;
   for (const el of document.querySelectorAll("[data-created], [data-since]")) {
-    const age = now - Number(el.dataset.created ?? el.dataset.since), step = age < 3600_000 ? 1000 : 60_000;
+    const age = now - Number(el.dataset.created ?? el.dataset.since), step = age < 3600_000 && !el.hasAttribute("data-ago") ? 1000 : 60_000;
     wait = Math.min(wait, step - (age % step));
   }
   for (const el of document.querySelectorAll("[data-due]")) { const due = Number(el.dataset.due); if (due > now) wait = Math.min(wait, due - now); }

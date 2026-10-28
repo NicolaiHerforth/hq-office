@@ -4,8 +4,8 @@ import { CONFIG, S } from "../core/state.js";
 import { esc } from "../core/format.js";
 import { mdInline } from "../core/markdown.js";
 import { qTab } from "../messages/messages.js";
-import { others, pick, scope, tagged } from "../core/scope.js";
-import { floorTagHTML, scopeLineHTML } from "../core/floors.js";
+import { pick, tagged } from "../core/scope.js";
+import { floorTagHTML } from "../core/floors.js";
 
 // Read-only. Every item's state comes from the server (GitHub, the lane, open asks); this only draws it.
 // It is rebuilt when the state changes, never on a timer. STALLED work also shows as a red strip on the
@@ -67,7 +67,7 @@ export function renderWork() {
     const its = b.items.filter((i) => i.state === s);
     return its.length ? `<h4 class="${s}">${WORK_STATE[s]} (${its.length})</h4>${underManagers(its)}` : "";
   }).join("");
-  $("work").innerHTML = scopeLineHTML(S, scope(), others(S.board.items)) + (b.items.length
+  $("work").innerHTML = (b.items.length
     ? `<div class="sum">${open} OPEN · ${sum}</div>${groups}`
     : `<div class="empty">No tracked work. HQ adds it with hud track.</div>`);
 }

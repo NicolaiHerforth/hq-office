@@ -7,6 +7,7 @@
 // the first floor; an explicit floor (x-hud-floor, or floor in the body or the query) wins over all of these.
 import { LOCAL } from "./config.ts";
 import { db } from "./db.ts";
+import { FLOOR_PALETTE, freeColor } from "./floor-colors.ts";
 
 export type Floor = { id: string; name: string; color: string; hq: string; position: number; created_at: number; hq_pane: string | null; hq_seen_at: number | null };
 export type Caller = { floor: string; explicit: string | null; all: boolean; agent: string | null };
@@ -15,8 +16,8 @@ export type Caller = { floor: string; explicit: string | null; all: boolean; age
 const ENV_HQ = process.env.HUD_HQ_AGENT || "hq";
 const FLOOR_ID = /^[a-z0-9][a-z0-9-]{0,31}$/;
 const COLOR = /^#[0-9a-f]{6}$/i;
-// Colours for floors added without one, in turn.
-const COLORS = ["#e0b040", "#4a90d9", "#d9534f", "#5cb85c", "#9b59b6", "#e67e22", "#1abc9c", "#c0392b"];
+// Colours for floors added without one, in turn: the floor palette (never red, amber or green: floor-colors.ts).
+const COLORS = FLOOR_PALETTE;
 
 const withHq = (f: any): Floor => ({ ...f, hq: f.hq || ENV_HQ });
 export const floorList = () => (db.query("SELECT * FROM floors ORDER BY position, created_at").all() as any[]).map(withHq);
@@ -76,10 +77,11 @@ function checkHq(agent: unknown, except?: string) {
   if (taken) throw new Error(`${hq} is already the HQ of floor ${taken.id}: one HQ runs one floor`);
   return hq;
 }
-function checkColor(color: unknown) {
+// A colour asked for, as the floor gets it: never red, amber or green, and not one another floor wears while one is free.
+function checkColor(color: unknown, except?: string) {
   const c = String(color ?? "").trim();
   if (!COLOR.test(c)) throw new Error("a colour is #rrggbb, such as #4a90d9");
-  return c.toLowerCase();
+  return freeColor(c, floorList().filter((f) => f.id !== except).map((f) => f.color));
 }
 
 // A new floor as asked for, checked but not yet stored: { id, name, color, hq }. With `start` its HQ is the one the
@@ -92,7 +94,7 @@ export function newFloor(body: any, start = false) {
   return {
     id,
     name: String(body.name ?? "").trim() || id,
-    color: body.color ? checkColor(body.color) : COLORS[n % COLORS.length],
+    color: body.color ? checkColor(body.color) : COLORS.find((c) => !floorList().some((f) => f.color === c)) ?? COLORS[n % COLORS.length],
     hq: checkHq(start ? `hq-${id}` : body.hq),
   };
 }
@@ -116,7 +118,7 @@ export function setFloor(id: string, body: any) {
     if (!name) throw new Error("a floor's name cannot be empty");
     db.query("UPDATE floors SET name = ? WHERE id = ?").run(name, f.id);
   }
-  if (body.color !== undefined) db.query("UPDATE floors SET color = ? WHERE id = ?").run(checkColor(body.color), f.id);
+  if (body.color !== undefined) db.query("UPDATE floors SET color = ? WHERE id = ?").run(checkColor(body.color, f.id), f.id);
   if (body.hq !== undefined) {
     const hq = checkHq(body.hq, f.id);
     if (hq !== f.hq) {
@@ -148,14 +150,47 @@ export function removeFloor(id: string) {
   })();
 }
 
-// What a floor's tile counts.
-export function floorCounts(id: string) {
-  const n = (sql: string) => (db.query(sql).get(id) as { n: number }).n;
+// The three readings the owner reads at a glance, for one floor or the whole office (docs/floors.md, "Three
+// readings"): what waits on the owner (blocking: open questions and TO DOs, and since when), whether work is
+// happening (working: lanes herdr says are working or that have background work; active: lanes not done or parked),
+// and, for NOTHING MOVING, since when nothing has worked (idleSince: null while a lane works; else the latest time a
+// lane stopped working, else the last time a lane changed, else when the floor was made). Plus the floor's lanes
+// blocked on a prompt, all its lanes and its unread updates from HQ.
+type LaneRow = { phase: string; herdr: string | null; herdr_since: number | null; bg: string | null; prompt: string | null; updated_at: number | null };
+export function readingsOf(lanes: LaneRow[], waits: number[], unreadMessages: number, since: number) {
+  // Working is lanes.ts laneStatus's "moving": not at a prompt, and herdr working or background work.
+  const working = lanes.filter((l) => !l.prompt && (l.herdr === "working" || !!l.bg)).length;
+  const live = lanes.filter((l) => l.phase !== "done" && l.phase !== "parked");
+  const latest = (xs: (number | null)[]) => xs.reduce<number | null>((m, x) => (x && (!m || x > m) ? x : m), null);
   return {
-    needsYou: n("SELECT COUNT(*) AS n FROM asks WHERE floor = ? AND status = 'open'"),
-    blocked: n("SELECT COUNT(*) AS n FROM lanes WHERE floor = ? AND prompt IS NOT NULL"),
-    working: n("SELECT COUNT(*) AS n FROM lanes WHERE floor = ? AND (herdr = 'working' OR bg IS NOT NULL)"),
-    lanes: n("SELECT COUNT(*) AS n FROM lanes WHERE floor = ?"),
-    unreadMessages: n("SELECT COUNT(*) AS n FROM updates WHERE floor = ? AND read_at IS NULL"),
+    blocking: waits.length,
+    needsYou: waits.length,
+    oldestWaitAt: waits.length ? Math.min(...waits) : null,
+    working,
+    active: live.length,
+    idleSince: working ? null : latest(live.map((l) => l.herdr_since)) ?? latest(lanes.map((l) => l.updated_at)) ?? since,
+    blocked: lanes.filter((l) => l.prompt).length,
+    lanes: lanes.length,
+    unreadMessages,
   };
+}
+const LANE_COLS = "phase, herdr, herdr_since, bg, prompt, updated_at";
+export function floorCounts(id: string) {
+  const f = floorOf(id);
+  return readingsOf(
+    db.query(`SELECT ${LANE_COLS} FROM lanes WHERE floor = ?`).all(id) as LaneRow[],
+    (db.query("SELECT created_at AS at FROM asks WHERE floor = ? AND status = 'open'").all(id) as { at: number }[]).map((r) => r.at),
+    (db.query("SELECT COUNT(*) AS n FROM updates WHERE floor = ? AND read_at IS NULL").get(id) as { n: number }).n,
+    f?.created_at ?? Date.now(),
+  );
+}
+// The same for the whole office: every floor's lanes and questions.
+export function officeCounts() {
+  const first = floorOf(firstFloor());
+  return readingsOf(
+    db.query(`SELECT ${LANE_COLS} FROM lanes`).all() as LaneRow[],
+    (db.query("SELECT created_at AS at FROM asks WHERE status = 'open'").all() as { at: number }[]).map((r) => r.at),
+    (db.query("SELECT COUNT(*) AS n FROM updates WHERE read_at IS NULL").get() as { n: number }).n,
+    first?.created_at ?? Date.now(),
+  );
 }

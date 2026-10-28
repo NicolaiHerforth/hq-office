@@ -9,16 +9,17 @@ import { firstFloor, laneFloor, mustFloor, type Caller } from "./floors.ts";
 // An agent at work: herdr says working, or an idle agent still has shells, a monitor or subagents running (bg).
 export const laneWorking = (lane: Lane | null | undefined) => !!lane && (lane.herdr === "working" || !!lane.bg);
 
-// An open ask waits on the owner, but a lane can hold a parked question and work on at once: only a lane that is
-// not working reads needs_you. The state's `asks` count still shows the question on a working lane.
 // A lane blocked on a prompt in herdr (lane.prompt, set by the sync) is blocked before anything else: nothing moves
-// until someone answers it in its pane.
+// until someone answers it in its pane. Then a lane at work is moving, at its desk, whatever its phase: "working" is
+// one definition for the room, the top bar and every floor's readings (floors.ts readingsOf). An open ask waits on
+// the owner, but a lane can hold a parked question and work on at once: only a lane that is not working reads
+// needs_you. The state's `asks` count still shows the question on a working lane.
 export function laneStatus(lane: Lane, openByLane: Map<string, number>, now: number): string {
   if (lane.prompt) return "blocked";
-  if (openByLane.get(lane.name) && !laneWorking(lane)) return "needs_you";
+  if (laneWorking(lane)) return "moving";
+  if (openByLane.get(lane.name)) return "needs_you";
   if (lane.phase === "done" || lane.phase === "parked") return lane.phase;
   if (lane.phase === "waiting") return "waiting";
-  if (laneWorking(lane)) return "moving";
   if (lane.herdr === "gone") return "gone";
   if (lane.herdr_since && now - lane.herdr_since > STALE_MS) return "stale";
   return "hq_turn";

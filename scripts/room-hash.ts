@@ -298,8 +298,11 @@ export async function capture(dir: string, opts: { timing?: boolean } = {}): Pro
     // The floor bar (BUILDING, a tab per floor, + FLOOR) is on the stage since floors' navigation, also with one floor;
     // it is left out of the style hash so the rest of the page compares with a tree from before. It comes back when the
     // window narrows (it moves under the top bar), so it goes before every hash; the room then fits its box again.
+    // Floors' UI rework (0.21) moved the +N MORE OUT OF VIEW pill (hidden in these scenes) to the foot of the question
+    // list and made SETTINGS' header sticky; both are put back as they were before each hash, so the rest compares with a tree from before.
     const noBar = async () => {
       if (await evaluate(`(() => { const n = document.querySelector(".floornav"); n?.remove(); return !!n; })()`)) await Bun.sleep(200);
+      await evaluate(`(() => { const b = document.getElementById("below"); if (b) document.querySelector(".tell .head")?.append(b); const h = document.querySelector("#settings > .shead"); if (h) h.style.cssText = "position: static; top: auto; z-index: auto; background: none; box-shadow: none"; })()`);
     };
     const noScroll = () => evaluate("document.documentElement.scrollHeight <= innerHeight && document.documentElement.scrollWidth <= innerWidth");
 

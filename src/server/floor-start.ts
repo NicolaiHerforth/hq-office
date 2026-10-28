@@ -33,13 +33,14 @@ export async function startHq(floor: { id: string; name: string; hq: string }) {
   try {
     agents = await herdrList(LOCAL);
   } catch (e) {
-    throw new Error(`herdr did not answer on this machine: ${(e as Error).message}`);
+    throw new Error(`herdr did not answer on this machine (${(e as Error).message}). Is herdr running here? Try again once it is, or USE AN AGENT that runs.`);
   }
-  if (agents.some((a) => a.name === floor.hq)) throw new Error(`an agent named ${floor.hq} already runs in herdr: pick it under USE AN AGENT`);
+  if (agents.some((a) => a.name === floor.hq)) throw new Error(`an agent named ${floor.hq} already runs in herdr: pick it under USE AN AGENT (or PICK ANOTHER)`);
   const first = agents.find((a) => a.name === lead.hq);
-  if (!first?.workspace_id) throw new Error(`the first floor's HQ, ${lead.hq}, is not running in herdr on this machine, so there is no workspace to open the new HQ in. Start it yourself and pick it under USE AN AGENT`);
+  if (!first) throw new Error(`the first floor's HQ, ${lead.hq}, is not running in herdr on this machine, so there is no workspace to open the new HQ beside. Start ${lead.hq} first, or USE AN AGENT that runs.`);
+  if (!first.workspace_id) throw new Error(`herdr did not say which workspace ${lead.hq} is in, so the new HQ has nowhere to open. Update herdr, or start the new HQ yourself and USE AN AGENT.`);
   const tab = await run(["tab", "create", "--workspace", first.workspace_id, ...(first.cwd ? ["--cwd", first.cwd] : []), "--label", `${floor.name} HQ`, "--no-focus"], 15_000);
-  if (!tab.ok) throw new Error(`herdr could not open a tab for the new HQ: ${said(tab.err)}`);
+  if (!tab.ok) throw new Error(`herdr could not open a tab next to ${lead.hq}: is its workspace still open? Try again, or USE AN AGENT instead. (herdr said: ${said(tab.err)})`);
   let made: any = {};
   try {
     made = JSON.parse(tab.out).result ?? {};
@@ -48,12 +49,12 @@ export async function startHq(floor: { id: string; name: string; hq: string }) {
   const tabId = made.tab?.tab_id ?? made.tab?.id;
   if (!pane) {
     if (tabId) await run(["tab", "close", tabId], 10_000);
-    throw new Error("herdr opened a tab but did not say which pane it holds");
+    throw new Error("herdr opened a tab but did not say which pane it holds, so the new HQ could not start. The tab was closed again; try again, or USE AN AGENT instead.");
   }
   const started = await run(["agent", "start", floor.hq, "--kind", "claude", "--pane", pane, "--timeout", "60000"], 75_000);
   if (!started.ok) {
     if (tabId) await run(["tab", "close", tabId], 10_000);
-    throw new Error(`herdr could not start ${floor.hq}: ${said(started.err)}`);
+    throw new Error(`herdr could not start ${floor.hq}: ${said(started.err)}. The tab was closed again; try again, or USE AN AGENT that runs.`);
   }
   return { pane, tab: tabId ?? null };
 }

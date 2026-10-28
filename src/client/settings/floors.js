@@ -5,14 +5,14 @@ import { on } from "../core/bus.js";
 import { $ } from "../core/dom.js";
 import { esc } from "../core/format.js";
 import { S } from "../core/state.js";
-import { floorLabel, floorsOf, hqMood, MOOD_TEXT } from "../core/floors.js";
+import { floorsOf, hqMood, hqShown, MOOD_WORD } from "../core/floors.js";
 
 export function floorsRow() {
   const rows = floorsOf(S).map((f) => {
-    const mood = MOOD_TEXT[hqMood(f)];
-    return `<div class="frow" data-floor-row="${esc(f.id)}"><i class="fsw" style="background:${esc(f.color)}"></i><b>${esc(floorLabel(f))}</b><span class="fh">HQ: ${esc(f.hq)} · ${f.counts?.lanes ?? 0} ${f.counts?.lanes === 1 ? "LANE" : "LANES"}${mood ? ` · ${mood}` : ""}</span><button class="btn-s" type="button" data-floor-edit="${esc(f.id)}">EDIT</button></div>`;
+    const mood = MOOD_WORD[hqMood(f)], hq = hqShown(f);
+    return `<div class="frow" data-floor-row="${esc(f.id)}"><i class="fsw" style="background:${esc(f.color)}"></i><b title="${esc(f.name)}">${esc(f.name)}</b><span class="fh">${hq ? `HQ ${esc(hq)}` : "HQ"} ${mood} · ${f.counts?.lanes ?? 0} ${f.counts?.lanes === 1 ? "lane" : "lanes"}</span><button class="btn-s" type="button" data-floor-edit="${esc(f.id)}">EDIT</button></div>`;
   }).join("");
-  return `<div class="srow" data-floors><span class="k">FLOORS</span><div class="flist">${rows}</div><div class="opts2"><button class="btn-s" type="button" data-floor-add>+ ADD A FLOOR</button></div><span class="hint">A floor is one HQ agent and everything it runs. The floor bar over the office shows them all.</span></div>`;
+  return `<div class="srow" data-floors><span class="k">FLOORS</span><div class="flist">${rows}</div><div class="opts2"><button class="btn-s" type="button" data-floor-add>+ ADD A FLOOR</button></div><span class="hint">A floor is one HQ agent and everything it runs. The pill over the office lists them all.</span></div>`;
 }
 // The rows follow the state while the panel is open (a floor added by HQ, its lanes, its HQ).
 on("state", () => {

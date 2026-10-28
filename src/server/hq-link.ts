@@ -10,7 +10,7 @@ import { event } from "./events.ts";
 import { addStatePart } from "./state.ts";
 import { withHint } from "../hq-guide.ts";
 import { promptAgent, syncHerdr } from "./herdr.ts";
-import { firstFloor, floorCounts, floorList, floorOr, hqOf } from "./floors.ts";
+import { firstFloor, floorCounts, floorList, floorOr, hqOf, officeCounts } from "./floors.ts";
 
 type Held = { id: number; at: number; text: string; ref: string | null; error: string | null; tries: number; sent_at: number | null; confirmed_at: number | null; resend: number };
 // One floor's link. seen: what the last sync found (null: fine, or not checked yet). sent: why the last delivery
@@ -313,6 +313,8 @@ export function hqLink(floor = firstFloor()) {
   };
 }
 
+// S.office: the three readings for the whole office (floors.ts), the same definitions as each floor's counts.
+addStatePart("office", () => officeCounts());
 // S.hq: the first floor's link, as before floors. S.hqLinks: every floor's, by id. S.floors: the floors, in order,
 // with their link and what their tile counts.
 addStatePart("hq", () => hqLink());

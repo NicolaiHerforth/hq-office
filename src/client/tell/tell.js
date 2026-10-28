@@ -1,14 +1,15 @@
-// Tell HQ: the free-text note box, with its attached images and files. With floors a FLOOR select sits beside SEND
-// (as in PR #8): it shows the floor you are in, or in the building the last floor used, and can be set
-// to any other floor for one note. Its placeholder names that floor's HQ, or says when that HQ isn't receiving or is
-// still starting.
+// Tell HQ: the free-text note box, with its attached images and files. With two or more floors a compact "to: Backend ▾"
+// sits left of SEND (a native select under a label as wide as the name): it shows the floor you are in, or in the
+// building the last floor used, and can be set to any other floor for one note. Its placeholder names that floor's HQ,
+// or says when that HQ isn't receiving or is still starting. TELL <HQ> (a stalled floor's note in NEEDS YOU) points it
+// at that floor and puts the cursor in the box.
 import { $, toast } from "../core/dom.js";
 import { post } from "../core/net.js";
 import { attachButton, chipsHTML, clearImages, hasImages, notReady, withImages } from "../images/images.js";
 import { esc, setHTML } from "../core/format.js";
 import { S } from "../core/state.js";
 import { on } from "../core/bus.js";
-import { firstFloor, floorById, floorsOf, linkOf, multi } from "../core/floors.js";
+import { cut, firstFloor, floorById, floorsOf, linkOf, multi } from "../core/floors.js";
 import { scope } from "../core/scope.js";
 
 const PLACEHOLDER = $("noteText").placeholder;
@@ -40,7 +41,8 @@ $("compose").addEventListener("submit", async (e) => {
     await post("/api/notes", { text: withImages("note", typed), ...(floor ? { floor } : {}) });
     if (floor) remember(floor);
     $("noteText").value = ""; $("noteText").style.height = ""; clearImages("note");
-    toast(linkOf(S, floor)?.ok === false ? "KEPT. HQ ISN'T RECEIVING; IT GOES WHEN HQ IS BACK." : floorById(S, floor)?.starting ? "KEPT. IT GOES WHEN THE NEW HQ RUNS." : "SENT TO HQ.");
+    const f = multi(S) ? floorById(S, floor) : null, to = f ? `${f.name.toUpperCase()} HQ` : "HQ";
+    toast(linkOf(S, floor)?.ok === false ? `KEPT. ${to} ISN'T RECEIVING; IT GOES WHEN IT IS BACK.` : f?.starting ? `KEPT. IT GOES WHEN ${to} RUNS.` : `SENT TO ${to}.`);
     renderTell();
   } catch (err) { toast(err.message); }
 });
@@ -51,29 +53,34 @@ document.querySelector("#compose .acts").insertAdjacentHTML("afterbegin", attach
 setHTML(document.querySelector('[data-chips="note"]'), chipsHTML("note"));
 $("compose").closest(".box").setAttribute("data-drop", "");
 
-// The FLOOR select beside SEND: made the first time there are two floors, so one floor's page is unchanged.
+// "to: Backend ▾" beside SEND: made the first time there are two floors, so one floor's page is unchanged.
+function pickFloor(id) {
+  const at = scope().floor;
+  override = at && id !== at ? { in: at, floor: id } : null;
+  remember(id);
+  renderTell();
+}
 function renderTell() {
   if (!S) return;
   const choose = multi(S);
-  let sel = $("tellFloor");
-  if (choose && !sel) {
-    sel = document.createElement("select");
-    sel.id = "tellFloor";
-    sel.className = "tfloor";
-    sel.setAttribute("aria-label", "The floor whose HQ gets this");
-    sel.addEventListener("change", () => {
-      const at = scope().floor;
-      override = at && sel.value !== at ? { in: at, floor: sel.value } : null;
-      remember(sel.value);
-      renderTell();
-    });
-    document.querySelector("#compose .acts .send").before(sel);
+  let to = document.querySelector("#compose .tto");
+  if (choose && !to) {
+    to = document.createElement("label");
+    to.className = "tto";
+    to.innerHTML = `<span class="ttk">to:</span><span class="ttn"></span><span class="ttc" aria-hidden="true">▾</span><select id="tellFloor" aria-label="The floor whose HQ gets this"></select>`;
+    to.querySelector("select").addEventListener("change", (e) => pickFloor(e.target.value));
+    document.querySelector("#compose .acts .send").before(to);
   }
-  if (sel) {
-    sel.hidden = !choose;
+  if (to) {
+    to.hidden = !choose;
     if (choose) {
+      const sel = to.querySelector("select");
       setHTML(sel, floorsOf(S).map((f) => `<option value="${esc(f.id)}">${esc(f.name)}</option>`).join(""));
       sel.value = tellFloor();
+      const f = floorById(S, sel.value);
+      setHTML(to.querySelector(".ttn"), esc(cut(f?.name ?? "", 16)));
+      to.style.setProperty("--fc", f?.color ?? "transparent");
+      to.title = f ? `To the ${f.name} floor: its HQ, ${f.hq}, gets this` : "";
     }
   }
   const floor = tellFloor(), f = floorById(S, floor);
@@ -83,4 +90,13 @@ function renderTell() {
   if ($("noteText").placeholder !== text) $("noteText").placeholder = text;
 }
 on("state", renderTell);
+// TELL <HQ>, from a floor where nothing moves: this box, to that floor.
+document.addEventListener("click", (e) => {
+  const b = e.target.closest?.("[data-tell-floor]");
+  if (!b || !S || !floorById(S, b.dataset.tellFloor)) return;
+  pickFloor(b.dataset.tellFloor);
+  const box = $("noteText");
+  box.scrollIntoView({ block: "nearest" });
+  box.focus();
+});
 on("scope", () => { if (override && override.in !== scope().floor) override = null; renderTell(); });

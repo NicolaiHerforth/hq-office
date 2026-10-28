@@ -1,124 +1,250 @@
-/* FLOORS: the floor bar and a floor's header (floornav), THE BUILDING, the floor panel, the page's frame and the scope chip, floor tags and the scope line. With one floor only the bar shows: that floor's tab and + FLOOR. Adapted from the floors in PR #8. */
-.floornav { display: grid; gap: 8px; min-width: 0; color: #f8f8f0; }
-.floorbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; min-width: 0; }
-.ftabs { display: contents; }
-.fbtn { padding: 7px 10px; min-height: 32px; font: 8px/1 var(--pixel); white-space: nowrap; border: 2px solid var(--edge-2); border-radius: 6px; background: transparent; color: #f8f8f0; cursor: pointer; }
-.fbtn:hover { border-color: #f8f8f0; }
-.fbtn.on { background: var(--box); color: var(--ink); border-color: var(--box); }
-.fbtn.fadd { border-style: dashed; }
-.fbtn.fout { background: var(--ink); border-color: var(--ink); }
-/* a floor's tab: its name on a frame of its colour, filled when you are in it */
-.ftab { display: inline-flex; align-items: stretch; min-width: 0; border: 2px solid var(--fc); border-radius: 6px; background: var(--box); overflow: hidden; }
-.ftab.on { background: var(--fc); box-shadow: 0 0 0 2px #f8f8f0; }
-.ftgo { display: inline-flex; align-items: center; gap: 6px; min-height: 28px; padding: 5px 9px; border: 0; background: none; color: var(--ink); font: 8px/1 var(--pixel); white-space: nowrap; cursor: pointer; }
-.ftab.on .ftgo { color: var(--fi, #fff); cursor: default; }
-.ftgo b { font-weight: normal; }
-.ftedit { padding: 0 8px; border: 0; border-left: 2px solid color-mix(in srgb, var(--fi, #fff) 40%, transparent); background: rgba(0, 0, 0, .14); color: var(--fi, #fff); font: 7px/1 var(--pixel); cursor: pointer; }
-.ftedit:hover { background: rgba(0, 0, 0, .28); }
-/* need-you dots, and an HQ's state: STARTING and NOT STARTED in amber, a red ! when it stopped receiving */
-.fneed { display: inline-flex; gap: 3px; }
-.fneed i { width: 7px; height: 7px; border-radius: 2px; background: var(--red); box-shadow: 0 0 0 1px #fff; }
-.fneed.n { padding: 3px 5px; border-radius: 4px; background: var(--red); color: #fff; font: 7px/1 var(--pixel); }
-.fmark { display: inline-block; padding: 3px 5px; border-radius: 4px; font: 7px/1 var(--pixel); white-space: nowrap; }
-.fmark.starting { background: var(--amber); color: #23233a; }
-.fmark.late { background: #f5e3c4; color: #7a4a10; border: 1px solid var(--amber); }
-.fmark.down { background: var(--red); color: #fff; }
-/* inside a floor: ◀ ALL FLOORS · NAME FLOOR · HQ: agent · N need you, over the office */
-.floorhead { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; padding: 8px 10px; border: 3px solid var(--fc, var(--edge)); border-radius: 8px; background: var(--box); color: var(--ink); }
-.floorhead[hidden] { display: none; }
-.floorhead .fhname { font: 11px/1.4 var(--pixel); overflow-wrap: anywhere; }
-.floorhead .fhq, .floorhead .fhwhy { font-size: 13px; color: var(--muted); overflow-wrap: anywhere; }
-.floorhead .fhsep { color: var(--edge-2); }
-.floorhead .fhneed { font: 8px/1.4 var(--pixel); color: var(--muted); }
-.floorhead .fhneed.hot { color: var(--red); }
-.floorhead .fhedit { margin-left: auto; color: var(--ink); border-color: var(--edge-2); }
-.floorhead .fhedit:hover { border-color: var(--edge); }
-/* the stage: the floor bar first, then the building or the office, then the panels under it */
+/* FLOORS (docs/floors.md, "The floor UI rules"): the switcher row and its floor list, the readings' slots and chips, THE BUILDING, the floor panel, the scope row, the top bar's FLOORS box and a card's floor stripe. Red, amber and green mean the three readings (waiting on you, nothing moving, working) and nothing else; floor names are in the text font, the pixel font is for short fixed labels. */
+
+/* the readings: slot A (! N waiting on you, Zz N nothing moving) and slot B (a green bar per working lane) */
+.slot { display: inline-flex; flex: none; align-items: center; gap: 3px; height: 20px; padding: 0 5px; border-radius: 4px; font: 8px/1 var(--pixel); white-space: nowrap; }
+.slot.sa.block { background: var(--red); color: #fff; }
+.slot.sa.idle { background: var(--amber); color: var(--ink); }
+.slot.sa.idle.late { background: var(--red); color: #fff; }
+.slot.sa b { font-weight: normal; }
+.slot.sb { gap: 2px; padding: 0 2px; color: var(--green); }
+.slot.sb i { display: block; width: 4px; height: 13px; border-radius: 1px; background: var(--green); }
+.fsw { display: inline-block; flex: none; width: 10px; height: 10px; border-radius: 3px; background: var(--fc); box-shadow: 0 0 0 1px rgba(255, 255, 255, .7); }
+
+/* the switcher row: one row over the office (under the top bar on a phone), never two, never wrapping */
+.floornav { position: relative; min-width: 0; color: #f8f8f0; }
+.fswitch { container-type: inline-size; display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; min-width: 0; height: 36px; padding: 2px; margin: -2px; overflow: hidden; }
+.fpill { display: inline-flex; flex: 0 1 auto; align-items: center; gap: 6px; min-width: 64px; max-width: 32%; height: 32px; padding: 0 10px 0 6px; border: 2px solid var(--fc, var(--edge-2)); border-radius: 8px; background: var(--box); color: var(--ink); font: 700 15px/1 var(--text); cursor: pointer; transition: transform .08s, box-shadow .08s; }
+.fpill:hover, .fpill[aria-expanded="true"] { transform: translateY(-1px); box-shadow: 0 3px 0 rgba(0, 0, 0, .35); }
+.fpill.fpbuild { --fc: #f8f8f0; flex: none; max-width: none; padding-left: 8px; }
+.fpill.fpbuild .fpname { font: 9px/1 var(--pixel); }
+.fpill.mood-starting, .fpill.mood-late, .fpill.mood-down { border-style: dashed; border-color: #8a8aa0; }
+.fpname { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fcaret { flex: none; font-size: 11px; color: var(--muted); }
+.fbtn { display: inline-flex; flex: none; align-items: center; gap: 6px; height: 32px; padding: 0 10px; font: 8px/1 var(--pixel); white-space: nowrap; border: 2px solid var(--edge-2); border-radius: 8px; background: transparent; color: #f8f8f0; cursor: pointer; transition: transform .08s; }
+.fbtn:hover { border-color: #f8f8f0; transform: translateY(-1px); }
+.freads { display: flex; flex: none; align-items: center; gap: 6px; margin-left: auto; min-width: 0; }
+.fread { display: inline-flex; flex: none; align-items: center; gap: 5px; height: 28px; padding: 0 8px; border: 2px solid rgba(255, 255, 255, .14); border-radius: 6px; color: #c8c8e0; font: 8px/1 var(--pixel); white-space: nowrap; }
+.fread b { font-weight: normal; }
+.fread.rblock.hot { background: var(--red); border-color: var(--red); color: #fff; }
+.fread.rwork.on { background: var(--green); border-color: var(--green); color: #fff; }
+.fread.rstall { background: var(--amber); border-color: var(--amber); color: var(--ink); }
+.fread.rstall.late { background: var(--red); border-color: var(--red); color: #fff; }
+.fread .ws, .fswitch .ws, .ffix .ws { display: none; }
+/* a narrow row: short words, so it stays one row */
+/* a middling row: no ages and no quiet zero, so the pill, the buttons and the readings still fit one row */
+@container (max-width: 760px) {
+  .fswitch .wl, .fswitch .fread.zero { display: none; }
+}
+@container (max-width: 600px) {
+  .fswitch .wl, .fswitch .fread.zero, .fswitch .fread.rwork, .fswitch .fedit { display: none; }
+  .fswitch .ws { display: inline; }
+  .fswitch .fpill:not(.fpbuild) { max-width: 34%; }
+}
+/* the floor pill keeps one width from floor to floor (the longest name, to a cap), so what follows never moves */
+.fpill:not(.fpbuild) { flex: none; width: var(--pillw, auto); }
+/* a floor whose HQ is not running: why, and its fix, where the readings go */
+.ffix { display: flex; flex: 0 1 auto; align-items: center; gap: 6px; min-width: 0; margin-left: auto; color: #d8d8e8; font-size: 13px; }
+.ffwhy { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ffix .btn-s { flex: none; min-height: 28px; padding: 0 8px; }
+.ffix .btn-s.ffgo { background: var(--ink); color: #fff; border-color: var(--ink); }
+.fswitch .ffix .btn-s { background: transparent; color: #f8f8f0; border-color: var(--edge-2); }
+.fswitch .ffix .btn-s.ffgo { background: var(--box); color: var(--ink); border-color: var(--box); }
+@container (max-width: 760px) { .fswitch .ffwhy { display: none; } }
+
+/* the floor list: a dropdown under the pill, a bottom sheet on a phone */
+.fmenu { position: absolute; z-index: 40; top: calc(100% + 6px); left: 0; display: grid; gap: 4px; width: min(500px, 100%); max-height: min(72dvh, 620px); overflow-y: auto; overscroll-behavior: contain; padding: 8px; border: 4px solid var(--edge); border-radius: 10px; background: var(--box); color: var(--ink); box-shadow: 0 14px 40px rgba(0, 0, 0, .5); }
+.fmenu[hidden], .fsheetbg[hidden] { display: none; }
+.fsheetbg { display: none; }
+.flhead { display: flex; align-items: center; padding: 2px 4px 6px; font: 8px/1 var(--pixel); color: var(--muted); }
+.flhead .fpx { margin-left: auto; }
+.flrow { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; border-left: 4px solid var(--fc, transparent); border-radius: 6px; }
+.flrow.on { background: #ececf6; }
+.flrow:hover { background: #f1f1f8; }
+.fli { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "id reads" "hq reads"; gap: 2px 10px; align-items: center; min-width: 0; min-height: 44px; padding: 6px 8px; border: 0; border-radius: 6px; background: none; color: inherit; text-align: left; cursor: pointer; }
+.fli:focus-visible { outline: 3px solid var(--blue); outline-offset: -3px; }
+.flid { grid-area: id; display: flex; align-items: center; gap: 6px; min-width: 0; }
+.flname { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 15px/1.2 var(--text); }
+.fbrow .flname, .flrow.fadd .flname { font: 9px/1.4 var(--pixel); }
+.flhq { grid-area: hq; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--muted); }
+.flreads { grid-area: reads; display: grid; justify-items: end; gap: 2px; font-size: 12px; color: var(--muted); white-space: nowrap; }
+.lr.lr-hot { color: var(--red); font-weight: 800; }
+.lr.lr-on { color: #1d7a43; font-weight: 800; }
+.lr.lr-stall { color: #9a5a08; font-weight: 800; }
+.lr.lr-stall.lr-late { color: var(--red); }
+.fledit { margin-right: 6px; padding: 6px 8px; border: 2px solid var(--edge-2); border-radius: 6px; background: var(--box); font: 7px/1 var(--pixel); cursor: pointer; opacity: 0; }
+.flrow:hover .fledit, .flrow:focus-within .fledit, .fledit:focus-visible { opacity: 1; }
+.flrow .ffix { grid-column: 1 / -1; margin: 0; padding: 0 8px 8px 8px; color: var(--ink); }
+.ffwhy.down { color: var(--red); }
+
+/* the top bar's FLOORS box (two or more floors): a pip per floor in its worst state, and how many lanes work */
+.ffloors { display: grid; gap: 6px; padding: 10px 14px; }
+.ffloors[hidden] { display: none; }
+.ffloors .k { font: 8px/1 var(--pixel); color: var(--muted); }
+.ffloors .v { display: flex; align-items: center; gap: 10px; }
+.ffloors .pips { display: flex; gap: 4px; }
+.pip { flex: none; box-sizing: border-box; width: 12px; min-width: 12px; height: 12px; padding: 0; border: 2px solid var(--fc); border-radius: 3px; background: #dcdce8; cursor: pointer; transition: transform .08s; }
+.pip:hover { transform: translateY(-2px); }
+.pip.is-block, .pip.is-late { background: var(--red); }
+.pip.is-idle { background: var(--amber); }
+.pip.is-work { background: var(--green); }
+.ffloors.idle { border-color: var(--amber); }
+/* the FLOORS box takes the title box's place in the top bar */
+.top:has(.ffloors:not([hidden])) .title { display: none; }
+.top:has(.ffloors:not([hidden])) .right :is(.k, .v) { white-space: nowrap; }
+
+/* the stage: the switcher row first, then the building or the office, then the panels under it */
 @media (min-width: 1151px) {
   .stage:has(> .floornav):not(.inroom) { grid-template-rows: auto minmax(0, 1fr) auto; }
 }
 .stage[data-floors="building"] > .room, .stage[data-floors="floor"] > .building, .stage:not([data-floors="building"]) > .building, .stage.inroom > .floornav, .stage.inroom > .building { display: none; }
+/* inside a floor the office's border is its colour: where you are, said once by the office */
 .stage[data-floors="floor"] > .room { border-color: var(--fc, var(--edge)); }
+/* the building has no worker to click */
+.stage[data-floors="building"] .under { grid-template-columns: minmax(0, 1fr); }
+.stage[data-floors="building"] .under > .card { display: none; }
 
-/* THE BUILDING: a grid of floors, each a small picture of its office under its tag, then + ADD A FLOOR and the legend */
-.building { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 12px; background: #1b1d2c; border-color: var(--edge); box-shadow: none; }
-.bgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px 12px; align-items: start; }
-.ftile { display: grid; gap: 6px; min-width: 0; padding: 0; border: 0; background: none; color: #f8f8f0; text-align: left; cursor: zoom-in; }
-.ftile .tlabel { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-height: 22px; font: 8px/1 var(--pixel); }
-.ftile .tlabel .zoom { margin-left: auto; color: #c8c8e0; }
-.ftile .tscene { display: block; padding: 3px; border: 3px solid var(--edge); border-radius: 10px; background: #1b1d2c; }
-.ftile .fstill { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; border-radius: 6px; }
-.ftile:hover .tscene, .ftile:focus-visible .tscene { border-color: var(--fc); }
-.ftile:hover .zoom, .ftile:focus-visible .zoom { color: #fff; }
-.ftile.mood-down .tscene { border-color: var(--red); }
-.ftile.mood-starting .tscene { border-style: dashed; border-color: var(--amber); }
-.ftile .tfoot { display: flex; flex-wrap: wrap; gap: 2px 12px; font-size: 13px; color: #c8c8e0; }
-.ftile .tfoot .hot { color: #ff8a8a; font-weight: 700; }
-.ftile .twhy { flex-basis: 100%; }
-.ftile .twhy.mood-starting, .ftile .twhy.mood-late { color: #f5c26b; }
-.ftile .twhy.mood-down { color: #ff8a8a; }
-.ftile.fslot { place-items: center; min-height: 120px; aspect-ratio: 3 / 2; border: 3px dashed var(--edge-2); border-radius: 10px; color: #c8c8e0; cursor: pointer; }
-.ftile.fslot:hover, .ftile.fslot:focus-visible { border-color: #f8f8f0; color: #fff; }
-.fslotin { font: 9px/1.4 var(--pixel); }
-.flegend { display: grid; gap: 8px; align-content: start; padding: 14px; border: 3px dashed var(--edge); border-radius: 10px; color: #c8c8e0; }
-.flegend .lhead { font: 9px/1.4 var(--pixel); color: #f8f8f0; }
-.flegend .lrow { display: flex; align-items: center; gap: 8px; font: 7px/1.4 var(--pixel); }
-.flegend .ltext { font-size: 13px; line-height: 1.45; }
-/* on a laptop two rows of floors fit the screen's height; the building scrolls for the rest */
-@media (min-width: 1151px) { .bgrid { width: min(100%, max(520px, calc((100dvh - 500px) * 1.5 + 12px))); margin-inline: auto; } }
-@media (max-width: 600px) {
-  .bgrid { grid-template-columns: minmax(0, 1fr); }
-  .ftile.fslot { aspect-ratio: auto; min-height: 56px; }
+/* THE BUILDING: tiles that fit the stage, the readings first, the picture beside them */
+.building { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 10px; background: #1b1d2c; border-color: var(--edge); box-shadow: none; }
+/* a short building (a laptop with the "HQ isn't receiving" strip up): the tiles keep the slots, the name and the
+   readings on one line, so every row still shows. Only on a desktop, where the building is a row of the stage: on a
+   phone it is as tall as its rows. */
+@media (min-width: 1151px) { .building { container: building / size; } }
+@container building (max-height: 440px) {
+  .bgrid { gap: 6px; }
+  .ftile { padding-block: 4px; }
+  .ftile .thq, .tr small { display: none; }
+  .ftile .ffwhy { flex-basis: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .tfacts { gap: 3px; }
+  .tr b { font-size: 13px; }
 }
+.bgrid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-rows: minmax(min-content, 1fr); gap: 10px; height: 100%; }
+.bgrid[data-cols="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (min-width: 1600px) { .bgrid[data-cols="3"] { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.ftile { container-type: inline-size; position: relative; display: grid; align-content: center; min-width: 0; min-height: 0; padding: 8px 12px 8px 16px; border: 3px solid var(--edge-2); border-radius: 10px; background: var(--box); color: var(--ink); box-shadow: inset 6px 0 0 var(--fc); overflow: hidden; transition: transform .08s; }
+.ftile:hover { transform: translateY(-2px); }
+.ftile.w-block, .ftile.w-late { border-color: var(--red); }
+.ftile.w-idle { border-color: var(--amber); }
+.ftile.mood-starting:not(.w-block), .ftile.mood-late:not(.w-block) { border-style: dashed; border-color: #8a8aa0; }
+.ftile .tgo { position: absolute; inset: 0; z-index: 1; padding: 0; border: 0; background: none; cursor: pointer; }
+.ftile .tgo:focus-visible { outline: 3px solid var(--blue); outline-offset: -3px; border-radius: 8px; }
+.ftile .ffix, .ftile .tenterb { position: relative; z-index: 2; }
+/* the facts, and the picture beside them: smaller as the tile narrows, never a dead half */
+.tin { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 44%); gap: 10px; align-items: center; min-height: 0; }
+@container (max-width: 320px) { .tin { grid-template-columns: minmax(0, 1fr) minmax(0, 32%); gap: 8px; } }
+@container (max-width: 200px) { .tin { grid-template-columns: minmax(0, 1fr); } .tin .tscene { display: none; } }
+.tfacts { display: grid; align-content: start; gap: 6px; min-width: 0; }
+.tlabel { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 6px; min-width: 0; }
+.tname { display: flex; align-items: center; gap: 6px; min-width: 0; font: 800 16px/1.2 var(--text); }
+.tname .fsw { flex: none; }
+.tnm { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.thq { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; color: var(--muted); }
+.hqword { font-weight: 700; color: var(--ink); }
+/* an HQ that is not there says so plainly */
+.hqword.mood-starting, .hqword.mood-late, .hqword.mood-down { display: inline-block; padding: 0 6px; border: 2px solid var(--ink); border-radius: 4px; font: 800 13px/1.4 var(--text); }
+.treads { display: flex; flex-wrap: wrap; gap: 4px 14px; }
+.tr { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; min-width: 0; white-space: nowrap; }
+.tr b { flex: none; font: 15px/1 var(--pixel); color: var(--muted); }
+.tr > span { flex: none; font: 7px/1 var(--pixel); color: var(--muted); }
+.tr small { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 12px; color: var(--muted); }
+.tr.tblock.hot b, .tr.tblock.hot > span { color: var(--red); }
+.tr.twork.on b, .tr.twork.on > span { color: #1d7a43; }
+.tr.tstall b, .tr.tstall > span { color: #9a5a08; }
+.tr.tstall.late b, .tr.tstall.late > span { color: var(--red); }
+.ftile .ffix { flex-wrap: wrap; margin: 0; color: var(--ink); white-space: normal; }
+.ftile .ffwhy { flex-basis: 100%; white-space: normal; }
+.tscene { align-self: center; display: block; min-width: 0; min-height: 0; }
+.ftile .fstill { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; border-radius: 6px; border: 2px solid var(--edge-2); }
+.tline, .tenterb { display: none; }
+.tenter { position: absolute; right: 10px; bottom: 6px; z-index: 0; font: 7px/1 var(--pixel); color: var(--muted); opacity: 0; transition: opacity .1s; }
+.ftile:hover .tenter, .ftile:focus-within .tenter { opacity: 1; }
+.fslot { display: grid; place-items: center; min-height: 0; border: 3px dashed var(--edge-2); border-radius: 10px; background: none; color: #c8c8e0; cursor: pointer; }
+.fslot:hover, .fslot:focus-visible { border-color: #f8f8f0; color: #fff; }
+.fslotin { font: 9px/1.4 var(--pixel); }
 
 /* the floor panel: add a floor, or edit one, over the stage */
 .stage:has(> .fpanel:not([hidden])) { position: relative; }
 .fpanel { position: absolute; z-index: 30; top: 48px; left: 50%; transform: translateX(-50%); width: min(560px, calc(100% - 24px)); max-height: calc(100% - 60px); overflow-y: auto; overscroll-behavior: contain; box-shadow: inset 0 0 0 3px var(--box), inset 0 0 0 5px var(--edge-2), 0 12px 40px rgba(0, 0, 0, .45); }
 .fpanel[hidden] { display: none; }
 .fpform { display: grid; gap: 12px; }
-.fphead { display: flex; align-items: center; gap: 8px; font: 10px/1.4 var(--pixel); border-bottom: 3px solid var(--fc); padding-bottom: 8px; }
-.fpx { margin-left: auto; width: 32px; height: 32px; border: 2px solid var(--edge-2); border-radius: 6px; background: var(--box); font: 12px/1 var(--pixel); cursor: pointer; }
+.fphead { display: flex; align-items: center; gap: 8px; min-width: 0; font: 10px/1.4 var(--pixel); border-bottom: 3px solid var(--fc); padding-bottom: 8px; }
+.fphead b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: normal; }
+.fphead .fname, .scoperow .fname { font: 800 15px/1.2 var(--text); }
+.fpx { flex: none; margin-left: auto; width: 32px; height: 32px; border: 2px solid var(--edge-2); border-radius: 6px; background: var(--box); font: 12px/1 var(--pixel); cursor: pointer; }
 .fprow { display: grid; grid-template-columns: 64px minmax(0, 1fr); align-items: start; gap: 8px; }
 .fprow .sk { padding-top: 12px; font: 7px/1 var(--pixel); color: var(--muted); }
-.fprow .levels { width: 100%; min-width: 0; border: 3px solid var(--edge-2); border-radius: 6px; padding: 4px 8px; font: 16px/1.3 var(--text); background: #fff; color: var(--ink); }
+.fprow .levels { width: 100%; min-width: 0; min-height: 36px; border: 3px solid var(--edge-2); border-radius: 6px; padding: 4px 8px; font: 16px/1.3 var(--text); background: #fff; color: var(--ink); }
 .fprow .levels:focus { outline: none; border-color: var(--edge); }
 .fphq { display: grid; gap: 8px; min-width: 0; }
-.fphq .btn-s { justify-self: start; }
-.fphow .btn-s.on { background: var(--ink); color: #fff; }
+.fcolor { width: 28px; height: 28px; border: 3px solid transparent; border-radius: 6px; cursor: pointer; box-shadow: 0 0 0 1px var(--edge-2); }
+.fcolor.on { border-color: var(--ink); }
+.fcolor:disabled { opacity: .3; cursor: not-allowed; }
+/* USE AN AGENT | START A NEW HQ: one control, two halves */
+.fphow { display: inline-flex; justify-self: start; border: 2px solid var(--ink); border-radius: 8px; overflow: hidden; }
+.fphow .seg { min-height: 32px; padding: 0 12px; border: 0; background: var(--box); color: var(--ink); font: 9px/1 var(--pixel); cursor: pointer; }
+.fphow .seg + .seg { border-left: 2px solid var(--ink); }
+.fphow .seg.on { background: var(--ink); color: #fff; }
 .fpnote { margin: 0; font-size: 13px; line-height: 1.45; color: var(--muted); }
 .fperr { padding: 8px 10px; border-radius: 6px; background: #fff0f0; border: 2px solid var(--red); color: #8a2020; font-size: 14px; overflow-wrap: anywhere; }
-.fpacts .btn-s { padding: 8px 10px; }
+.fpanel .fpacts .btn-s { min-height: 32px; padding: 0 12px; font-size: 9px; }
 .fpacts [data-fp-rm] { margin-left: auto; }
+.fprmwhy { text-align: right; }
 
-/* inside a floor: the page framed in its colour, and the chip under the question tabs that names it (its × steps out) */
-.floorframe { position: fixed; inset: 0; z-index: 50; border: 5px solid; pointer-events: none; }
-.floorframe[hidden] { display: none; }
-.scopechip { justify-self: start; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 8px 10px; border: 2px solid var(--fc); border-radius: 8px; background: var(--fc); font: 8px/1 var(--pixel); cursor: pointer; }
-.scopechip[hidden] { display: none; }
-.qwrap:has(> .scopechip:not([hidden])) { grid-template-rows: auto auto minmax(0, 1fr); }
-.qwrap:has(> .scopechip:not([hidden])):has(> .stall:not([hidden])) { grid-template-rows: auto auto auto minmax(0, 1fr); }
+/* inside a floor: one row under the question tabs, [Backend ×] +3 waiting on other floors · SHOW ALL */
+.scoperow { display: flex; align-items: center; gap: 8px; min-width: 0; height: 28px; }
+.scoperow[hidden] { display: none; }
+.schip { display: inline-flex; flex: 0 1 auto; align-items: center; gap: 6px; min-width: 48px; max-width: 45%; height: 28px; padding-left: 10px; border-radius: 6px; background: var(--fc); overflow: hidden; }
+.schip .fname { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
+.schip .fall { flex: none; font: 800 13px/1 var(--text); white-space: nowrap; }
+.schip .sx { flex: none; width: 28px; height: 28px; padding: 0; border: 0; background: rgba(0, 0, 0, .18); color: inherit; font: 800 16px/1 var(--text); cursor: pointer; }
+.schip .sx:hover { background: rgba(0, 0, 0, .32); }
+.sall { display: inline-flex; flex: 1 1 auto; align-items: center; gap: 6px; min-width: 0; height: 28px; padding: 0 10px; overflow: hidden; white-space: nowrap; border: 2px solid var(--edge-2); border-radius: 6px; background: var(--box); color: var(--ink); font: 7px/1 var(--pixel); text-align: left; cursor: pointer; }
+.sall .swhat { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.sall .ssep, .sall .sgo { flex: none; }
+.scoperow.hot .sall { background: var(--red); border-color: var(--red); color: #fff; }
+.qwrap:has(> .scoperow:not([hidden])) { grid-template-rows: auto auto minmax(0, 1fr); }
+.qwrap:has(> .scoperow:not([hidden])):has(> .stall:not([hidden])) { grid-template-rows: auto auto auto minmax(0, 1fr); }
 
-/* a card's floor, in the lists that show every floor */
-.tag.floortag { color: #fff; }
-/* the first line of a list scoped to a floor: what other floors hold, and the way to see it */
-.scopeline { display: block; width: 100%; margin: 0 0 8px; padding: 9px 12px; border: 2px solid var(--edge-2); border-radius: 8px; background: #fff; color: var(--ink); font: 8px/1.5 var(--pixel); text-align: left; cursor: pointer; }
-.scopeline:hover { border-color: var(--edge); }
+/* a card's floor, in a list that shows every floor: a stripe down its left edge, a swatch in its lane tag */
+:has(> .meta > .fstripe) { position: relative; }
+.fstripe { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; border-radius: 6px 0 0 6px; }
+.meta > .fswatch { position: relative; z-index: 1; flex: none; width: 8px; height: 8px; margin-right: -18px; margin-left: 6px; border-radius: 2px; box-shadow: 0 0 0 1px #fff; }
+.meta > .fswatch + .tag.lane { padding-left: 18px; }
+/* the timer stays on the right: the tags shorten first */
+.ask .meta:has(> .fstripe) { flex-wrap: nowrap; }
+.ask .meta:has(> .fstripe) > .tag { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ask .meta:has(> .fstripe) > .tag.lane { flex-shrink: 3; }
+.ask .meta:has(> .fstripe) > .timer { flex: none; }
 
-/* a narrow screen: the bar and the header under the top bar, the bar one row of tabs that scrolls sideways */
+/* a narrow screen: the row under the top bar, the list a bottom sheet, the building a list of rows */
 @media (max-width: 1150px) {
-  .floorbar { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; padding: 2px; margin: -2px; }
-  .floorbar::-webkit-scrollbar { display: none; }
-  .floorbar > *, .ftab { flex: none; }
+  .fmenu { position: fixed; z-index: 60; top: auto; left: 0; right: 0; bottom: 0; width: auto; max-height: 78dvh; border-radius: 14px 14px 0 0; border-bottom: 0; padding-bottom: max(12px, env(safe-area-inset-bottom, 0px)); }
+  .fsheetbg { display: block; position: fixed; inset: 0; z-index: 59; background: rgba(0, 0, 0, .45); }
   .fpanel { position: fixed; top: 12px; max-height: calc(100dvh - 24px); }
+  .building { overflow: visible; }
+  .bgrid, .bgrid[data-cols="3"] { grid-template-columns: minmax(0, 1fr); grid-auto-rows: auto; height: auto; gap: 6px; }
+  .ftile { height: 44px; padding: 0 10px 0 14px; align-content: center; }
+  .ftile:hover { transform: none; }
+  .ftile .thq, .ftile .treads, .ftile .tscene, .ftile .ffix, .tenter { display: none; }
+  .tin { grid-template-columns: minmax(0, 1fr); }
+  .tfacts { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; }
+  .tname { font-size: 15px; }
+  .tline { display: flex; gap: 10px; font-size: 12px; color: var(--muted); white-space: nowrap; }
+  /* a tap opens the row: its HQ, its fix, its picture and ENTER */
+  .ftile.pic { height: auto; padding: 8px 10px 10px 14px; }
+  .ftile.pic .tfacts { grid-template-columns: minmax(0, 1fr); }
+  .ftile.pic .thq, .ftile.pic .ffix { display: flex; }
+  .ftile.pic .tline { min-height: 26px; align-items: center; }
+  .ftile.pic .tscene { display: block; margin-top: 8px; }
+  .ftile.pic .fstill { width: 100%; height: auto; max-height: none; }
+  .ftile.pic .tenterb { display: block; justify-self: end; margin-top: 8px; min-height: 44px; padding: 0 14px; border: 2px solid var(--ink); border-radius: 8px; background: var(--ink); color: #fff; font: 9px/1 var(--pixel); cursor: pointer; }
+  .fslot { min-height: 44px; }
 }
 @media (max-width: 1150px) and (pointer: coarse) {
-  .fbtn, .ftgo, .ftedit { min-height: 44px; }
-  .ftedit { min-width: 44px; }
-  .floorhead .fbtn { min-height: 44px; }
-  /* the header stays short, so the questions under it keep the screen: EDIT is on the floor's tab */
-  .floorhead { gap: 4px 8px; padding: 6px 8px; }
-  .floorhead .fhedit, .floorhead .fhsep { display: none; }
-  .floorhead .fhname { font-size: 9px; }
-  html .fprow .levels { font-size: 16px; }
+  .fbtn, .fpill { height: 44px; }
+  .fswitch { height: 48px; }
   .fpx { width: 44px; height: 44px; }
+  .ffix .btn-s, .schip .sx { min-height: 44px; }
+  .scoperow, .schip, .sall { height: 44px; }
+  .schip .sx { width: 44px; height: 44px; }
+  html .fprow .levels { font-size: 16px; }
 }

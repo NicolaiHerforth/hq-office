@@ -9,8 +9,8 @@ import { renderWork } from "../work-board/work-board.js";
 import { on } from "../core/bus.js";
 import { clearImages, composer, hasImages, notReady, withImages } from "../images/images.js";
 import { emit } from "../core/bus.js";
-import { listFloor, others, pick, scope, tagged } from "../core/scope.js";
-import { floorById, floorTagHTML, scopeLineHTML } from "../core/floors.js";
+import { listFloor, pick, tagged } from "../core/scope.js";
+import { floorById, floorTagHTML } from "../core/floors.js";
 
 // QUESTIONS and MESSAGES share the question column; one shows at a time. The choice is remembered in this browser.
 // MESSAGES is one thread, oldest at the top: HQ's updates and your notes, by time. A reply is an ordinary note
@@ -120,7 +120,7 @@ export function renderMsgs() {
     post(`/api/updates/${u.id}/read`, {}).catch(() => readSent.delete(u.id));
   }
   const caret = document.activeElement?.closest?.("[data-rbox]") ? document.activeElement.selectionStart : null;
-  const html = scopeLineHTML(S, scope(), others(S.updates) + others(S.notes)) + (msgModel().roots.map((m) => msgNode(m, 0)).join("") || `<div class="empty">No messages yet. HQ's updates and your notes land here.</div>`);
+  const html = (msgModel().roots.map((m) => msgNode(m, 0)).join("") || `<div class="empty">No messages yet. HQ's updates and your notes land here.</div>`);
   if (phone()) {
     // The thread scrolls itself (core/layout.css): at the newest message (just opened, or within 40px of it), stay
     // on it; reading older ones, what you read stays where it is, whatever lands above or below.

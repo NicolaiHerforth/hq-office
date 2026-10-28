@@ -147,13 +147,17 @@ A floor is one HQ agent and everything it runs. When one HQ has too many lanes, 
 nudge. Secrets, settings and machines are shared. Everything you have starts as the first floor (`HUD_FLOOR_NAME`
 names it, `HQ` by default), and one floor works exactly as HQ Office always has.
 
-On the page, the floor bar over the office shows every floor as a tab, and **+ FLOOR** adds one: give it a name and a
-colour, and either pick an agent that already runs in herdr as its HQ, or **START A NEW HQ**: the HUD opens a herdr tab
-beside your first HQ and starts `hq-<floor>` in it. A new floor shows STARTING until its HQ is up; only an HQ that was
-running and stopped raises the "HQ isn't receiving" alarm. With two or more floors, BUILDING shows them all.
+Every floor, and the whole office, shows three readings the same way everywhere: red `! N` when N things wait on you,
+green bars for lanes working now, and amber `Zz N` when nothing is moving (lanes assigned, none working, none waiting
+on you: HQ's to unstick; red after 20 minutes). On the page, one row over the office shows the floor you are in as a
+pill; it opens the floor list, where **+ ADD A FLOOR** adds one: give it a name and a colour, and either pick an agent
+that runs in herdr on this machine as its HQ, or **START A NEW HQ**: the HUD opens a herdr tab beside your first HQ and
+starts `hq-<floor>` in it. A floor whose HQ is not running says so where it shows, with START ITS HQ and PICK ANOTHER;
+only an HQ that was running and stopped raises the "HQ isn't receiving" alarm. With two or more floors, BUILDING shows
+them all and the top bar has a pip per floor. `docs/floors.md` has the rules of the floor UI.
 
 ```
-hud floor add backend --hq hq-backend --name Backend --color #4a90d9   # hq-backend is that HQ's name in herdr
+hud floor add backend --hq hq-backend --name Backend --color #4a90d9   # hq-backend runs in herdr here
 hud floor add legal --start --name Legal                                  # the HUD starts its HQ, hq-legal
 hud floor list                                                            # HQ, receiving, lanes, waiting on you
 hud floor set backend --name "Back end"

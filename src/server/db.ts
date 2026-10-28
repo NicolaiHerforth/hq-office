@@ -3,6 +3,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { Database } from "bun:sqlite";
 import { DATA } from "./config.ts";
+import { FLOOR_PALETTE, freeColor } from "./floor-colors.ts";
 
 export const db = new Database(`${DATA}/hud.db`, { create: true });
 db.exec("PRAGMA journal_mode = WAL;");
@@ -33,7 +34,17 @@ if (!db.query("SELECT 1 FROM floors LIMIT 1").get()) {
   const name = (process.env.HUD_FLOOR_NAME ?? "").trim() || "HQ";
   const id = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 32) || "hq";
   const last = db.query("SELECT pane, seen_at FROM hq_link WHERE id = 1").get() as { pane: string; seen_at: number } | null;
-  db.query("INSERT INTO floors (id, name, color, hq, position, created_at, hq_pane, hq_seen_at) VALUES (?, ?, ?, NULL, 0, ?, ?, ?)").run(id, name, "#e0b040", Date.now(), last?.pane ?? null, last?.seen_at ?? null);
+  db.query("INSERT INTO floors (id, name, color, hq, position, created_at, hq_pane, hq_seen_at) VALUES (?, ?, ?, NULL, 0, ?, ?, ?)").run(id, name, FLOOR_PALETTE[0], Date.now(), last?.pane ?? null, last?.seen_at ?? null);
+}
+// Red, amber and green mean the three readings, never a floor, and no two floors wear one colour (floor-colors.ts): a
+// floor that wears a reserved colour, or one an earlier floor wears, moves to the nearest colour nobody wears.
+{
+  const worn: string[] = [];
+  for (const f of db.query("SELECT id, color FROM floors ORDER BY position, created_at").all() as { id: string; color: string }[]) {
+    const c = freeColor(f.color, worn);
+    if (c !== f.color.toLowerCase()) db.query("UPDATE floors SET color = ? WHERE id = ?").run(c, f.id);
+    worn.push(c);
+  }
 }
 const firstFloorId = (db.query("SELECT id FROM floors ORDER BY position, created_at LIMIT 1").get() as { id: string }).id;
 // The work_items table is the board's own (board.ts adds its floor column the same way).

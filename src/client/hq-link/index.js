@@ -9,7 +9,7 @@ import { post } from "../core/net.js";
 import { clock, esc, setHTML } from "../core/format.js";
 import { mdInline } from "../core/markdown.js";
 import { S } from "../core/state.js";
-import { floorById, floorLabel, floorsOf, linkOf, multi } from "../core/floors.js";
+import { floorById, floorLabel, floorsOf, linkOf, multi, needsFix } from "../core/floors.js";
 import { officeFloor } from "../core/scope.js";
 
 let box = null;
@@ -21,7 +21,10 @@ function fixHTML(hq, floor) {
   const fix = hq.candidate
     ? `<button class="btn hqfix" type="button" data-hq="name"${at}>NAME ${esc(hq.candidate.pane)} "${esc(hq.agent)}"</button>`
     : "";
-  return `<span class="acts">${fix}<button class="btn" type="button" data-hq="check"${at}>CHECK NOW</button></span>`;
+  // A floor's HQ that stopped and cannot be named back: start a new one, or pick another (floors/index.js).
+  const f = floor ? floorById(S, floor) : null;
+  const again = f && needsFix(S, f) ? `<button class="btn" type="button" data-floor-start="${esc(f.id)}">START ITS HQ</button><button class="btn" type="button" data-floor-pick="${esc(f.id)}">PICK ANOTHER</button>` : "";
+  return `<span class="acts">${fix}<button class="btn" type="button" data-hq="check"${at}>CHECK NOW</button>${again}</span>`;
 }
 function howHTML(hq) {
   return hq.candidate

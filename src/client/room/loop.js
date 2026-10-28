@@ -16,7 +16,7 @@ import { GLYPH, drawBubble, drawLabel, drawRoom, stillOpaque, stillPicture } fro
 import { danceMove, drawNotes, drawShadow, drawSleep, drawSparkles, isNight, slideChange, sliding } from "./hero.js";
 import { drawProp, drawWatchCheck, idleBrain, idleLift } from "./breakroom.js";
 import { changeAt, danceClock, nextChange, steadyClock, walkMs, mode } from "./beat.js";
-import { cut, floorById } from "../core/floors.js";
+import { cut, floorById, linkOf } from "../core/floors.js";
 import { inBuilding, officeFloor } from "../core/scope.js";
 
 // At most one frame is ever waiting: either its timer or the display frame the timer asked for.
@@ -104,9 +104,11 @@ function drawScene(now, dt) {
     px(17 * TS, 3 * TS + 8, 6 * TS, 3, "#8a2a2a");
     drawEventCounter(now);
     drawLabel("YOU", 20 * TS, 3 * TS + 10, true);
-    drawSprite(hqPal(), 16 * TS, 5 * TS - 6, "up", 0);
-    // Inside a floor, HQ at the terminal is that floor's HQ, by its name.
+    // Inside a floor, HQ at the terminal is that floor's HQ, by its name. An HQ that is not there (it stopped
+    // receiving, or has not started) is a grey ghost at an empty terminal, not drawn as if it worked.
     const floor = floorById(S, officeFloor());
+    const away = floor ? floor.starting || linkOf(S, floor.id)?.ok === false : S.hq?.ok === false;
+    drawSprite(hqPal(), 16 * TS, 5 * TS - 6, "up", 0, away ? 0.3 : 1);
     drawLabel(floor ? cut(floor.hq) : "HQ", 16 * TS + 8, 5 * TS + 10, true);
 
     const list = [...workers.values()];

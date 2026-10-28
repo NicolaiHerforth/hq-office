@@ -50,8 +50,13 @@ async function hud(args: string[]) {
   const [out, err, code] = await Promise.all([new Response(proc.stdout).text(), new Response(proc.stderr).text(), proc.exited]);
   return { out: out.trim(), err: err.trim(), code };
 }
+// A file change reaches the shelf by the system's file events or, when those stall (macOS's fseventsd can), by the
+// check every herdr sync makes: the wait asks for a sync now and then, so it holds either way.
 async function until(fn: () => Promise<boolean>, ms = 5000) {
-  for (const end = Date.now() + ms; Date.now() < end; await Bun.sleep(50)) if (await fn()) return;
+  for (let i = 0, end = Date.now() + ms; Date.now() < end; i++, await Bun.sleep(50)) {
+    if (await fn()) return;
+    if (i % 10 === 9) await fetch(`${BASE}/api/sync`, { method: "POST", headers: { "content-type": "application/json", "x-hud": "1" }, body: "{}" }).catch(() => {});
+  }
   throw new Error("timed out");
 }
 const shelfJson = (slug: string) => JSON.parse(readFileSync(join(ROOMS, slug, "shelf.json"), "utf8"));

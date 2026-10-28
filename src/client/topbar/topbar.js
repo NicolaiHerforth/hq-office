@@ -2,6 +2,8 @@
 import { $ } from "../core/dom.js";
 import { S } from "../core/state.js";
 import { dur, esc, setClass, setHTML, setText } from "../core/format.js";
+import { on } from "../core/bus.js";
+import { officeOf, readingOf } from "../core/floors.js";
 
 // All machines in one small box: one square per machine, and a word. It only speaks up when one is past 90% CPU or
 // memory, or offline. The per-machine numbers are in the tooltip.
@@ -22,14 +24,22 @@ export function renderMachines() {
   setHTML(box, `<span class="k">MACHINES</span><span class="v">${rows.map((r) => `<i class="${r.state}"></i>`).join("")}${esc(word)}</span>`);
 }
 
+let stallStep = 0;
+// The page clock: the office's stall shows after 3 minutes and reddens after 20.
+on("tick", () => { if (S && readingOf(officeOf(S)).stall !== stallStep) renderStats(); });
 // The top bar. The oldest wait ticks with the page clock (tick), the rest changes only with the state.
 export function renderStats() {
   const n = S.open.length;
   const sw = $("sWait");
   setClass(sw, "box urgent " + (n ? "alert" : "ok"));
   setText(sw.querySelector(".count"), n);
-  const live = S.lanes.filter((l) => !["done", "parked"].includes(l.status));
-  setText($("sMove"), `${S.lanes.filter((l) => l.status === "moving").length}/${live.length}`);
+  // WORKING: the office's readings (S.office), the same definitions as every floor's (docs/floors.md): working of
+  // active, and the box turns amber, then red, when nothing moves and nothing waits on you.
+  const o = readingOf(officeOf(S));
+  setText($("sMove"), `${o.working}/${Math.max(o.active, o.working)}`);
+  stallStep = o.stall;
+  setClass($("sMove").closest(".strip"), "box strip" + (o.stall ? ` stall${o.stall === 2 ? " late" : ""}` : ""));
+  setText($("sMove").previousElementSibling, o.stall ? "NOTHING MOVING" : "WORKING");
   setText($("sHq"), S.lanes.filter((l) => ["hq_turn", "stale", "gone"].includes(l.status)).length);
   setText($("sBank"), S.score.bank);
   const unread = S.updatesUnread ?? 0;

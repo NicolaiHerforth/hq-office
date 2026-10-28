@@ -69,3 +69,21 @@ test.skipIf(!chromeFound)("a desk's worker keeps it when another lane comes or g
   expect([...after].filter(([, s]) => s === freed)).toHaveLength(1);
   expect(errors).toEqual([]);
 });
+
+test.skipIf(!chromeFound)("with fewer than 14 lanes every working lane sits at a desk the room draws, and keeps it", async () => {
+  // Four working lanes stay: the room draws 14 desks (deskCount); each sits at one of those, none on a bare floor tile.
+  const keep = NAMES.slice(-4);
+  writeFileSync(agents, JSON.stringify([{ name: "hq", agent_status: "idle", pane_id: "p0", agent: "claude" }, ...keep.map((n, i) => ({ name: n, agent_status: "working", pane_id: `q${i}`, agent: "claude" }))]));
+  for (const name of NAMES.slice(1, -4)) await fetch(`${server.base}/api/lanes/delete`, { method: "POST", headers: { "content-type": "application/json", "x-hud": "1" }, body: JSON.stringify({ name }) });
+  await server.post("/api/sync", {});
+  await until(`import("/src/client/room/workers.js").then(({ workers }) => workers.size === 4)`);
+  const drawn = new Set<string>(JSON.parse(await page.evaluate(`Promise.all([import("/src/client/room/spots.js"), import("/src/client/room/collision.js")]).then(([{ SEATS }, { deskCount }]) => JSON.stringify(SEATS.slice(0, deskCount(4)).map((s) => s.x + "," + s.y)))`)));
+  expect(drawn.size).toBe(14);
+  const list: [string, number, number][] = JSON.parse(await page.evaluate(spots));
+  expect(list.map(([n, x, y]) => [n, drawn.has(`${x},${y}`)])).toEqual(keep.map((n) => [n, true]));
+  // The same four, the same desks, after another sync.
+  await server.post("/api/sync", {});
+  await Bun.sleep(300);
+  expect(JSON.parse(await page.evaluate(spots))).toEqual(list);
+  expect(errors).toEqual([]);
+});

@@ -3,7 +3,7 @@
 // timer. A file a lane saves into an open room's files/ joins the shelf (fs.watch, one watcher per open room, idle
 // until something changes there); a file deleted from it drops off the shelf. Files are served sandboxed by
 // routes/rooms.ts.
-import { copyFileSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, renameSync, unlinkSync, watch, writeFileSync, type FSWatcher } from "node:fs";
+import { copyFileSync, existsSync, lstatSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, watch, writeFileSync, type FSWatcher } from "node:fs";
 import { join, resolve, sep } from "node:path";
 import { DATA } from "./config.ts";
 import { safeName } from "./attachments.ts";
@@ -164,6 +164,9 @@ function reconcile(slug: string) {
 // ---- watching open rooms ----
 
 const watchers = new Map<string, FSWatcher>();
+// The open rooms, watched or not: HUD_FOLDER_WATCH=0 leaves the system's file events off and relies on checkFolders.
+const open = new Set<string>();
+const WATCH = process.env.HUD_FOLDER_WATCH !== "0";
 const pending = new Map<string, ReturnType<typeof setTimeout>>();
 function later(slug: string) {
   clearTimeout(pending.get(slug));
@@ -173,8 +176,10 @@ function later(slug: string) {
   }, QUIET_MS));
 }
 export function watchRoom(slug: string) {
-  if (watchers.has(slug)) return;
+  if (open.has(slug)) return;
+  open.add(slug);
   ensureFolder(slug);
+  if (!WATCH) return;
   try {
     const w = watch(filesDir(slug), () => later(slug));
     w.on("error", () => unwatchRoom(slug));
@@ -182,12 +187,30 @@ export function watchRoom(slug: string) {
   } catch {}
 }
 export function unwatchRoom(slug: string) {
+  open.delete(slug);
+  seenMtime.delete(slug);
   watchers.get(slug)?.close();
   watchers.delete(slug);
   clearTimeout(pending.get(slug));
   pending.delete(slug);
 }
-export const watching = () => [...watchers.keys()];
+export const watching = () => [...open];
+
+// The safety net: the system's file events can stall (macOS's fseventsd stops delivering them when it is overloaded),
+// so every herdr sync looks at each open room's files/ and catches the shelf up when the folder changed since it last
+// looked. One stat per open room every 20 s; an added or removed file changes the folder's time.
+const seenMtime = new Map<string, number>();
+export function checkFolders() {
+  let changed = false;
+  for (const slug of open) {
+    let m: number;
+    try { m = statSync(filesDir(slug)).mtimeMs; } catch { continue; }
+    if (seenMtime.get(slug) === m) continue;
+    seenMtime.set(slug, m);
+    if (reconcile(slug)) changed = true;
+  }
+  if (changed) bump();
+}
 
 // ---- at start ----
 

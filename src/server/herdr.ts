@@ -7,11 +7,18 @@ import { event } from "./events.ts";
 import { UNREAD, promptIn } from "./prompt.ts";
 import { checkHq, notifyHq } from "./hq-link.ts";
 import { sweep } from "./hq-sweep.ts";
+import { checkFolders } from "./room-folder.ts";
 import { isHqAgent, setPanes } from "./floors.ts";
 
 export let untracked: { name: string; machine: string; status: string }[] = [];
-// Every named agent herdr runs, lanes too, from the last sync: what the page offers as a floor's HQ.
+// Every named agent herdr runs, lanes too, from the last sync. A floor's HQ is one of those on this machine (the HUD
+// types into HQ here): runningHere.
 export let live: { name: string; machine: string; status: string; lane: boolean }[] = [];
+// Whether an agent runs in herdr on this machine, at the last sync: null when it does not run at all, else where.
+export function whereRuns(name: string): string | null {
+  const a = live.find((x) => x.name === name && x.status !== "gone");
+  return a ? a.machine : null;
+}
 export let lastSync: { at: number; errors: string[] } = { at: 0, errors: [] };
 
 export async function herdrList(machine: string): Promise<any[]> {
@@ -135,10 +142,13 @@ export async function syncHerdr() {
   // HQ is typed into on this machine: check it there even when this machine's lanes are not tracked.
   if (!MACHINES.includes(LOCAL)) local = await herdrList(LOCAL).catch((e) => (errors.push(`${LOCAL}: ${(e as Error).message}`), null));
   if (!MACHINES.includes(LOCAL) && local) for (const a of local as any[]) if (a.name && a.pane_id) named.push({ machine: LOCAL, pane: a.pane_id, name: a.name });
+  // A floor's HQ runs on this machine: its agents are offered even when its lanes are not tracked.
+  if (!MACHINES.includes(LOCAL) && local) for (const a of local as any[]) if (a.name && !seen.has(a.name)) live.push({ name: a.name, machine: LOCAL, status: a.agent_status, lane: known.has(a.name) });
   // A machine that did not answer keeps the panes it had.
   setPanes(named, (machine) => errors.some((e) => e.startsWith(`${machine}:`)));
   await checkHq(local, errors.find((e) => e.startsWith(`${LOCAL}:`))?.slice(LOCAL.length + 2));
   await sweep();
+  checkFolders(); // rooms' folders, in case the system's file events stalled (room-folder.ts)
   for (const lane of nowBlocked) tellBlocked(lane);
   if (changed) bump();
 }

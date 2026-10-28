@@ -3,6 +3,53 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.21.0] - 2026-10-28
+### Changed
+
+- **Three readings, the same everywhere.** Every floor, and the whole office, now answers two questions at a glance:
+  *am I the bottleneck?* and *is work happening?* Red `! N` means N questions or TO DOs wait on you; green bars mean
+  lanes are working right now; amber `Zz N` means **nothing is moving**: lanes are assigned, none is working and none
+  waits on you, so it is HQ's to unstick. It shows once it has held for 3 minutes and turns red after 20. The top bar,
+  the floor switcher, the floor list and the building tiles all count the same way, and a lane that is working is at
+  its desk in the office, whatever its phase. Red, amber and green mean only these: floors no longer wear them (a red,
+  amber or green floor moves to the nearest free colour).
+- **One row to move between floors.** The floor tabs are replaced by one switcher row over the office: the floor you are
+  in as a pill (its name in a readable font, its readings beside it), ◀ BUILDING and EDIT inside a floor, and the
+  readings in words on the right. It never wraps, at any width or with any number of floors. The pill opens the floor
+  list: BUILDING, every floor with its HQ and readings, and + ADD A FLOOR. Arrow keys, Enter and Esc work; on a phone
+  it is a sheet from the bottom.
+- **The top bar has a FLOORS box** when you have two or more floors: one pip per floor in its worst state; click one
+  to go there. Between 1151 and 1300 px wide (and whenever the FLOORS box shows) the HQ OFFICE title box makes room,
+  and no label in the top bar wraps.
+- **THE BUILDING fits the screen**: two tiles across up to four floors, then three (four on a wide screen), every row
+  visible. A tile leads with its readings, big; its office picture is smaller, beside them. On a phone each floor is a
+  row, with its picture behind PICTURE.
+- **Inside a floor** the office's border takes the floor's colour, and one row under the question tabs says
+  `[Backend ×] +3 ON OTHER FLOORS · SHOW ALL` (red when questions wait on other floors). The coloured page frame and
+  the separate floor header are gone.
+- **A floor where nothing moves says so.** Its empty NEEDS YOU no longer reads "all good": it says how many lanes are
+  idle and for how long, names the HQ it is on, and TELL <HQ> points the TELL HQ box at that floor.
+- In lists that show every floor, a card carries a stripe in its floor's colour and a swatch in its lane tag, instead
+  of a floor tag; the timer stays on the right. TELL HQ's floor is a compact `to: Backend ▾` beside SEND. Its toast
+  names the floor ("SENT TO BACKEND HQ.").
+- The floor panel: USE AN AGENT / START A NEW HQ is one control, its buttons are bigger, and REMOVE says why a floor
+  cannot go yet ("Not empty: 3 lanes, 1 question"). SETTINGS lists FLOORS first when you have two or more; Esc closes
+  SETTINGS and its CLOSE stays in reach. The "+N MORE OUT OF VIEW" pill sits at the foot of the question list.
+
+### Fixed
+
+- **A new floor no longer sits in STARTING for good.** USE AN AGENT offers only agents that run in herdr on this
+  machine (one that already runs a floor is shown, greyed, with that floor's name), and a floor's HQ that is not
+  running is refused with what to do instead. A floor whose HQ is not running shows why, with **START ITS HQ** (the HUD
+  starts `hq-<floor>` in a new herdr tab and makes it the floor's HQ) and **PICK ANOTHER**, on its tile, its row in the
+  floor list and inside it. It is never the page-wide red alarm; that stays for an HQ that ran and stopped.
+- START A NEW HQ's errors say what went wrong and what to do next.
+- An HQ that is not there is drawn as a grey ghost at its terminal, not as if it were working.
+- **Files a lane saves into a room's folder reach the shelf even when the system stops reporting file changes.**
+  macOS's file event service can stall under load, and then nothing new reached the shelf. Every 20-second sync now
+  also checks each open room's folder and catches the shelf up. `HUD_FOLDER_WATCH=0` turns the system's file events
+  off and relies on that check alone.
+
 ## [0.20.0] - 2026-10-28
 
 ### Added

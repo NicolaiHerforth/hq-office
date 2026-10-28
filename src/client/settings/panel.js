@@ -29,14 +29,17 @@ const label = (key, v) => (key === "hero" && v === DEFAULTS.hero ? CONFIG.owner.
 function renderSettings() {
   const row = (key) => `<div class="srow"><span class="k">${SETTING_TITLES[key]}</span><div class="opts2">${SETTING_OPTIONS[key].map((v) =>
     `<button class="btn-s ${settings[key] === v ? "on" : ""}" type="button" data-set="${key}" data-val="${esc(v)}">${esc(label(key, v))}</button>`).join("")}</div></div>`;
+  // With two or more floors, FLOORS comes first: it is what the owner opens SETTINGS for most.
+  const floorsFirst = (S?.floors?.length ?? 0) >= 2;
   $("settings").innerHTML = `<div class="shead"><b class="k">SETTINGS</b><span class="spacer"></span><button class="btn-s" type="button" data-close>CLOSE</button></div>`
+    + (floorsFirst ? floorsRow() : "")
     + row("hero") + row("season") + row("hat") + row("performance")
     // The lane tree: what each level is called (from the top: lanes under HQ first; deeper lanes take the last
     // name), and how the room dresses the levels.
     + `<form class="srow" data-levels><span class="k">LEVEL NAMES</span><div class="opts2"><input class="levels" name="levels" maxlength="200" spellcheck="false" autocomplete="off" value="${esc(settings.levels)}" aria-label="Level names, comma-separated"><button class="btn-s" type="submit">SAVE</button></div><span class="hint">From the top, comma-separated. Deeper lanes use the last name.</span></form>`
     + row("theme")
     + sweepRow()
-    + floorsRow()
+    + (floorsFirst ? "" : floorsRow())
     + `<div class="sfoot"><button class="btn-s" type="button" data-reset>RESET TO DEFAULTS</button></div>`;
 }
 // HQ SWEEP: the server nudges HQ to sweep when HQ is idle (src/server/hq-sweep.ts). Its settings live on the server
@@ -107,3 +110,9 @@ $("settings").addEventListener("click", (e) => {
   if (e.target.closest("[data-close]")) $("settings").hidden = true;
 });
 renderSettingsButton();
+// Esc closes SETTINGS (before anything else on the page listens to it).
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape" || e.defaultPrevented || $("settings").hidden) return;
+  e.preventDefault();
+  $("settings").hidden = true;
+});

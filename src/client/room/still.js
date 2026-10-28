@@ -10,9 +10,8 @@ import { drawSprite } from "./sprites.js";
 import { dressWorkers, heroPal, hqPal } from "./looks.js";
 import { drawAccessories, wornBy } from "./accessories.js";
 import { hero, settings } from "../settings/prefs.js";
-import { chosenSeason, season, setSeason } from "./seasons.js";
-import { EVENT_ART, eventLayer } from "./events.js";
-import { GLYPH, drawBubble, drawLabel, stillHasEvent, stillOpaque, stillPicture } from "./scene.js";
+import { chosenSeason, setSeason } from "./seasons.js";
+import { GLYPH, drawBubble, drawLabel, stillOpaque, stillPicture } from "./scene.js";
 import { deskCount } from "./collision.js";
 import { placeLanes } from "./workers.js";
 
@@ -24,7 +23,7 @@ document.fonts?.addEventListener?.("loadingdone", () => { fontLoads++; });
 export function stillKey(floor, lanes, open) {
   const asks = new Map();
   for (const a of open) if (a.lane) asks.set(a.lane, Math.min(asks.get(a.lane) ?? Infinity, a.created_at));
-  return [chosenSeason(), settings.theme, hero().name, CONFIG.owner, fontLoads, floor.hq,
+  return [chosenSeason(), settings.theme, hero().name, CONFIG.owner, fontLoads, floor.hq, floor.starting || floor.receiving === false,
     ...lanes.map((l) => `${l.name}:${l.status}:${l.asks ? 1 : 0}:${l.rank ?? l.depth ?? ""}:${l.parent ?? ""}:${asks.get(l.name) ?? ""}`)].join("|");
 }
 
@@ -44,7 +43,7 @@ export function drawStill(target, floor, lanes, open) {
     const still = stillPicture(deskCount(lanes.length));
     if (!stillOpaque) g.clearRect(0, 0, scratch.width, scratch.height);
     g.drawImage(still, 0, 0);
-    if (EVENT_ART[season] && !stillHasEvent) g.drawImage(eventLayer, 0, 0);
+    // No event art (pumpkins, stones) in a tile: at this size it competes with the workers.
     const { places, seatIndex } = placeLanes(lanes, open);
     // desk screens lit where a worker sits at work
     for (const { lane, at, seat } of places) {
@@ -62,7 +61,7 @@ export function drawStill(target, floor, lanes, open) {
     px(17 * TS, 3 * TS - 2, 6 * TS, 3, "#f08080");
     px(17 * TS, 3 * TS + 8, 6 * TS, 3, "#8a2a2a");
     drawLabel("YOU", 20 * TS, 3 * TS + 10, true);
-    drawSprite(hqPal(), 16 * TS, 5 * TS - 6, "up", 0);
+    drawSprite(hqPal(), 16 * TS, 5 * TS - 6, "up", 0, floor.starting || floor.receiving === false ? 0.3 : 1); // an HQ not there: a ghost
     drawLabel(cut(floor.hq), 16 * TS + 8, 5 * TS + 10, true);
     // the workers, dressed as the office dresses them, back to front
     const figures = new Map(places.map((p) => [p.lane.name, {}]));

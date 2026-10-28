@@ -21,8 +21,8 @@ import { qTab } from "../messages/messages.js";
 import { clearImages, composer, hasImages, notReady, openPreview, uploadTarget, withImages } from "../images/images.js";
 import { md, mdClip, mdInline } from "../core/markdown.js";
 import { ART_H, drawStrip, laneAt, stripKey } from "./pix.js";
-import { others, pick, scope, tagged } from "../core/scope.js";
-import { floorTagHTML, scopeLineHTML } from "../core/floors.js";
+import { pick, tagged } from "../core/scope.js";
+import { floorTagHTML } from "../core/floors.js";
 
 const store = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} };
 const stored = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
@@ -152,10 +152,10 @@ function rowHtml(r) {
 }
 // Inside a floor, that floor's rooms (docs/floors.md).
 function renderList() {
-  const rooms = pick(S?.rooms), line = S ? scopeLineHTML(S, scope(), others(S.rooms)) : "";
+  const rooms = pick(S?.rooms);
   const live = rooms.filter((r) => !r.archivedAt), old = rooms.filter((r) => r.archivedAt);
   const unread = live.filter((r) => r.unread).length;
-  setHTML(list, line + (rooms.length
+  setHTML(list, (rooms.length
     ? `<div class="rsum">${live.length} OPEN ${live.length === 1 ? "ROOM" : "ROOMS"}${unread ? ` · ${unread} WITH NEW MESSAGES` : ""}</div>${live.map(rowHtml).join("")}${old.length ? `<h4>ARCHIVED (${old.length})</h4>${old.map(rowHtml).join("")}` : ""}`
     : `<div class="empty">No rooms yet. HQ opens one for a piece of work with hud room create. Its lane keeps the brief and the artifacts there, and you talk to it here.</div>`));
 }

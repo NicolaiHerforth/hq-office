@@ -25,10 +25,11 @@
 .reply { display: grid; min-width: 0; background: #fff; border: 2px solid var(--edge-2); border-radius: 14px; }
 .reply:focus-within { border-color: var(--edge); }
 .reply.dropping { border-color: var(--blue); background: #eef4ff; }
-.reply textarea { display: block; width: 100%; min-width: 0; resize: none; field-sizing: content; min-height: calc(1.4em + 7px); max-height: calc(7em + 7px); overflow-y: auto; border: 0; border-radius: 12px; padding: 7px 12px 0; font: 14px/1.4 var(--text); background: transparent; color: var(--ink); }
+.reply textarea { display: block; width: 100%; min-width: 0; resize: none; field-sizing: content; min-height: calc(1.4em + 5px); max-height: calc(7em + 5px); overflow-y: auto; border: 0; border-radius: 12px; padding: 5px 12px 0; font: 14px/1.4 var(--text); background: transparent; color: var(--ink); }
 .reply textarea:focus { outline: none; }
-.reply .acts { display: flex; align-items: center; gap: 8px; padding: 0 6px 5px; }
-.reply .acts .send { margin-left: auto; min-height: 28px; padding: 0 12px; }
+.reply .acts { display: flex; align-items: center; gap: 8px; padding: 0 6px 3px; }
+/* SEND is a 32 px target; the field and the row give back the 4 px, so the composer keeps its height */
+.reply .acts .send { margin-left: auto; min-height: 32px; padding: 0 12px; }
 .thumb { display: block; max-width: 100%; max-height: 140px; margin-top: 6px; border: 2px solid var(--edge); border-radius: 4px; background: #fff; }
 .send { background: var(--red); color: #fff; border: 3px solid #8a2020; border-radius: 8px; padding: 0 14px; min-height: 40px; font: 10px/1 var(--pixel); }
 .send.go { background: var(--green); border-color: #1d6b3a; }
