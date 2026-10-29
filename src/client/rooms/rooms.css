@@ -9,6 +9,31 @@
 /* the list */
 .rlist { display: grid; gap: 10px; align-content: start; }
 .rsum { font: 8px/1.6 var(--pixel); color: var(--muted); }
+.rhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.rnew { flex: none; min-height: 32px; padding: 8px 10px; }
+@media (pointer: coarse) { .rnew { min-height: 44px; } }
+
+/* + NEW ROOM: a panel over the office (a sheet at the bottom of a narrow screen) */
+.nrpanel { position: absolute; z-index: 30; top: 0; right: 0; width: min(520px, calc(100% - 16px)); max-height: 100%; overflow: auto; padding: 12px 14px; box-shadow: 0 8px 0 rgba(0, 0, 0, .25); }
+.nrpanel[hidden] { display: none; }
+@media (max-width: 1150px) { .nrpanel { position: fixed; z-index: 46; top: auto; left: max(8px, env(safe-area-inset-left, 0px)); right: max(8px, env(safe-area-inset-right, 0px)); bottom: calc(8px + env(safe-area-inset-bottom, 0px)); width: auto; max-height: 85vh; max-height: 85svh; } }
+.nrform { display: grid; gap: 10px; }
+.nrhead { display: flex; align-items: center; justify-content: space-between; }
+.nrhead .k { font: 10px/1 var(--pixel); letter-spacing: 1px; }
+.nrrow { display: grid; gap: 4px; min-width: 0; }
+.nrrow .sk, .nrtwo .sk { font: 7px/1 var(--pixel); color: var(--muted); }
+.nrrow .levels { width: 100%; box-sizing: border-box; min-height: 36px; border: 3px solid var(--edge-2); border-radius: 6px; padding: 4px 8px; font: 15px/1.3 var(--text); background: #fff; color: var(--ink); }
+.nrrow .levels:focus { outline: none; border-color: var(--edge); }
+.nrrow textarea.levels { resize: vertical; }
+.nrtwo { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.nrtwo label { display: grid; gap: 4px; min-width: 0; }
+.nrlanes { display: flex; flex-wrap: wrap; gap: 6px; max-height: 120px; overflow-y: auto; }
+.nrlane { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 4px 8px; border: 2px solid var(--edge-2); border-radius: 6px; font: 8px/1 var(--pixel); cursor: pointer; }
+.nrlane:has(input:checked) { border-color: var(--ink); background: #eef0fb; }
+.nrnone { font-size: 13px; color: var(--muted); }
+.nrerr { padding: 8px 10px; border: 2px solid var(--red); border-radius: 6px; background: #fff0f0; color: var(--red); font-size: 14px; }
+.nracts .btn-s { min-height: 32px; padding: 8px 12px; }
+@media (pointer: coarse) { .nrlane, .nracts .btn-s { min-height: 44px; } html .nrrow .levels { font-size: 16px; } }
 .rlist h4 { margin: 6px 0 0; font: 8px/1 var(--pixel); color: var(--muted); }
 .rrow { display: grid; gap: 6px; padding: 8px 10px; border-radius: 8px; border: 2px solid #e2e2ee; cursor: pointer; min-width: 0; }
 .rrow:hover { background: #fff; border-color: var(--edge-2); }

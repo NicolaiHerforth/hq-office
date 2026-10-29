@@ -3,6 +3,14 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.24.0] - 2026-10-29
+### Added
+
+- **Open a room yourself.** **+ NEW ROOM** on the ROOMS tab asks for a title, the lane that owns the room (or HQ),
+  any other lanes, an issue or a PR, and an optional first message. You no longer need to ask a lane to run
+  `hud room create`. The room's address comes from the title, and a taken one gets a number. HQ hears that you opened
+  it. The first message goes to the owning lane, with how to answer in the room. Then the room opens.
+
 ## [0.23.1] - 2026-10-29
 ### Fixed
 

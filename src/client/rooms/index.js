@@ -23,6 +23,7 @@ import { md, mdClip, mdInline } from "../core/markdown.js";
 import { ART_H, drawStrip, laneAt, stripKey } from "./pix.js";
 import { pick, tagged } from "../core/scope.js";
 import { floorTagHTML } from "../core/floors.js";
+import "./new.js"; // + NEW ROOM
 
 const store = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} };
 const stored = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
@@ -150,14 +151,15 @@ function rowHtml(r) {
       <div class="last${r.last ? "" : " none"}">${last}</div>
     </article>`;
 }
+const NEW = `<button class="btn-s on rnew" type="button" data-room-new>+ NEW ROOM</button>`;
 // Inside a floor, that floor's rooms (docs/floors.md).
 function renderList() {
   const rooms = pick(S?.rooms);
   const live = rooms.filter((r) => !r.archivedAt), old = rooms.filter((r) => r.archivedAt);
   const unread = live.filter((r) => r.unread).length;
   setHTML(list, (rooms.length
-    ? `<div class="rsum">${live.length} OPEN ${live.length === 1 ? "ROOM" : "ROOMS"}${unread ? ` · ${unread} WITH NEW MESSAGES` : ""}</div>${live.map(rowHtml).join("")}${old.length ? `<h4>ARCHIVED (${old.length})</h4>${old.map(rowHtml).join("")}` : ""}`
-    : `<div class="empty">No rooms yet. HQ opens one for a piece of work with hud room create. Its lane keeps the brief and the artifacts there, and you talk to it here.</div>`));
+    ? `<div class="rhead"><div class="rsum">${live.length} OPEN ${live.length === 1 ? "ROOM" : "ROOMS"}${unread ? ` · ${unread} WITH NEW MESSAGES` : ""}</div>${NEW}</div>${live.map(rowHtml).join("")}${old.length ? `<h4>ARCHIVED (${old.length})</h4>${old.map(rowHtml).join("")}` : ""}`
+    : `<div class="rhead"><div class="rsum">NO ROOMS YET</div>${NEW}</div><div class="empty">A room is where you talk to the lanes on one piece of work. Open one with + NEW ROOM, or HQ opens one with hud room create. Its lane keeps the brief and the artifacts there.</div>`));
 }
 function renderCount() {
   const n = pick(S?.rooms).filter((r) => !r.archivedAt && r.unread).length, t = $("qtRooms");

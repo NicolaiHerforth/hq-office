@@ -194,6 +194,8 @@ PR facts come from the `gh` CLI. The server caches them and refreshes them every
 
 A piece of work with an owner can get a conference room: one place where you talk straight to the lane that owns it (usually a manager or a lead) or to any lane in it, and where that lane keeps the concrete context of the problem. Think of it as the work's project folder. HQ opens one, and the owning lane keeps it current:
 
+You can open one yourself too: **+ NEW ROOM** on the ROOMS tab asks for a title, the lane that owns the room (or HQ), any other lanes, an issue or a PR, and an optional first message. The room's address comes from the title, HQ hears that you opened it, the first message goes to the owning lane like any message in the room, and the room opens.
+
 ```sh
 hud room create SLUG --title T --owner LANE [--member L ...] [--issue X ...] [--pr N ...]   # again: change or reopen it
 hud room path SLUG                    # the room's folder (see below)

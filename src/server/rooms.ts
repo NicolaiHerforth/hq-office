@@ -54,8 +54,24 @@ function touch(slug: string) {
 // Create a room, or change one: a new title or owner, more members and more linked work. It also reopens an
 // archived room. A lane that stops owning the room stays in it as a member. A room is on its owning lane's floor; one
 // HQ owns is on the caller's floor (and stays where it is when changed).
+// A slug from a title the owner typed on the page: lowercase words joined by dashes, and the next free one
+// (-2, -3...) when a room, open or archived, already has it.
+function freeSlug(title: string) {
+  const base = title.toLowerCase().normalize("NFKD").replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 44).replace(/-+$/, "");
+  if (!base) throw new Error("give the room a title with letters or digits");
+  for (let n = 1; ; n++) {
+    const slug = n === 1 ? base : `${base}-${n}`;
+    if (!room(slug)) return slug;
+  }
+}
+
+// HQ (hud room create) names the slug and may reopen a room by it. The owner on the page (by: "owner") gives a title:
+// the room is always a new one, HQ hears of it, and an optional first message (text) goes to the owning lane.
 export function createRoom(body: any, callerFloor?: string) {
-  const slug = slugOf(body.slug);
+  const byOwner = body.by === "owner";
+  if (byOwner && !str(body.title)) throw new Error("give the room a title");
+  if (byOwner && !str(body.owner)) throw new Error("pick the lane that owns the room");
+  const slug = byOwner && !str(body.slug) ? freeSlug(str(body.title)) : slugOf(body.slug);
   const before = room(slug);
   const title = str(body.title) || before?.title;
   if (!title) throw new Error("a title is required (--title T)");
@@ -86,8 +102,13 @@ export function createRoom(body: any, callerFloor?: string) {
   if (!before) { writeShelf(slug); writeBrief(slug); }
   if (before?.archived_at) reconcileRoom(slug);
   watchRoom(slug);
-  if (!before) event("hq", `opened room ${slug}: ${title}`, isHq(owner) ? null : owner, floor);
+  if (!before) event(byOwner ? OWNER : "hq", `opened room ${slug}: ${title}`, isHq(owner) ? null : owner, floor);
   else if (before.archived_at) event("hq", `reopened room ${slug}`, isHq(owner) ? null : owner, floor);
+  if (byOwner && !before) {
+    const others = add.length ? `, with ${add.join(", ")}` : "";
+    notifyHq(`HUD: ${OWNER} opened room ${slug} (${title}) on the page; ${isHq(owner) ? "you own it" : `${owner} owns it`}${others}. It is on the ROOMS tab; hud room read ${slug} shows it.`, undefined, floor);
+    if (str(body.text)) ownerPost(slug, { text: body.text });
+  }
   return { slug, created: !before, folder: roomDir(slug) };
 }
 
