@@ -3,6 +3,11 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.23.1] - 2026-10-29
+### Fixed
+
+- With one floor, the LANES BOARD's header no longer starts with a stray comma.
+
 ## [0.23.0] - 2026-10-29
 ### Changed
 

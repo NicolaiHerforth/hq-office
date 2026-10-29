@@ -90,6 +90,7 @@ test.skipIf(!chromeFound)("LANES BOARD: every lane by what it is doing, parked a
   expect(await col("lbstill")).toEqual(["idler"]);
   expect(await ev(`document.querySelector('.lbcol.lbstill [data-lane-pick="idler"] .lbx').textContent`)).toBe("Waiting on HQ");
   expect(await ev(`document.querySelector(".lbfoot").textContent`)).toBe("1 PARKED · 1 DONE");
+  expect(await ev(`document.querySelector(".lbwhere").textContent`)).toBe("By what they are doing now"); // one floor
   expect(await ev(`document.querySelector(".room").getBoundingClientRect().height`)).toBeGreaterThan(250);
   await load();
   expect(await ev(`localStorage.getItem("hq-layout")`)).toBe("board");

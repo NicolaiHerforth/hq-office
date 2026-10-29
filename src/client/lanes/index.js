@@ -49,7 +49,7 @@ export function renderBoard() {
   const parked = lanes.filter((l) => l.status === "parked").length, done = lanes.filter((l) => l.status === "done").length;
   const fold = working.length > FOLD;
   const fl = floor ? floorById(S, floor) : null;
-  setHTML(box, `<header class="lbhead"><h2>LANES</h2><span class="lbwhere">${fl ? `on ${esc(fl.name)}` : multi(S) ? "on every floor" : ""}, by what they are doing now</span><span class="lbfoot">${parked} PARKED · ${done} DONE</span></header>
+  setHTML(box, `<header class="lbhead"><h2>LANES</h2><span class="lbwhere">${fl ? `on ${esc(fl.name)}, by` : multi(S) ? "on every floor, by" : "By"} what they are doing now</span><span class="lbfoot">${parked} PARKED · ${done} DONE</span></header>
     <div class="lbcols">`
     + col("lbwork", "WORKING", working, "Nothing is working right now.", fold
       ? `<div class="lbchips">${working.map((l) => chip(l, tag, l.herdr_since)).join("")}</div>`
