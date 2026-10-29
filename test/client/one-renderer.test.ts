@@ -27,6 +27,7 @@ const ALLOW = [
   { file: "src/client/rooms/index.js", has: '<div class="at" title="${esc(a.title)}">', why: "a tooltip attribute on a shelf card" },
   { file: "src/client/rooms/index.js", has: '>${esc(d.text)}</textarea>', why: "the owner's own draft, put back into a textarea" },
   { file: "src/client/questions/questions.js", has: '>${esc(d.text || "")}</textarea>', why: "the owner's own draft, put back into a textarea" },
+  { file: "src/client/card/card.js", has: '<pre class="agterm">${esc(t.text)', why: "an agent's terminal output, shown verbatim in a terminal box, not markdown" },
   { file: "src/client/rooms/new.js", has: 'value="${esc(form.title)}"', why: "the owner's own room title, put back into its input" },
   { file: "src/client/rooms/new.js", has: '>${esc(form.text)}</textarea>', why: "the owner's own first message, put back into its textarea" },
 ];

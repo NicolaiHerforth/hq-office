@@ -101,6 +101,7 @@ test.skipIf(!chromeFound)("LANES BOARD: every lane by what it is doing, parked a
 test.skipIf(!chromeFound)("a lane on the board opens its card over the office; ✕ and Esc close it", async () => {
   await ev(`document.querySelector('[data-lane-pick="api"]').click()`);
   await until(`document.querySelector("#card h3")?.textContent === "api"`);
+  await Bun.sleep(400); // the drawer's slide-in has ended
   expect(await ev(`(() => { const c = document.getElementById("card").getBoundingClientRect(), r = document.querySelector(".room").getBoundingClientRect(); return c.top >= r.top && c.right <= r.right; })()`)).toBe(true);
   expect(await ev(`document.querySelector('[data-lane-pick="api"]').classList.contains("on")`)).toBe(true);
   await ev(`document.querySelector("[data-card-close]").click()`);
@@ -153,6 +154,7 @@ test.skipIf(!chromeFound)("on a phone the board stacks, WAITING ON YOU first, wi
   // a lane opens its card as a sheet at the bottom of the screen, on screen whatever the page's scroll
   await ev(`document.querySelector('[data-lane-pick="idler"]').click()`);
   await until(`!document.getElementById("card").hidden`);
+  await Bun.sleep(400); // the slide-in has ended
   expect(await ev(`(() => { const b = document.getElementById("card").getBoundingClientRect(); return b.left >= 0 && b.right <= innerWidth && b.bottom <= innerHeight && b.top >= 0; })()`)).toBe(true);
   await ev(`document.querySelector("[data-card-close]").click()`);
   // MENU is on the title's row, and opens as a sheet inside the screen

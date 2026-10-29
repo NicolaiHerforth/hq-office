@@ -101,7 +101,7 @@ HQ uses the CLI in `hud.ts` (the `hud` command after the install hud command act
 - **OFFICE** (the default): the office, or the building with several floors, takes the whole right column.
 - **LANES BOARD**: a board under the office lists every lane by name in three columns: **WORKING**, **WAITING ON YOU** (with what it asks, oldest first) and **NOT MOVING** (waiting on HQ, on CI, at a prompt, or its agent gone; stuck longest first). Parked and done lanes are counted, not listed. Inside a floor it shows that floor's lanes; in the building, every floor's.
 
-Clicking a worker in the office, or a lane on the board, opens its card over the office; ✕ or Esc closes it.
+Clicking a worker in the office, or a lane on the board, slides in its **agent drawer** from the right, over the office. It is read-only; talking to a lane goes through its room. It shows the lane's status, its open question (with **ANSWER IN NEEDS YOU**), a prompt it is blocked on, **NOW**: its terminal (the last 30 lines, read from herdr every 3 seconds while the drawer is open and the page is visible, and not otherwise; any secret value the HUD holds is blanked out as `[secret NAME]`), what it last said (its updates, room messages, questions and events), and its work (issue, PR and its rooms). ✕ or Esc closes it; on a phone it is a sheet at the bottom of the screen.
 
 ## Secrets
 

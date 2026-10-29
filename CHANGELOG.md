@@ -3,6 +3,21 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.25.0] - 2026-10-29
+### Added
+
+- **The agent drawer.** Clicking a worker in the office, or a lane on the lanes board, slides in a panel from the right
+  with everything about that lane in one place:
+  - its open question, with **ANSWER IN NEEDS YOU**;
+  - a prompt it is blocked on;
+  - **NOW**, its terminal: the last 30 lines, live;
+  - what it last said: its updates, room messages, questions and events;
+  - its work: issue, PR and its rooms.
+
+  The drawer is read-only. To talk to a lane, write in its room. The terminal is read every 3 seconds only while the
+  drawer is open and the page is visible, from whichever machine the lane runs on. Any secret value the HUD holds
+  shows as `[secret NAME]` instead of its value. On a phone the drawer is a sheet at the bottom of the screen.
+
 ## [0.24.0] - 2026-10-29
 ### Added
 

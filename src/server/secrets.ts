@@ -110,6 +110,16 @@ export function createSecretStore(opts: { clock?: Clock; onChange?: () => void; 
       if (out.length) onChange();
       return out;
     },
+    // Text with every live secret's value blanked out as [secret NAME]: for anything shown that the HUD did not write
+    // itself, such as an agent's terminal. Values under 4 characters are left alone (they would match everywhere).
+    mask(text: string): string {
+      let out = text;
+      for (const name of [...items.keys()]) live(name);
+      for (const e of [...items.values()].sort((a, b) => b.value.length - a.value.length)) {
+        if (e.value.length >= 4) out = out.split(e.value).join(`[secret ${e.name}]`);
+      }
+      return out;
+    },
     // Every live secret with its value: for the handover only.
     carry(): SecretCarried[] {
       for (const name of [...items.keys()]) live(name);
