@@ -1,10 +1,10 @@
 // FLOORS on the page (docs/floors.md, "The page" and "The floor UI rules"): one switcher row over the office, never
 // two and never wrapping. On the left the pill: the floor you are in (slot A: "! N" waiting on you or "Zz N" nothing
 // moving; its name in the text font; slot B: a green bar per working lane; ▾), or BUILDING with the office's slots.
-// Inside a floor: ◀ BUILDING and EDIT. On the right the readings in words (what waits on you, work happening or
-// NOTHING MOVING), or, for a floor whose HQ is not running, why and its fix (START ITS HQ, PICK ANOTHER). The pill
-// opens the floor list (floors/list.js). With two or more floors the top bar has a FLOORS box: a pip per floor in its
-// worst state, and how many lanes work. Inside a floor the office's border takes its colour and one row under the
+// Inside a floor: ◀ BUILDING and EDIT, and on the right that floor's readings in words (what waits on you, work
+// happening or NOTHING MOVING), or, for a floor whose HQ is not running, why and its fix (START ITS HQ, PICK
+// ANOTHER). In the building the readings are the top bar's, so the row does not repeat them. The pill opens the floor
+// list (floors/list.js). Inside a floor the office's border takes its colour and one row under the
 // question tabs says where the lists are: [Backend ×] +3 waiting on other floors · SHOW ALL. THE BUILDING is
 // floors/building.js, the add and edit panel floors/panel.js. Esc and the ✕ step out one level. On a phone the row sits
 // under the top bar and the list is a bottom sheet.
@@ -13,7 +13,7 @@ import { $, toast } from "../core/dom.js";
 import { S } from "../core/state.js";
 import { post } from "../core/net.js";
 import { esc, setHTML } from "../core/format.js";
-import { MOOD_WORD, floorById, floorsOf, hqMood, inkOn, moodLine, multi, needsFix, officeOf, readingChipsHTML, readingOf, slotAHTML, slotBHTML, stallKey, worstOf } from "../core/floors.js";
+import { MOOD_WORD, floorById, floorsOf, hqMood, inkOn, moodLine, multi, needsFix, officeOf, readingChipsHTML, slotAHTML, slotBHTML, stallKey } from "../core/floors.js";
 import { enter, officeFloor, outOne, scope, settle, toBuilding, toggleAll } from "../core/scope.js";
 import { PANELS } from "../questions/drafts.js";
 import { syncWorkers } from "../room/workers.js";
@@ -38,23 +38,20 @@ place();
 
 // With two or more floors: the building, the scope row under the question tabs and the top bar's FLOORS box. Made
 // the first time they are needed, so one floor's page is unchanged.
-let building = null, scoperow = null, pips = null, wasMulti = null, wasB = null;
+let building = null, scoperow = null, wasMulti = null, wasB = null;
 function parts() {
   if (building) return;
   building = make("section", "box building", { ariaLabel: "The building" });
   stage.querySelector(":scope > .room").before(building);
   scoperow = make("div", "scoperow", { hidden: true });
   $("qtabs").after(scoperow);
-  pips = make("div", "box ffloors", { hidden: true });
-  document.querySelector(".top .strip").after(pips);
 }
 
 function rowHTML(f, inB, many) {
   const now = Date.now();
   if (inB) {
     const o = officeOf(S);
-    return `<button class="fpill fpbuild" type="button" data-pill aria-haspopup="menu" title="Every floor: open the floor list">${slotAHTML(o, now)}<span class="fpname">BUILDING</span>${slotBHTML(o, now)}<span class="fcaret" aria-hidden="true">▾</span></button>`
-      + `<span class="freads" aria-label="The whole office">${readingChipsHTML(o, now)}</span>`;
+    return `<button class="fpill fpbuild" type="button" data-pill aria-haspopup="menu" title="Every floor: open the floor list">${slotAHTML(o, now)}<span class="fpname">BUILDING</span>${slotBHTML(o, now)}<span class="fcaret" aria-hidden="true">▾</span></button>`;
   }
   const mood = hqMood(f), why = moodLine(f);
   return `<button class="fpill mood-${mood}" type="button" data-pill aria-haspopup="menu" style="--fc:${esc(f.color)};--fi:${inkOn(f.color)}" title="${esc(`${f.name} · HQ ${f.hq}: ${MOOD_WORD[mood]}${why ? ` (${why})` : ""}`)}">`
@@ -62,16 +59,6 @@ function rowHTML(f, inB, many) {
     + (many ? `<button class="fbtn fout" type="button" data-building title="Every floor at a glance (Esc)"><span aria-hidden="true">◀</span><span>BUILDING</span></button>` : "")
     + `<button class="fbtn fedit" type="button" data-floor-edit="${esc(f.id)}" aria-label="Edit the ${esc(f.name)} floor">EDIT</button>`
     + (needsFix(S, f) ? fixHTML(f) : `<span class="freads" aria-label="${esc(f.name)}">${readingChipsHTML(f.counts, now)}</span>`);
-}
-
-// The top bar's FLOORS box: a pip per floor in its worst state (red waiting on you, amber or red nothing moving,
-// green working), each a way in. How many lanes work is the strip's WORKING beside it.
-function pipsHTML(now) {
-  return `<span class="k">FLOORS</span><span class="v"><span class="pips">${floorsOf(S).map((f) => {
-    const w = worstOf(f.counts, now), r = readingOf(f.counts, now);
-    const say = r.blocking ? `${r.blocking} waiting on you` : r.stall ? "nothing moving" : `${r.working} working`;
-    return `<button class="pip${w ? ` is-${w}` : ""}" type="button" data-floor-tab="${esc(f.id)}" style="--fc:${esc(f.color)}" title="${esc(`${f.name}: ${say}`)}" aria-label="${esc(`${f.name}: ${say}`)}"></button>`;
-  }).join("")}</span></span>`;
 }
 
 // One row under the question tabs, inside a floor: the floor (its ✕ steps out) and what the other floors hold.
@@ -117,11 +104,6 @@ function draw() {
   if (many && !inB) stage.style.setProperty("--fc", f.color); else stage.style.removeProperty("--fc");
   renderList(nav);
   if (!building) return;
-  pips.hidden = !many;
-  if (many) {
-    setHTML(pips, pipsHTML(now));
-    pips.classList.toggle("idle", floorsOf(S).some((x) => readingOf(x.counts, now).stall) && !officeOf(S).blocking);
-  }
   const inF = many && !inB;
   scoperow.hidden = !inF;
   if (inF) {

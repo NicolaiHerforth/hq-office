@@ -39,7 +39,7 @@ beforeAll(async () => {
   page = await newSession(chrome.cdp, errors);
   await page.s("Network.setBlockedURLs", { urls: ["*fonts.googleapis.com*", "*fonts.gstatic.com*"] });
   await page.s("Page.navigate", { url: `${server.base}/` });
-  for (const end = Date.now() + 8000; Date.now() < end; await Bun.sleep(50)) if (await page.evaluate(`!!document.getElementById("card")?.innerHTML`).catch(() => false)) break;
+  for (const end = Date.now() + 8000; Date.now() < end; await Bun.sleep(50)) if (await page.evaluate(`!!document.getElementById("lastNote")?.innerHTML`).catch(() => false)) break;
 }, 30_000);
 
 afterAll(async () => {

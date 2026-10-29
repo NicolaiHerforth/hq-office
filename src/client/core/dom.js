@@ -54,3 +54,15 @@ export function showEdges(box) {
   const more = `${box.scrollTop > 2 ? "up " : ""}${box.scrollHeight - box.clientHeight - box.scrollTop > 2 ? "down" : ""}`.trim();
   if (box.dataset.more !== more) box.dataset.more = more;
 }
+
+// A panel over the stage (the worker card, SECRETS): at the top of the office or the building, inside its border,
+// clear of the floor switcher row above it.
+export function overOffice(el) {
+  // narrow: a sheet at the bottom of the screen (card.css, secrets.css), placed by its stylesheet
+  if (!matchMedia("(min-width: 1151px)").matches) { el.style.top = el.style.right = el.style.maxHeight = ""; return; }
+  const stage = el.parentElement;
+  const view = [...stage.children].find((c) => (c.classList.contains("room") || c.classList.contains("building")) && c.offsetParent !== null);
+  el.style.top = `${(view?.offsetTop ?? 0) + 8}px`;
+  el.style.right = "8px";
+  el.style.maxHeight = `${Math.max(160, (view ? view.offsetTop + view.offsetHeight : stage.clientHeight) - (view?.offsetTop ?? 0) - 16)}px`;
+}

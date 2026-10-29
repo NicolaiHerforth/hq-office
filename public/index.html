@@ -25,12 +25,16 @@
         <div><span class="k">ON HQ</span><span class="v" id="sHq">0</span></div>
         <div><span class="k">₽ BANK</span><span class="v" id="sBank">0</span></div>
       </div>
-      <button class="box fromhq" id="sFrom" type="button" data-tab="updates"><span class="k">FROM HQ</span><span class="v">0 NEW</span></button>
       <div class="spacer"></div>
       <div class="box health" id="machines"><span class="k">MACHINES</span><span class="v">-</span></div>
-      <div class="btns">
-        <button class="btn" id="settingsBtn">SETTINGS</button>
-        <button class="btn" id="alerts">SOUND OFF</button>
+      <div class="btns menuwrap">
+        <button class="btn menubtn" id="menuBtn" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="menuDrop"><i class="mdot" id="menuDot" hidden></i>MENU <span aria-hidden="true">▾</span></button>
+        <div class="box menudrop" id="menuDrop" role="menu" hidden>
+          <button class="mi" id="secretsBtn" type="button" role="menuitem"><span>SECRETS</span><small id="secretsSay"></small></button>
+          <button class="mi" id="settingsBtn" type="button" role="menuitem">SETTINGS</button>
+          <button class="mi" id="alerts" type="button" role="menuitem">SOUND OFF</button>
+          <div class="mi mlayout" role="group" aria-label="Layout"><span>LAYOUT</span><span class="mseg"><button class="seg" type="button" role="menuitemradio" data-layout="office">OFFICE</button><button class="seg" type="button" role="menuitemradio" data-layout="board">LANES BOARD</button></span></div>
+        </div>
       </div>
     </div>
   </div>
@@ -75,21 +79,19 @@
         </div>
       </div>
       <div class="under">
-        <section class="box feed" id="feed">
-          <div class="tabs" id="feedTabs"></div>
-          <div class="body" id="feedBody"></div>
-          <div class="body" id="secretsPane" hidden>
-            <form class="sform" id="secretForm" autocomplete="off" novalidate>
-              <input class="sin name" id="secName" placeholder="NAME_LIKE_THIS" autocomplete="off" spellcheck="false" autocapitalize="characters" maxlength="64" aria-label="Secret name">
-              <input class="sin min" id="secMin" type="number" min="1" max="10080" step="1" value="60" autocomplete="off" aria-label="Minutes until it expires"><span class="sk">MIN</span>
-              <input class="sin val" id="secValue" type="password" autocomplete="off" placeholder="paste the value" aria-label="Secret value" data-1p-ignore data-lpignore="true" data-bwignore>
-              <button class="send go" type="submit">SAVE</button>
-            </form>
-            <div class="slist" id="secretList"></div>
-          </div>
-        </section>
-        <div class="box card" id="card"></div>
+        <section class="box lanesboard" id="lanesBoard" aria-label="Lanes by what they are doing"></section>
       </div>
+      <aside class="box card" id="card" hidden aria-label="Worker"></aside>
+      <section class="box spanel" id="secretsPanel" role="dialog" aria-label="Secrets" hidden>
+        <div class="sphead"><b class="k">SECRETS</b><button class="spx" type="button" data-secrets-close aria-label="Close">✕</button></div>
+        <form class="sform" id="secretForm" autocomplete="off" novalidate>
+          <input class="sin name" id="secName" placeholder="NAME_LIKE_THIS" autocomplete="off" spellcheck="false" autocapitalize="characters" maxlength="64" aria-label="Secret name">
+          <input class="sin min" id="secMin" type="number" min="1" max="10080" step="1" value="60" autocomplete="off" aria-label="Minutes until it expires"><span class="sk">MIN</span>
+          <input class="sin val" id="secValue" type="password" autocomplete="off" placeholder="paste the value" aria-label="Secret value" data-1p-ignore data-lpignore="true" data-bwignore>
+          <button class="send go" type="submit">SAVE</button>
+        </form>
+        <div class="slist" id="secretList"></div>
+      </section>
     </section>
   </div>
 </div>

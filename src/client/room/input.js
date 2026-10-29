@@ -2,6 +2,7 @@
 import { H, TS, W, cv } from "./canvas.js";
 import { workers } from "./workers.js";
 import { renderCard } from "../card/card.js";
+import { emit } from "../core/bus.js";
 
 export let selected = null;
 export let hovered = null;
@@ -27,7 +28,8 @@ cv.addEventListener("click", (e) => {
 export function select(name, jump) {
   selected = name;
   renderCard();
-  if (jump) {
+  emit("select", name); // the lanes board marks the selected lane
+  if (jump && name) {
     const card = document.querySelector(`.ask[data-lane="${CSS.escape(name)}"]`);
     if (card) { card.scrollIntoView({ behavior: "smooth", block: "center" }); card.classList.remove("flash"); void card.offsetWidth; card.classList.add("flash"); }
   }

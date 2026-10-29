@@ -1,7 +1,9 @@
 /* The page grid: the top bar's columns, the desk and the stage; on desktop a page that never scrolls, on a phone one that scrolls as one. */
 /* Layout: two zones under one top bar.
    left  = your desk: the questions, and Tell HQ right under them. The urgent count sits on top of this column.
-   right = the office: the room, then the FROM HQ / sent-log tabs and the worker card underneath. */
+   right = the office: the room (or the building), and in the LANES BOARD layout the board under it. The layout is
+   each viewer's own choice (MENU › LAYOUT, menu/index.js), set as data-layout on the root: OFFICE (the default) gives
+   the office the whole column. The worker card and the secrets panel open over the stage. */
 :root { --qcol: clamp(420px, 36vw, 560px); }
 /* top bar: the same two columns as the page, so the urgent count heads the questions it counts */
 .top { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
@@ -10,7 +12,7 @@
 .desk, .stage { display: grid; gap: 14px; min-width: 0; align-content: start; }
 .qwrap { position: relative; min-width: 0; }
 /* desktop: the page never scrolls. Questions take the full height of the left column; the room takes what the
-   right column has left after the FROM HQ row. */
+   right column has left after the lanes board, when that layout is on. */
 @media (min-width: 1151px) {
   body { overflow: hidden; }
   .wrap { height: 100vh; height: 100dvh; grid-template-rows: auto minmax(0, 1fr); padding-bottom: 14px; }
@@ -23,10 +25,8 @@
   .msgs { height: 100%; overflow-y: auto; overscroll-behavior: contain; }
   .stage { grid-template-rows: minmax(0, 1fr) auto; min-height: 0; align-content: stretch; }
   .room { min-height: 0; }
-  .under { height: clamp(170px, 24dvh, 230px); }
-  .under > * { min-height: 0; overflow: auto; }
-  .feed { display: grid; grid-template-rows: auto minmax(0, 1fr); overflow: hidden !important; }
-  .feed .body { overflow: auto; min-height: 0; }
+  .under { height: clamp(180px, 27dvh, 280px); }
+  .under > * { min-height: 0; overflow: hidden; }
 }
 /* phone: a touch screen with the stacked layout. One page scroll and no zoom: no list scrolls inside the page, the
    question tabs stay in reach while their list scrolls under them, the page only pans (no double-tap or pinch zoom),
@@ -36,21 +36,21 @@
   .qtabs { position: sticky; top: 0; z-index: 5; margin-block: -8px -4px; padding-block: 8px 4px; background: var(--bg); }
   html .reply textarea, html .compose textarea, html .sin { font-size: 16px; }
   html .log { max-height: none; overflow: visible; }
-  /* MESSAGES and FROM HQ have a bounded height and scroll inside themselves, so the page around them stays in reach
-     (heights measured at 390x664 and 390x844): the thread leaves room for its tabs above it and Tell HQ under it on
-     one screen; FROM HQ for the room above it. Momentum on, and reaching an end does not drag the page. They lay out
-     as blocks so a fade can stick to each end without taking space: it shows where there is more that way
-     (data-more, set by messages.js and feed.js). The thread's fades stay inside the box's inner frame. */
-  html .msgs, html .feed .body { display: block; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+  /* MESSAGES has a bounded height and scrolls inside itself, so the page around it stays in reach (heights measured
+     at 390x664 and 390x844): the thread leaves room for its tabs above it and Tell HQ under it on one screen.
+     Momentum on, and reaching an end does not drag the page. It lays out as a block so a fade can stick to each end
+     without taking space: it shows where there is more that way (data-more, set by messages.js). The fades stay
+     inside the box's inner frame. */
+  html .msgs { display: block; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
   html .msgs { max-height: max(240px, calc(100vh - 230px)); max-height: max(240px, calc(100svh - 230px)); }
-  html .feed .body { max-height: max(200px, calc(100vh - 430px)); max-height: max(200px, calc(100svh - 430px)); }
-  html .msgs > * + *, html .feed .body > * + * { margin-top: 8px; }
-  html .msgs::before, html .msgs::after, html .feed .body::before, html .feed .body::after { content: ""; display: block; position: sticky; z-index: 1; pointer-events: none; opacity: 0; transition: opacity .15s; height: 36px; }
+  html .msgs > * + * { margin-top: 8px; }
+  html .msgs::before, html .msgs::after { content: ""; display: block; position: sticky; z-index: 1; pointer-events: none; opacity: 0; transition: opacity .15s; height: 36px; }
   html .msgs::before { top: 5px; margin: -7px -9px -29px; background: linear-gradient(var(--box), transparent); }
   html .msgs::after { bottom: 5px; margin: -29px -9px -7px; background: linear-gradient(transparent, var(--box)); }
-  html .feed .body::before { top: 0; margin-bottom: -36px; background: linear-gradient(var(--box), transparent); }
-  html .feed .body::after { bottom: 0; margin-top: -36px; background: linear-gradient(transparent, var(--box)); }
   html [data-more~="up"]::before, html [data-more~="down"]::after { opacity: 1; }
 }
-.under { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 270px); gap: 14px; }
-@media (max-width: 800px) { .under { grid-template-columns: minmax(0, 1fr); } }
+.under { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+/* OFFICE, the default: no panel under the office. */
+:root:not([data-layout="board"]) .under { display: none; }
+/* the worker card and the secrets panel open over the stage */
+.stage { position: relative; }

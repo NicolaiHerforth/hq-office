@@ -22,7 +22,7 @@ src/client/               the page, plain ES modules and stylesheets, served as 
   core/                   shared by every area: state, net, bus, formatting, rich text, base styles, layout
   room/                   the canvas room
     events/               one file per event room (christmas, halloween, ...)
-  topbar/ questions/ tell/ feed/ card/ messages/ images/ sound/ settings/
+  topbar/ questions/ tell/ card/ messages/ images/ sound/ settings/ secrets/ menu/ lanes/
                           one folder per panel or feature: its module(s) and its stylesheet
   <feature>/index.js      a new feature: loaded by the page on its own
 src/server/               the server, one file per concern
@@ -128,7 +128,7 @@ an existing table is still a careful by-hand migration; the files only make new 
 - `test/client/modules.test.ts`: every import resolves to a file and to a name that file exports, every module is
   reached from `main.js` or a feature's `index.js`, every file opens with a comment.
 - `test/client/page.test.ts`: in Chrome at 1440x900, no console errors, no page scroll, an answer and a note reach
-  the server, the tabs, the worker card, settings and sound respond.
+  the server, the tabs, the worker card, MENU, settings and sound respond.
 - `test/client/room-pixels.test.ts` with `scripts/room-hash.ts`: time, randomness and animation frames frozen in the
   page, fonts blocked; the canvas is hashed after the first frame and after 3 s of frames for 19 states (asks open,
   a worker selected, all 11 seasons and events, idle by day and night in three), and every element's computed style,

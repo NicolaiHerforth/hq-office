@@ -1,5 +1,6 @@
-// The SECRETS pane: paste a value, see names and deadlines (with the date), and the names a restart lost.
-import { $, toast } from "../core/dom.js";
+// The SECRETS panel (MENU › SECRETS, over the stage): paste a value, see names and deadlines (with the date), and
+// the names a restart lost. Esc or ✕ closes it.
+import { $, overOffice, toast } from "../core/dom.js";
 import { S } from "../core/state.js";
 import { clock, esc, setHTML } from "../core/format.js";
 import { post } from "../core/net.js";
@@ -37,6 +38,25 @@ export function renderSecretTimes() {
     el.classList.toggle("soon", left < 60000);
   }
 }
+export const secretsOpen = () => !$("secretsPanel").hidden;
+export function openSecrets() {
+  $("secretsPanel").hidden = false;
+  overOffice($("secretsPanel"));
+  renderSecrets();
+  $("secName").focus();
+}
+export function closeSecrets() {
+  const p = $("secretsPanel");
+  if (p.contains(document.activeElement)) document.activeElement.blur();
+  p.hidden = true;
+}
+$("secretsPanel").addEventListener("click", (e) => { if (e.target.closest("[data-secrets-close]")) closeSecrets(); });
+document.addEventListener("keydown", (e) => {
+  if (e.key !== "Escape" || e.defaultPrevented || !secretsOpen()) return;
+  e.preventDefault(); // the floors' Esc steps out a level only when nothing over the stage is open
+  closeSecrets();
+});
+
 $("secretForm").addEventListener("submit", async (e) => {
   e.preventDefault();
   const value = $("secValue").value;

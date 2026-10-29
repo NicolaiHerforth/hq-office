@@ -50,7 +50,7 @@ const until = async (expr: string, ms = 8000) => {
 };
 const open = async () => {
   await page.s("Page.navigate", { url: `${BASE}/` });
-  await until(`!!document.getElementById("card")?.innerHTML`);
+  await until(`!!document.getElementById("lastNote")?.innerHTML`);
 };
 const looks = () => page.evaluate(`import("/src/client/room/workers.js").then(({ workers }) => [...workers.values()].map((w) => w.pal.look?.id ?? null))`);
 

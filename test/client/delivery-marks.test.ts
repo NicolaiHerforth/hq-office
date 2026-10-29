@@ -28,7 +28,7 @@ const until = async (expr: string, ms = 8000) => {
   for (const end = Date.now() + ms; Date.now() < end; await Bun.sleep(50)) if (await page.evaluate(expr).catch(() => false)) return true;
   throw new Error(`timed out waiting for ${expr}`);
 };
-const log = `document.getElementById("feedBody").textContent`;
+const log = `document.getElementById("lastNote").textContent`; // the line under Tell HQ
 
 beforeAll(async () => {
   if (!chromeFound) return;
@@ -38,8 +38,7 @@ beforeAll(async () => {
   page = await newSession(chrome.cdp, errors);
   await page.s("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
   await page.s("Page.navigate", { url: `${server.base}/` });
-  await until(`!!document.querySelector('#feedTabs [data-tab="log"]')`);
-  await page.evaluate(`document.querySelector('#feedTabs [data-tab="log"]').click()`);
+  await until(`!!document.getElementById("lastNote")?.innerHTML`);
 }, 30_000);
 
 afterAll(async () => {

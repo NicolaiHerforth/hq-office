@@ -1,4 +1,5 @@
-// The top bar: waiting count, oldest wait, working, on HQ, bank, FROM HQ, machines. With floors it counts every floor.
+// The top bar: waiting count, oldest wait, working, on HQ, bank, machines. With floors it counts every floor. HQ's
+// unread messages are the MESSAGES tab's count.
 import { $ } from "../core/dom.js";
 import { S } from "../core/state.js";
 import { dur, esc, setClass, setHTML, setText } from "../core/format.js";
@@ -42,9 +43,6 @@ export function renderStats() {
   setText($("sMove").previousElementSibling, o.stall ? "NOTHING MOVING" : "WORKING");
   setText($("sHq"), S.lanes.filter((l) => ["hq_turn", "stale", "gone"].includes(l.status)).length);
   setText($("sBank"), S.score.bank);
-  const unread = S.updatesUnread ?? 0;
-  setClass($("sFrom"), "box fromhq" + (unread ? " unread" : ""));
-  setText($("sFrom").querySelector(".v"), `${unread} NEW`);
   // Any floor's HQ (docs/floors.md); with one floor, S.hq.
   const down = S.hq?.ok === false || (S.floors ?? []).some((f) => f.receiving === false);
   const title = (down ? "HQ ISN'T RECEIVING · " : "") + (n ? `(${n}) HQ Office` : "HQ Office");

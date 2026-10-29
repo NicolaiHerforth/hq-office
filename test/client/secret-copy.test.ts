@@ -25,8 +25,11 @@ beforeAll(async () => {
   await page.s("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
   await chrome.cdp.send("Browser.grantPermissions", { origin: server.base, permissions: ["clipboardReadWrite", "clipboardSanitizedWrite"] });
   await page.s("Page.navigate", { url: `${server.base}/` });
-  await until(`!!document.querySelector('#feedTabs [data-tab="secrets"]')`);
-  await page.evaluate(`document.querySelector('#feedTabs [data-tab="secrets"]').click()`);
+  // MENU › SECRETS opens the panel over the office
+  await until(`!!document.getElementById("lastNote")?.innerHTML`);
+  await page.evaluate(`document.getElementById("menuBtn").click()`);
+  await page.evaluate(`document.getElementById("secretsBtn").click()`);
+  await until(`!document.getElementById("secretsPanel").hidden`);
   await until(`!!document.querySelector('#secretList [data-secret-copy="REVIEW_LOGIN"]')`);
 }, 30_000);
 

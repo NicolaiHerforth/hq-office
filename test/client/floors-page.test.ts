@@ -141,8 +141,8 @@ test.skipIf(!chromeFound)("+ ADD A FLOOR, USE AN AGENT: only live agents here, a
   await until(`document.querySelector(".stage").dataset.floors === "building"`);
   expect(await text(".fswitch .fpname")).toBe("BUILDING");
   expect(await waitTyped("hq-backend", "You are the HQ of the Backend floor")).toBe(true);
-  // The top bar's FLOORS box: a pip per floor.
-  await until(`document.querySelectorAll(".ffloors .pip").length === 2`);
+  // No FLOORS box in the top bar: the pill and the building say it.
+  expect(await ev(`!document.querySelector(".ffloors")`)).toBe(true);
 });
 
 test.skipIf(!chromeFound)("START A NEW HQ: the server opens a herdr tab and starts hq-<id>; a refusal or a failure says what to do", async () => {
@@ -281,7 +281,8 @@ test.skipIf(!chromeFound)("inside a floor: the office's border in its colour, on
   await until(`document.querySelector(".stage").dataset.floors === "floor"`);
   await click(".scoperow [data-scope-out]");
   await until(`document.querySelector(".stage").dataset.floors === "building"`);
-  await click('.ffloors .pip[data-floor-tab="backend"]');
+  await openList();
+  await click('.fmenu [data-floor-tab="backend"]');
   await until(`document.querySelector(".stage").dataset.floors === "floor"`);
   await click(".fswitch [data-building]");
   await until(`document.querySelector(".stage").dataset.floors === "building"`);
@@ -322,7 +323,6 @@ test.skipIf(!chromeFound)("NOTHING MOVING: amber after 3 minutes, red after 20, 
   await until(`document.querySelector('.ftile[data-floor="ops"]').classList.contains("w-idle")`);
   expect(await text('.ftile[data-floor="ops"] .slot.sa')).toContain("Zz");
   expect(await text('.ftile[data-floor="ops"] .tstall')).toContain("NOTHING MOVING");
-  expect(await ev(`document.querySelector('.ffloors .pip[data-floor-tab="ops"]').classList.contains("is-idle")`)).toBe(true);
   await ev(`window.__shift = 25 * 60000; import("/src/client/core/bus.js").then((m) => m.emit("tick"))`);
   await until(`document.querySelector('.ftile[data-floor="ops"]').classList.contains("w-late")`);
   expect(await ev(`document.querySelector('.ftile[data-floor="ops"] .slot.sa').classList.contains("late")`)).toBe(true);
@@ -479,12 +479,12 @@ test.skipIf(!chromeFound)("EDIT renames a floor; REMOVE says why it cannot; SETT
   expect(await stageMode()).toBe("building");
 });
 
-test.skipIf(!chromeFound)("on a phone: one switcher row under the top bar, the FLOORS pips in the first screen, the list a bottom sheet, the building rows; no sideways scroll", async () => {
+test.skipIf(!chromeFound)("on a phone: one switcher row under the top bar, in the first screen, the list a bottom sheet, the building rows; no sideways scroll", async () => {
   await size(390, 844, true);
   await page.s("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
   await until(`document.querySelector(".top").nextElementSibling?.classList.contains("floornav")`);
   expect(await ev(ONE_ROW)).toMatchObject({ rows: true, inside: true });
-  expect(await ev(`document.querySelector(".ffloors").getBoundingClientRect().bottom < innerHeight && document.querySelector(".fswitch").getBoundingClientRect().bottom < innerHeight`)).toBe(true);
+  expect(await ev(`document.querySelector(".fswitch").getBoundingClientRect().bottom < innerHeight`)).toBe(true);
   expect(await ev(`document.documentElement.scrollWidth <= innerWidth`)).toBe(true);
   // The questions come right after the row.
   expect(await ev(`document.querySelector(".floornav").getBoundingClientRect().bottom <= document.querySelector("#qtabs").getBoundingClientRect().top`)).toBe(true);
@@ -500,7 +500,7 @@ test.skipIf(!chromeFound)("on a phone: one switcher row under the top bar, the F
   const heights: number[] = await ev(`[...document.querySelectorAll(".bgrid .ftile")].map((t) => Math.round(t.getBoundingClientRect().height))`);
   expect(new Set(heights)).toEqual(new Set([44]));
   // The building holds its rows: the panel after it starts below its last row.
-  expect(await ev(`document.querySelector(".building").getBoundingClientRect().bottom >= document.querySelector(".bgrid > :last-child").getBoundingClientRect().bottom && document.querySelector(".under").getBoundingClientRect().top >= document.querySelector(".building").getBoundingClientRect().bottom`)).toBe(true);
+  expect(await ev(`document.querySelector(".building").getBoundingClientRect().bottom >= document.querySelector(".bgrid > :last-child").getBoundingClientRect().bottom && (getComputedStyle(document.querySelector(".under")).display === "none" || document.querySelector(".under").getBoundingClientRect().top >= document.querySelector(".building").getBoundingClientRect().bottom)`)).toBe(true);
   const lefts: number[] = await ev(`[...document.querySelectorAll(".bgrid .ftile")].map((t) => Math.round(t.getBoundingClientRect().left))`);
   expect(new Set(lefts).size).toBe(1);
   expect(await ev(`!!document.querySelector(".ftile .tpic")`)).toBe(false);

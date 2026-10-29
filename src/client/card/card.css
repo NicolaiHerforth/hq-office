@@ -1,5 +1,11 @@
 /* The worker card. */
-/* worker card */
+/* worker card: over the stage's top right, under the secrets panel */
+.card { position: absolute; z-index: 25; top: 0; right: 0; width: min(340px, calc(100% - 16px)); max-height: 100%; overflow: auto; padding: 12px 14px; box-shadow: 0 8px 0 rgba(0, 0, 0, .25); }
+.card[hidden] { display: none; }
+@media (max-width: 1150px) { .card { position: fixed; z-index: 45; top: auto; left: max(8px, env(safe-area-inset-left, 0px)); right: max(8px, env(safe-area-inset-right, 0px)); bottom: calc(8px + env(safe-area-inset-bottom, 0px)); width: auto; max-height: 60vh; max-height: 60svh; } }
+.card h3 { padding-right: 40px; }
+.cardx { position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border: 2px solid var(--edge); border-radius: 6px; background: var(--box); font: 13px/1 var(--text); cursor: pointer; }
+.cardx:hover { background: #fff; }
 .card h3 { margin: 0 0 4px; font: 12px/1.4 var(--pixel); }
 .card .sub { color: #3a3a52; overflow-wrap: anywhere; }
 .card .row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }

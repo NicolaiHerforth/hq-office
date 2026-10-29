@@ -101,7 +101,7 @@ export const FREEZE = `(() => {
     return new Response(JSON.stringify(s), { headers: { "content-type": "application/json" } });
   };
   window.__hq = {
-    ready: () => !!document.getElementById("card")?.innerHTML && !!document.getElementById("feed")?.innerHTML,
+    ready: () => !!document.getElementById("lastNote")?.innerHTML,
     advance(n) { for (let i = 0; i < n; i++) { T += 100; runTimers(); for (const cb of queue.splice(0)) cb(T); } return T; },
   };
 })();`;

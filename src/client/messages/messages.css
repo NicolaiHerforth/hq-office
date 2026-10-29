@@ -9,6 +9,7 @@
 .msg.you .who { color: var(--blue); }
 .msg .seen { font: 7px/1 var(--pixel); color: var(--amber); }
 .msg .seen.ok { color: var(--green); }
+.msg .tag.ans { background: var(--ink); color: #fff; }
 .msg .meta .btn-s { margin-left: auto; padding: 5px 7px; font-size: 7px; }
 .msg h3 { margin: 2px 0 0; font: 800 15px/1.3 var(--text); overflow-wrap: anywhere; }
 .msg .text { font-size: 14px; color: #3a3a52; overflow-wrap: anywhere; }

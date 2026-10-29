@@ -61,17 +61,22 @@ test.skipIf(!chromeFound)("Tell HQ sends a note", async () => {
   expect((await state()).notes[0].text).toBe("From the page test");
 });
 
-test.skipIf(!chromeFound)("tabs, worker card, settings and sound respond", async () => {
+test.skipIf(!chromeFound)("tabs, worker card, MENU, settings and sound respond", async () => {
   await page.evaluate(`document.querySelector('[data-qtab="messages"]').click()`);
   expect(await page.evaluate(`!document.getElementById("msgs").hidden && document.getElementById("hud").hidden && document.getElementById("msgs").textContent.includes("Halfway there")`)).toBe(true);
   await page.evaluate(`document.querySelector('[data-qtab="questions"]').click()`);
   expect(await page.evaluate(`!document.getElementById("hud").hidden`)).toBe(true);
   await page.evaluate(`document.querySelector('[data-select="charlie"]').click()`);
   expect(await page.evaluate(`document.querySelector("#card h3").textContent`)).toBe("charlie");
-  await page.evaluate(`document.querySelector('#feed [data-tab="log"]').click()`);
-  expect(await page.evaluate(`document.querySelector("#feed .log").textContent.includes("Ship the thing?")`)).toBe(true);
+  // the card opens over the office and closes with its ✕
+  expect(await page.evaluate(`document.getElementById("card").hidden`)).toBe(false);
+  await page.evaluate(`document.querySelector("[data-card-close]").click()`);
+  expect(await page.evaluate(`document.getElementById("card").hidden`)).toBe(true);
+  // SETTINGS is in MENU; picking it closes the menu and opens the panel
+  await page.evaluate(`document.getElementById("menuBtn").click()`);
+  expect(await page.evaluate(`!document.getElementById("menuDrop").hidden && document.getElementById("menuBtn").getAttribute("aria-expanded") === "true"`)).toBe(true);
   await page.evaluate(`document.getElementById("settingsBtn").click()`);
-  expect(await page.evaluate(`!document.getElementById("settings").hidden`)).toBe(true);
+  expect(await page.evaluate(`document.getElementById("menuDrop").hidden && !document.getElementById("settings").hidden`)).toBe(true);
   // The default hero is labelled with the owner's name (HUD_OWNER).
   expect(await page.evaluate(`document.querySelector('[data-set="hero"][data-val="YOU"]').textContent`)).toBe((process.env.PIXEL_OWNER || "Tester").toUpperCase());
   await page.evaluate(`document.querySelector('[data-set="hero"][data-val="IVY"]').click()`);

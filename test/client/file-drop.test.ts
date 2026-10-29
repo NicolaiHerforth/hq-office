@@ -157,8 +157,9 @@ describe.skipIf(!chromeFound)("files on every send box", () => {
         return (await state()).answered.find((a: any) => a.id === askId).answer;
       },
       shown: async () => {
-        await page.evaluate(`document.querySelector('#feedTabs [data-tab="log"]').click()`);
-        return "#feedBody";
+        // your answer is in the MESSAGES thread
+        await page.evaluate(`document.querySelector('[data-qtab="messages"]').click()`);
+        return `#msgs [data-msg="a${askId}"]`;
       },
     });
   }, 30_000);
@@ -217,7 +218,7 @@ describe.skipIf(!chromeFound)("files on every send box", () => {
   }, 30_000);
 
   test("a drop anywhere else on the page does nothing, and never opens the file in place of the page", async () => {
-    for (const sel of ["#room", ".topbar, header", "#feedBody", ".qtabs"]) {
+    for (const sel of ["#room", ".topbar, header", "#menuBtn", ".qtabs"]) {
       const d = await page.evaluate(`(() => { const el = document.querySelector(${JSON.stringify(sel)}); return el ? __drop(el, [["stray.pdf", "application/pdf"]]) : null; })()`);
       if (!d) continue;
       expect([sel, d]).toEqual([sel, { over: true, lit: [], drop: true, after: 0 }]);

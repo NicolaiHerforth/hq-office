@@ -5,7 +5,6 @@ import "./core/dom.js";
 import "./questions/drafts.js";
 import "./core/state.js";
 import "./questions/announce.js";
-import "./feed/feed.js";
 import "./sound/sound.js";
 import "./room/input.js";
 import "./core/status.js";

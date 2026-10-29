@@ -92,11 +92,20 @@ teaches it without any setup per session:
 
 Questions from HQ appear at the top of the panel, most urgent first. Pick an option or type an answer; it goes to HQ the moment you send it. Tell HQ is a free-text box for anything HQ did not ask about, such as a new priority or a correction. Both are stored, so nothing is lost if HQ is busy.
 
-HQ uses the CLI in `hud.ts` (the `hud` command after the install hud command action, or `bun hud.ts` from the plugin directory with `HUD_URL` set if you changed the port) to add lanes, ask questions and wait for your answers. HQ posts progress to the **FROM HQ** tab with `hud tell --title "PR is up" [--body "details"] [--lane NAME]` (`hud say` is the same command); the tab counts unread updates until you open them or mark them all read. `hud guide` prints how HQ should reach you.
+HQ uses the CLI in `hud.ts` (the `hud` command after the install hud command action, or `bun hud.ts` from the plugin directory with `HUD_URL` set if you changed the port) to add lanes, ask questions and wait for your answers. HQ posts progress to the **MESSAGES** tab with `hud tell --title "PR is up" [--body "details"] [--lane NAME]` (`hud say` is the same command); the tab counts unread updates until you open it. MESSAGES is the whole conversation: HQ's updates, your notes and your answers to HQ's questions (with whether HQ acted on them), oldest at the top. `hud guide` prints how HQ should reach you.
+
+## Layouts
+
+**MENU**, top right, holds SECRETS, SETTINGS, SOUND and LAYOUT. LAYOUT is each viewer's own choice, remembered in that browser:
+
+- **OFFICE** (the default): the office, or the building with several floors, takes the whole right column.
+- **LANES BOARD**: a board under the office lists every lane by name in three columns: **WORKING**, **WAITING ON YOU** (with what it asks, oldest first) and **NOT MOVING** (waiting on HQ, on CI, at a prompt, or its agent gone; stuck longest first). Parked and done lanes are counted, not listed. Inside a floor it shows that floor's lanes; in the building, every floor's.
+
+Clicking a worker in the office, or a lane on the board, opens its card over the office; ✕ or Esc closes it.
 
 ## Secrets
 
-Paste a key into the SECRETS tab (under the room) with a name and a lifetime in minutes, or into the fields of a question HQ asked with `hud ask --secret NAME`. HQ reads it until it expires:
+Paste a key into **MENU › SECRETS** (a panel over the office) with a name and a lifetime in minutes, or into the fields of a question HQ asked with `hud ask --secret NAME`. HQ reads it until it expires:
 
 ```sh
 hud secret get NAME | <command>          # the raw value, to a pipe only; refuses a terminal
@@ -110,7 +119,7 @@ Every expiry is said both ways, in local time: `expires in 6d 23h (Mon 2 Nov, 13
 
 Values live in the server's memory only: never in the database, the log, `/api/state` or any listing. The deadline is checked on every read. Secret routes answer only to this machine, the read route only to a client that is not a browser, and any request from another web origin is refused.
 
-One exception, for you: **COPY** on a secret in the SECRETS tab puts its value on your clipboard. It is the only way a value reaches a browser, and the server gives it only to the HUD's own page:
+One exception, for you: **COPY** on a secret in MENU › SECRETS puts its value on your clipboard. It is the only way a value reaches a browser, and the server gives it only to the HUD's own page:
 - the page's own origin, or one you listed in `HUD_TRUSTED_ORIGINS` (such as your tailnet address);
 - a same-origin request (`Sec-Fetch-Site`) with the page's header;
 - only when you click.
@@ -157,7 +166,7 @@ in a floor assumes a provider: its HQ and its lanes are whatever agents you run 
 a sandbox that blocks the network has to run `hud` outside it (with escalated permissions); `hud` and the HQ guide say
 so. A floor whose HQ is not running says so where it shows, with START ITS HQ and PICK ANOTHER;
 only an HQ that was running and stopped raises the "HQ isn't receiving" alarm. With two or more floors, BUILDING shows
-them all and the top bar has a pip per floor. `docs/floors.md` has the rules of the floor UI.
+them all. `docs/floors.md` has the rules of the floor UI.
 
 ```
 hud floor add backend --hq hq-backend --name Backend --color #4a90d9   # hq-backend runs in herdr here
@@ -219,7 +228,7 @@ Your typed answer stays on the card through an edit; a picked option the edit re
 
 ## Settings
 
-SETTINGS in the top bar picks your hero, the season and the hero's hat; SOUND next to it turns the new-question chime on and off. These are saved on the server, in the data directory, so they survive a restart, a plugin update and clearing your browser's data, and every browser shows the same ones. The page keeps a copy only to draw the first frame before the server answers. The first time a page from 0.3.0 or later opens against a server with no settings, it sends up the settings that browser remembered.
+SETTINGS (in MENU) picks your hero, the season and the hero's hat; SOUND turns the new-question chime on and off. These are saved on the server, in the data directory, so they survive a restart, a plugin update and clearing your browser's data, and every browser shows the same ones. The page keeps a copy only to draw the first frame before the server answers. The first time a page from 0.3.0 or later opens against a server with no settings, it sends up the settings that browser remembered.
 
 ## Images and files
 

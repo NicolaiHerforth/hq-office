@@ -2,7 +2,7 @@
 import { PANELS, keepDrafts } from "../questions/drafts.js";
 import { CONFIG, S, setCONFIG, setS } from "./state.js";
 import { announce } from "../questions/announce.js";
-import { announceUpdates } from "../feed/feed.js";
+import { announceUpdates } from "../messages/messages.js";
 import { syncWorkers } from "../room/workers.js";
 import { scheduleTick, tick } from "../questions/questions.js";
 import { emit } from "./bus.js";

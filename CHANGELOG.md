@@ -3,6 +3,27 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.23.0] - 2026-10-29
+### Changed
+
+- **The office gets the whole right column.** The panel under the office (FROM HQ, SENT & ANSWERED, SECRETS) only
+  repeated the left column, so it is gone, and the office or the building fills the space. This layout, **OFFICE**,
+  is the default.
+- **LANES BOARD, if you prefer.** MENU › LAYOUT › LANES BOARD puts a board under the office with every lane by name:
+  **WORKING**, **WAITING ON YOU** (with what it asks, oldest first) and **NOT MOVING** (waiting on HQ, on CI, at a
+  prompt, or its agent gone; stuck longest first), each with how long. Parked and done lanes are counted. Inside a
+  floor it shows that floor's lanes; in the building, every floor's. Each viewer picks their own layout, and the
+  browser remembers it.
+- **One MENU.** SECRETS, SETTINGS, SOUND and LAYOUT moved into one menu in the top right. SECRETS opens as a panel
+  over the office. A red dot on MENU says a restart lost a secret.
+- **Your answers are in MESSAGES**, with whether HQ acted on them, beside HQ's updates and your notes. The page
+  marks the updates it shows as read, as before.
+- **The worker card opens over the office** when you click a worker or a lane on the board; ✕ or Esc closes it. It
+  no longer takes a box of its own.
+- **The top bar says each thing once.** The FROM HQ box and the FLOORS box are gone: MESSAGES counts what is new, and
+  the floor pill and the building show each floor. In the building, the row over it no longer repeats the top bar's
+  readings.
+
 ## [0.22.1] - 2026-10-29
 ### Fixed
 

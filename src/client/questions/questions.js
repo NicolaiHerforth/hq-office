@@ -144,7 +144,7 @@ export function scheduleTick() {
   }
   for (const el of document.querySelectorAll("[data-due]")) { const due = Number(el.dataset.due); if (due > now) wait = Math.min(wait, due - now); }
   if (document.querySelector(BLINKING)) wait = Math.min(wait, 250 - (now % 250));
-  if (!$("secretsPane").hidden && document.querySelector("#secretList [data-exp]")) wait = Math.min(wait, 1000 - (now % 1000));
+  if (!$("secretsPanel").hidden && document.querySelector("#secretList [data-exp]")) wait = Math.min(wait, 1000 - (now % 1000));
   if (wait < Infinity) clockTimer = setTimeout(() => { tick(); scheduleTick(); }, wait + 5);
 }
 document.addEventListener("visibilitychange", () => { if (!document.hidden && S) tick(); scheduleTick(); });

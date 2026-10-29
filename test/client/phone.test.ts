@@ -1,8 +1,7 @@
 // The page on a phone, in Chrome at 390x664 with touch, against a temporary server: no zoom (the viewport forbids
-// it, every text field is 16px or more); the page scrolls between sections, while MESSAGES and FROM HQ have a
-// bounded height and scroll inside themselves. MESSAGES opens at its newest message and stays there; a live update or
-// a reply keeps the place of what you read in either list; FROM HQ shows a new update at its top. Needs Chrome;
-// skipped without it.
+// it, every text field is 16px or more); the page scrolls between sections, while MESSAGES has a bounded height and
+// scrolls inside itself. MESSAGES opens at its newest message and stays there; a live update or a reply keeps the
+// place of what you read. Needs Chrome; skipped without it.
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { join } from "node:path";
 import { findChrome, newSession, startChrome, startServer } from "../../scripts/room-hash.ts";
@@ -106,31 +105,3 @@ test.skipIf(!chromeFound)("at the newest message, a new one stays in view", asyn
   expect(await page.evaluate(`scrollY`)).toBe(pageY);
 });
 
-test.skipIf(!chromeFound)("FROM HQ has a bounded height and scrolls itself, and fits on one screen with the room", async () => {
-  await page.evaluate(`document.querySelector(".room").scrollIntoView({ block: "start" })`);
-  await settle();
-  const b = await bounded("feedBody");
-  expect(b.overflowY).toBe("auto");
-  expect(b.overscroll).toBe("contain");
-  expect(b.scrollH).toBeGreaterThan(b.clientH);
-  expect(await page.evaluate(`document.getElementById("feed").getBoundingClientRect().bottom`)).toBeLessThanOrEqual(664);
-  expect(await page.evaluate(`document.getElementById("feedBody").dataset.more`)).toBe("down");
-});
-
-test.skipIf(!chromeFound)("FROM HQ: reading older updates, a new one does not move them; at the top, it shows first", async () => {
-  await scrollTo("feedBody", '[data-upd="10"]', 30);
-  await settle();
-  const before = await topOf('#feedBody [data-upd="10"]');
-  await server.post("/api/updates", { lane: "alpha", title: "Lands on top while reading" });
-  await until(`document.getElementById("feedBody").textContent.includes("Lands on top while reading")`);
-  await settle();
-  expect(Math.abs((await topOf('#feedBody [data-upd="10"]')) - before)).toBeLessThan(1);
-  await page.evaluate(`document.getElementById("feedBody").scrollTop = 0`);
-  await settle();
-  await server.post("/api/updates", { lane: "alpha", title: "Lands on top at the top" });
-  await until(`document.getElementById("feedBody").textContent.includes("Lands on top at the top")`);
-  await settle();
-  expect(await scrollTopOf("feedBody")).toBe(0);
-  expect(await page.evaluate(`document.querySelector("#feedBody [data-upd] h3").textContent`)).toBe("Lands on top at the top");
-  expect(errors).toEqual([]);
-});

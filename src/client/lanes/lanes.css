@@ -1,0 +1,41 @@
+/* THE LANES BOARD: three columns under the office, WORKING / WAITING ON YOU / NOT MOVING, each scrolling on its own. */
+.lanesboard { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 8px; padding: 10px 14px 12px; }
+.lbhead { display: flex; align-items: baseline; gap: 10px; min-width: 0; }
+.lbhead h2 { margin: 0; font: 10px/1 var(--pixel); letter-spacing: 1px; }
+.lbwhere { font-size: 13px; color: var(--muted); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lbfoot { margin-left: auto; flex: none; font: 8px/1 var(--pixel); letter-spacing: 1px; color: var(--muted); }
+.lbcols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; min-height: 0; }
+.lbcol { display: flex; flex-direction: column; gap: 2px; min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+.lbcol h3 { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 8px; margin: 0 0 4px; padding: 2px 0 6px; background: var(--box); border-bottom: 3px solid currentColor; font: 8px/1 var(--pixel); letter-spacing: 1px; }
+.lbcol h3 em { margin-left: auto; font-style: normal; }
+.lbcol.lbwork h3 { color: var(--green); }
+.lbcol.lbyou h3 { color: var(--red); }
+.lbcol.lbstill h3 { color: #8a5200; }
+.lbsig { width: 10px; height: 10px; background: currentColor; }
+.lbcol.lbstill .lbsig { border-radius: 50%; }
+.lbrow, .lbchip { all: unset; box-sizing: border-box; display: grid; align-items: baseline; gap: 8px; border-radius: 5px; cursor: pointer; color: var(--ink); }
+/* two lines: the name and its age, then what it does (or asks, or why it is stuck) in full width */
+.lbrow { grid-template-columns: auto minmax(0, 1fr) auto; row-gap: 2px; padding: 6px 6px; min-height: 32px; font: 14px/1.3 var(--text); }
+.lbrow:not(:has(.lbsw)) { grid-template-columns: minmax(0, 1fr) auto; }
+.lbrow .lbx { grid-column: 1 / -1; grid-row: 2; }
+.lbrow .lbt { grid-row: 1; grid-column: -2 / -1; }
+.lbrow .lbn { overflow: hidden; text-overflow: ellipsis; }
+.lbrow:hover, .lbchip:hover, .lbrow.on, .lbchip.on { background: #eef0fb; }
+.lbrow:focus-visible, .lbchip:focus-visible { outline: 3px solid var(--blue); outline-offset: -3px; }
+.lbsw { width: 8px; height: 8px; border-radius: 2px; align-self: center; }
+.lbn { font: 8px/1.2 var(--pixel); letter-spacing: .5px; white-space: nowrap; }
+.lbx { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
+.lbcol.lbyou .lbx { color: var(--ink); font-weight: 700; }
+.lbcol.lbstill .lbx { color: #8a5200; }
+.lbt { font: 8px/1 var(--pixel); color: var(--muted); white-space: nowrap; justify-self: end; }
+.lbchips { display: flex; flex-wrap: wrap; gap: 4px; }
+.lbchip { grid-auto-flow: column; padding: 6px 8px; min-height: 32px; border: 2px solid #cfe9d8; background: #f2faf5; }
+@media (pointer: coarse) { .lbrow, .lbchip { min-height: 44px; } }
+.lbempty { margin: 4px 6px; font-size: 13px; color: var(--muted); }
+/* narrow: the columns stack, WAITING ON YOU first, and the page scrolls instead of each column */
+@media (max-width: 800px) {
+  .lbcols { grid-template-columns: minmax(0, 1fr); }
+  .lbcol { overflow: visible; }
+  .lbcol.lbyou { order: -1; }
+  .lbhead { flex-wrap: wrap; }
+}

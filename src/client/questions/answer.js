@@ -1,4 +1,4 @@
-// Answering: options, drafts as you type, SEND, COPY, and marking updates read.
+// Answering: options, drafts as you type, SEND, COPY, and deleting a secret.
 import { $, toast } from "../core/dom.js";
 import { drafts, secretDrafts } from "./drafts.js";
 import { S } from "../core/state.js";
@@ -6,13 +6,10 @@ import { copyCode } from "../core/markdown.js";
 import { post } from "../core/net.js";
 import { canSend, renderHud } from "./questions.js";
 import { clearImages, notReady, withImages } from "../images/images.js";
-import { listFloor } from "../core/scope.js";
 
 $("main").addEventListener("click", async (e) => {
   const copyBtn = e.target.closest(".copy");
   if (copyBtn) { copyCode(copyBtn); return; }
-  // Inside a floor, that floor's only (docs/floors.md).
-  if (e.target.closest("[data-readall]")) { const floor = listFloor(); await post("/api/updates/read-all", floor ? { floor } : {}).catch(() => {}); return; }
   const rmBtn = e.target.closest("[data-secret-rm]");
   if (rmBtn) {
     rmBtn.disabled = true;

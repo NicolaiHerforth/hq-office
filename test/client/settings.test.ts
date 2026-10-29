@@ -18,7 +18,7 @@ const until = async (expr: string, ms = 8000) => {
 const serverSettings = async () => (await (await fetch(`${server.base}/api/settings`)).json()).settings;
 const open = async () => {
   await page.s("Page.navigate", { url: `${server.base}/` });
-  await until(`document.getElementById("alerts")?.textContent.startsWith("SOUND") && !!document.getElementById("card")?.innerHTML`);
+  await until(`document.getElementById("alerts")?.textContent.startsWith("SOUND") && !!document.getElementById("lastNote")?.innerHTML`);
 };
 const shownHero = () => page.evaluate(`(() => { const p = document.getElementById("settings"); if (p.hidden) document.getElementById("settingsBtn").click(); return document.querySelector('[data-set="hero"].on')?.dataset.val; })()`);
 

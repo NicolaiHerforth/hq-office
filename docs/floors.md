@@ -189,8 +189,7 @@ must be as plain to the owner as to the HQs.
    their palette is blue, teal, purple, magenta, slate, brown and cyan. A STARTING floor is a dashed grey, not amber.
 2. **Status before identity, the same everywhere.** Slot A: a red `! N` when anything waits on you, else an amber (or
    red) `Zz N` when nothing moves. Then the name. Slot B: a green bar per working lane, up to five, then `▮5+`. Same
-   size and place on the pill, the floor list rows and the building tiles; the top bar's FLOORS box shows each floor's
-   worst state as a pip.
+   size and place on the pill, the floor list rows and the building tiles.
 3. **Working is one definition.** A lane herdr reports working, or with background work, is `moving` and at its desk
    in the office, whatever its phase (`lanes.ts` `laneStatus`); the counts, the bars and the office agree.
 4. **Where am I, said once by the office and once by the lists.** Inside a floor the office's border is its colour,
@@ -208,7 +207,7 @@ must be as plain to the owner as to the HQs.
 
 One floor (`S.floors` has one entry) is the page as it was before floors, plus the switcher row over the office: that
 floor's pill (`HQ ▾`, its slots) and its readings; the pill opens the floor list (that floor, with EDIT, and + ADD A
-FLOOR). No building, scope row, FLOORS box, card stripe or `to:`. The room's pixel and layout test proves the rest is
+FLOOR). No building, scope row, card stripe or `to:`. The room's pixel and layout test proves the rest is
 unchanged (`PIXEL_BASE=<ref> bun test test/client/room-pixels.test.ts`): it leaves the row out of its style hash, as it
 leaves out the FLOORS section in SETTINGS, and puts back the two things this rework moved for every page (the
 +N MORE OUT OF VIEW pill, now at the foot of the question list, and SETTINGS' sticky header). With two or more floors:
@@ -221,9 +220,7 @@ leaves out the FLOORS section in SETTINGS, and puts back the two things this rew
   receiving, starting, not running, stopped; its readings; EDIT on hover or focus; the fix when its HQ is not running),
   then + ADD A FLOOR. ↓ on the pill opens it; arrows, Home, End, Enter; Esc or a click outside closes it. A bottom sheet
   under 1151 px.
-- **The top bar's FLOORS box**: a pip per floor in its worst state (red, amber or red, green, grey), each a way into its
-  floor; an amber border when a floor has nothing moving and nothing waits on you. It takes the HQ OFFICE title box's
-  place. WORKING in the strip is `S.office`'s working of active, and turns into NOTHING MOVING (amber, then red) for the
+- **The top bar** says the whole office once: WORKING in the strip is `S.office`'s working of active, and turns into NOTHING MOVING (amber, then red) for the
   whole office.
 - **Inside a floor**: the office's border in its colour; the scope row under the question tabs (its × and Esc step out
   one level: SHOW ALL off first, then out to the building; Esc closes the floor panel and the list before anything; not
@@ -235,7 +232,7 @@ leaves out the FLOORS section in SETTINGS, and puts back the two things this rew
   the readings big (or the fix), and a small still picture of its office (`room/still.js`, without event art), hidden
   when the tile is too narrow. Its frame takes slot A's colour; a click enters the floor; ENTER › shows on hover. A
   picture is drawn again only when what it shows changes and only while the building shows; no frame loop per tile.
-  Coming back to the building starts at its top. CLICK A WORKER is hidden there. Under 1151 px a tile is a 44 px row,
+  Coming back to the building starts at its top. Under 1151 px a tile is a 44 px row,
   its picture behind PICTURE.
 - **The floor panel** (`floors/panel.js`), over the stage (a sheet on a phone): + ADD A FLOOR adds a floor (a name, a
   colour from the floor palette, and its HQ: USE AN AGENT, a select of herdr's live agents on this machine, those
@@ -245,7 +242,7 @@ leaves out the FLOORS section in SETTINGS, and puts back the two things this rew
 - **The scope** (`src/client/core/scope.js`): the floor you are in, or none (the building), and SHOW ALL. It is kept in
   sessionStorage, dropped when its floor is gone, and every change emits `scope` on the bus. Pure helpers of `S` (the
   floor list, a floor's HQ link and state, the readings and slots, the card stripe) are in `core/floors.js`.
-- **Lists and counts**: NEEDS YOU, MESSAGES, WORK (and its STALLED strip), ROOMS, FROM HQ and SENT & ANSWERED, and the
+- **Lists and counts**: NEEDS YOU, MESSAGES, WORK (and its STALLED strip), ROOMS, and the
   tab counts, follow `listFloor()`. In a list that shows every floor a card has a 4 px stripe in its floor's colour and
   a swatch in its lane tag; its kind tag stays; the timer stays on the right and the tags shorten first.
 - **TELL HQ**: `to: Backend ▾` left of SEND (a native select under a label as wide as the name, at most 40% of the row)

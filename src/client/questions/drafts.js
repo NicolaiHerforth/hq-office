@@ -1,6 +1,7 @@
 // Unsent answers and notes, kept across the page's own reloads.
 import { $ } from "../core/dom.js";
-import { renderLog } from "../feed/feed.js";
+import { renderLastNote } from "../tell/last-note.js";
+import { renderSecrets } from "../secrets/secrets.js";
 import { renderMachines, renderStats } from "../topbar/topbar.js";
 import { renderHud } from "./questions.js";
 import { renderCard } from "../card/card.js";
@@ -42,8 +43,9 @@ export const PANELS = [
   [["machines"], () => renderMachines()],
   [["open"], () => renderHud()],
   [["lanes", "open", "config"], () => renderCard()],
-  [["notes", "answered", "updates", "updatesUnread", "secrets", "secretsLost", "hq"], () => renderLog()],
+  [["notes", "hq"], () => renderLastNote()],
+  [["secrets", "secretsLost"], () => renderSecrets()],
   [["open", "updatesUnread", "board"], () => renderQTabs()],
   [["board", "open"], () => renderWork()],
-  [["updates", "notes"], () => renderMsgs()],
+  [["updates", "notes", "answered", "hq"], () => renderMsgs()],
 ];

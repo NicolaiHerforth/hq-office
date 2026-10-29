@@ -76,21 +76,6 @@
 .flrow .ffix { grid-column: 1 / -1; margin: 0; padding: 0 8px 8px 8px; color: var(--ink); }
 .ffwhy.down { color: var(--red); }
 
-/* the top bar's FLOORS box (two or more floors): a pip per floor in its worst state, and how many lanes work */
-.ffloors { display: grid; gap: 6px; padding: 10px 14px; }
-.ffloors[hidden] { display: none; }
-.ffloors .k { font: 8px/1 var(--pixel); color: var(--muted); }
-.ffloors .v { display: flex; align-items: center; gap: 10px; }
-.ffloors .pips { display: flex; gap: 4px; }
-.pip { flex: none; box-sizing: border-box; width: 12px; min-width: 12px; height: 12px; padding: 0; border: 2px solid var(--fc); border-radius: 3px; background: #dcdce8; cursor: pointer; transition: transform .08s; }
-.pip:hover { transform: translateY(-2px); }
-.pip.is-block, .pip.is-late { background: var(--red); }
-.pip.is-idle { background: var(--amber); }
-.pip.is-work { background: var(--green); }
-.ffloors.idle { border-color: var(--amber); }
-/* the FLOORS box takes the title box's place in the top bar */
-.top:has(.ffloors:not([hidden])) .title { display: none; }
-.top:has(.ffloors:not([hidden])) .right :is(.k, .v) { white-space: nowrap; }
 
 /* the stage: the switcher row first, then the building or the office, then the panels under it */
 @media (min-width: 1151px) {
@@ -101,7 +86,6 @@
 .stage[data-floors="floor"] > .room { border-color: var(--fc, var(--edge)); }
 /* the building has no worker to click */
 .stage[data-floors="building"] .under { grid-template-columns: minmax(0, 1fr); }
-.stage[data-floors="building"] .under > .card { display: none; }
 
 /* THE BUILDING: tiles that fit the stage, the readings first, the picture beside them */
 .building { min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 10px; background: #1b1d2c; border-color: var(--edge); box-shadow: none; }

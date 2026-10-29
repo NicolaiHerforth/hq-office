@@ -1,4 +1,4 @@
-/* The top bar: the waiting count, the office strip, FROM HQ, machines, the SETTINGS and SOUND buttons. */
+/* The top bar: the waiting count, the title, the office strip, machines, and MENU (menu/menu.css). */
 .stat { display: grid; gap: 6px; padding: 10px 14px; }
 .stat .k { font: 8px/1 var(--pixel); color: var(--muted); }
 .stat .v { font: 16px/1 var(--pixel); }
@@ -43,9 +43,8 @@
 .strip.stall > div:first-child .k, .strip.stall > div:first-child .v { color: #a86410; }
 .strip.stall.late { border-color: var(--red); }
 .strip.stall.late > div:first-child .k, .strip.stall.late > div:first-child .v { color: var(--red); }
-/* 1151 to 1300 px: the title box goes first, and no label wraps */
+/* 1151 to 1300 px: no label wraps */
 @media (min-width: 1151px) and (max-width: 1300px) {
-  .top .title { display: none; }
   .top .right .k, .top .right .v { white-space: nowrap; }
   .strip { gap: 12px; }
 }

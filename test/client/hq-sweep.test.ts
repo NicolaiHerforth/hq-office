@@ -24,7 +24,7 @@ beforeAll(async () => {
   page = await newSession(chrome.cdp, errors);
   await page.s("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
   await page.s("Page.navigate", { url: `${server.base}/` });
-  await until(`document.getElementById("alerts")?.textContent.startsWith("SOUND") && !!document.getElementById("card")?.innerHTML`);
+  await until(`document.getElementById("alerts")?.textContent.startsWith("SOUND") && !!document.getElementById("lastNote")?.innerHTML`);
   await page.evaluate(`document.getElementById("settingsBtn").click()`);
   await until(`!!${row}`);
 }, 30_000);

@@ -1,5 +1,5 @@
 // The same markdown through every surface that shows text HQ or a lane wrote: NEEDS YOU (title, body, the ledger's
-// checklist and comments), MESSAGES, FROM HQ, SENT & ANSWERED and the last note, the worker card (title, note and
+// checklist and comments), MESSAGES (your answers too) and the last note, the worker card (title, note and
 // the blocked prompt as a code box), the WORK board, ROOMS (list, brief, thread) and the HQ-isn't-receiving strip.
 // Seeded on a temporary server whose herdr has no HQ, so a note is held. Needs Chrome; skipped without it.
 import { afterAll, beforeAll, expect, test } from "bun:test";
@@ -101,14 +101,13 @@ test.skipIf(!chromeFound)("MESSAGES: HQ's title and body, and your note", async 
   await tab("questions");
 }, 20_000);
 
-test.skipIf(!chromeFound)("FROM HQ, SENT & ANSWERED and the last note under Tell HQ", async () => {
-  expect(await look("#feedBody .upd h3")).toMatchObject(inline);
-  expect(await look("#feedBody .upd .text")).toMatchObject(block);
+test.skipIf(!chromeFound)("your answers in MESSAGES (the question and your answer), and the last note under Tell HQ", async () => {
   expect(await look("#lastNote")).toMatchObject(inline);
-  await page.evaluate(`document.querySelector('#feedTabs [data-tab="log"]').click()`);
-  await until(`!!document.querySelector("#feedBody .log .ans")`);
-  expect(await look("#feedBody .log .ans")).toMatchObject(block);
-  await page.evaluate(`document.querySelector('#feedTabs [data-tab="updates"]').click()`);
+  await tab("messages");
+  await until(`!!document.querySelector('#msgs [data-msg^="a"] .text')`);
+  expect(await look('#msgs [data-msg^="a"] h3')).toMatchObject(inline);
+  expect(await look('#msgs [data-msg^="a"] .text')).toMatchObject(block);
+  await tab("questions");
 }, 20_000);
 
 test.skipIf(!chromeFound)("the worker card: the title, the note, and the blocked prompt verbatim in a code box", async () => {
