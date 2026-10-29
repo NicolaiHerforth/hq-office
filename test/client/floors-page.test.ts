@@ -158,7 +158,7 @@ test.skipIf(!chromeFound)("START A NEW HQ: the server opens a herdr tab and star
   await until(`document.querySelector(".fpanel")?.hidden === true`, 15000);
   const calls = herdr.calls();
   expect(calls.find((c) => c[0] === "tab" && c[1] === "create")).toEqual(["tab", "create", "--workspace", "w1", "--cwd", "/tmp/the-project", "--label", "Ops HQ", "--no-focus"]);
-  expect(calls.find((c) => c[0] === "agent" && c[1] === "start")?.slice(0, 7)).toEqual(["agent", "start", "hq-ops", "--kind", "claude", "--pane", "w1:p91"]);
+  expect(calls.find((c) => c[0] === "agent" && c[1] === "start" && c[2] !== "--help")?.slice(0, 7)).toEqual(["agent", "start", "hq-ops", "--kind", "claude", "--pane", "w1:p91"]);
   expect(await waitTyped("hq-ops", "You are the HQ of the Ops floor")).toBe(true);
   // herdr cannot start it: the panel says why and what next; no floor.
   herdr.failStart(true);

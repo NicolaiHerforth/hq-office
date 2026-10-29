@@ -169,8 +169,8 @@ async function startItsHq(btn) {
   const all = () => document.querySelectorAll(`[data-floor-start="${CSS.escape(f.id)}"]`);
   for (const b of all()) { b.disabled = true; b.dataset.was = b.innerHTML; b.textContent = "STARTING…"; }
   try {
-    await post(`/api/floors/${encodeURIComponent(f.id)}`, { start: true });
-    toast(`HQ-${f.id.toUpperCase()} STARTED FOR ${f.name.toUpperCase()}.`);
+    const r = await post(`/api/floors/${encodeURIComponent(f.id)}`, { start: true });
+    toast(r?.waiting ? `HQ-${f.id.toUpperCase()} STARTED, BUT WAITS ON A PROMPT IN ITS HERDR PANE: ANSWER IT THERE.` : `HQ-${f.id.toUpperCase()} STARTED FOR ${f.name.toUpperCase()}.`);
   } catch (err) {
     toast(err.message);
     for (const b of all()) { b.disabled = false; if (b.dataset.was) b.innerHTML = b.dataset.was; }

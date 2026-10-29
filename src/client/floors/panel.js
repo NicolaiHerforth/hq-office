@@ -2,7 +2,8 @@
 // changes one. A name, a colour from the floor palette (never red, amber or green: those are the readings), and its HQ,
 // as a segmented control: USE AN AGENT (one of herdr's live named agents on this machine, lanes too: a lane promoted
 // to run a domain; one that already runs a floor is shown, disabled, with that floor's name) or START A NEW HQ (the
-// server opens a herdr tab beside the first floor's HQ and starts hq-<id> in it). No typed names: a floor's HQ is an
+// server opens a herdr tab beside the first floor's HQ and starts hq-<id> in it, as the herdr agent kind picked: any
+// kind herdr can start, the first floor's HQ's by default; nothing assumes a provider). No typed names: a floor's HQ is an
 // agent that runs, or one the HUD starts. EDIT renames, recolours, gives the floor another HQ (PICK ANOTHER opens it
 // there), or removes it when it is empty, after a confirm in the page; REMOVE says why it cannot when it cannot.
 // A failure shows in the panel, and nothing is added. Uses the floor routes (docs/floors.md).
@@ -22,6 +23,7 @@ let box = null;
 // The open form: { mode: "add" | "edit", id, name, color, how: "agent" | "start", hq, busy, error, confirm }.
 let form = null;
 let agents = null; // GET /api/floors/agents, read when the panel opens
+let kinds = null; // GET /api/floors/kinds: the agent kinds herdr can start, read when the panel opens
 
 export const panelOpen = () => !!form;
 // No two floors wear one colour: a colour another floor wears is offered disabled, with its name (while one is free).
@@ -50,9 +52,15 @@ export function openPanel(o) {
   $("settings").hidden = true;
   const used = new Set(floorsOf(S).map((x) => x.color));
   form = f
-    ? { mode: "edit", id: f.id, name: f.name, color: f.color, how: "agent", hq: f.hq, busy: false, error: "", confirm: false }
-    : { mode: "add", id: null, name: "", color: FLOOR_COLORS.find((c) => !used.has(c)) ?? FLOOR_COLORS[0], how: "agent", hq: "", busy: false, error: "", confirm: false };
+    ? { mode: "edit", id: f.id, name: f.name, color: f.color, how: "agent", hq: f.hq, kind: "", busy: false, error: "", confirm: false }
+    : { mode: "add", id: null, name: "", color: FLOOR_COLORS.find((c) => !used.has(c)) ?? FLOOR_COLORS[0], how: "agent", hq: "", kind: "", busy: false, error: "", confirm: false };
   agents = null;
+  kinds = null;
+  fetch("/api/floors/kinds").then((r) => r.json()).then((d) => {
+    kinds = d;
+    if (form && !form.kind) form.kind = d.lead ?? d.ready?.[0] ?? d.kinds?.[0] ?? "";
+    if (form?.how === "start") draw();
+  }).catch(() => { kinds = { kinds: [], ready: [], lead: null }; });
   fetch("/api/floors/agents").then((r) => r.json()).then((d) => {
     agents = d.agents ?? [];
     if (!form) return;
@@ -80,7 +88,7 @@ function hqHTML() {
   if (form.how === "start") {
     const lead = floorsOf(S)[0];
     const id = slug(form.name) || "<id>";
-    return `<p class="fpnote">The HUD opens a herdr tab beside <b>${esc(lead?.hq ?? "HQ")}</b>, in its folder, starts a Claude agent named <b class="fpid">hq-${esc(id)}</b> in it, and sends it the HQ guide for this floor.</p>`;
+    return kindHTML() + `<p class="fpnote">The HUD opens a herdr tab beside <b>${esc(lead?.hq ?? "HQ")}</b>, in its folder, starts <b class="fpkind">${esc(form.kind || "an agent")}</b> named <b class="fpid">hq-${esc(id)}</b> in it, and sends it the HQ guide for this floor.</p>`;
   }
   if (agents === null) return `<p class="fpnote">Reading herdr's agents…</p>`;
   const names = free(), busy = taken();
@@ -93,6 +101,20 @@ function hqHTML() {
   return `<select class="levels" name="hq" aria-label="HQ agent">${gone}${names.map((a) => `<option value="${esc(a)}"${a === form.hq ? " selected" : ""}>${esc(a)}${isLane(a) ? " (a lane)" : ""}</option>`).join("")}`
     + busy.map((a) => `<option value="${esc(a.name)}" disabled>${esc(a.name)} (HQ of ${esc(floorById(S, a.floor)?.name ?? a.floor)})</option>`).join("") + `</select>`
     + `<p class="fpnote">Agents that run in herdr on this machine. An HQ runs one floor.</p>`;
+}
+
+// Which agent the new HQ runs: any kind herdr can start. Those whose herdr integration is installed come first (herdr
+// reads their state); the first floor's HQ's kind is the default. Nothing assumes a provider.
+function kindHTML() {
+  if (kinds === null) return `<p class="fpnote">Reading which agents herdr can start…</p>`;
+  const ready = kinds.ready ?? [], all = kinds.kinds ?? [];
+  const known = [...new Set([...(form.kind ? [form.kind] : []), ...ready])];
+  const rest = all.filter((k) => !known.includes(k));
+  const opt = (k) => `<option value="${esc(k)}"${k === form.kind ? " selected" : ""}>${esc(k)}${k === kinds.lead ? " (as the first HQ)" : ""}</option>`;
+  const field = !known.length && !rest.length
+    ? `<input class="levels" name="kind" spellcheck="false" autocomplete="off" placeholder="a herdr agent kind (herdr agent start --help)" value="${esc(form.kind)}">`
+    : `<select class="levels" name="kind">${known.map(opt).join("")}${rest.length ? `<optgroup label="Other kinds (no herdr integration)">${rest.map(opt).join("")}</optgroup>` : ""}</select>`;
+  return `<label class="fpk"><span class="sk">AGENT</span>${field}</label>`;
 }
 
 function html() {
@@ -136,6 +158,7 @@ function keep() {
   if (!el || !form) return;
   form.name = el.elements.name.value;
   if (el.elements.hq?.value) form.hq = el.elements.hq.value;
+  if (el.elements.kind?.value !== undefined) form.kind = el.elements.kind.value.trim();
 }
 
 async function save() {
@@ -149,11 +172,12 @@ async function save() {
   form.busy = true;
   draw();
   try {
-    if (form.mode === "add") await post("/api/floors", form.how === "start" ? { id, name, color: form.color, start: true } : { id, name, hq, color: form.color });
+    let r = null;
+    if (form.mode === "add") r = await post("/api/floors", form.how === "start" ? { id, name, color: form.color, start: true, ...(form.kind ? { kind: form.kind } : {}) } : { id, name, hq, color: form.color });
     else await post(`/api/floors/${encodeURIComponent(id)}`, { name, hq, color: form.color });
     const added = form.mode === "add";
     closePanel();
-    toast(added ? `${name.toUpperCase()} FLOOR ADDED.` : "SAVED.");
+    toast(!added ? "SAVED." : r?.waiting ? `${name.toUpperCase()} FLOOR ADDED. ITS HQ WAITS ON A PROMPT IN ITS HERDR PANE: ANSWER IT THERE.` : `${name.toUpperCase()} FLOOR ADDED.`);
     // A new floor shows in the building, among the others; an edited one stays where you are.
     if (added) toBuilding();
   } catch (err) {
@@ -171,6 +195,8 @@ function wire() {
     // START A NEW HQ names the agent after the floor: say which, as it is typed.
     const id = box.querySelector(".fpid");
     if (id) id.textContent = `hq-${slug(form.name) || "<id>"}`;
+    const kind = box.querySelector(".fpkind");
+    if (kind) kind.textContent = form.kind || "an agent";
   });
   box.addEventListener("click", async (e) => {
     const t = e.target.closest("[data-fp-close], [data-color], [data-fp-how], [data-fp-rm], [data-fp-rm-no], [data-fp-rm-yes]");

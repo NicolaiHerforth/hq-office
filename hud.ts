@@ -40,7 +40,7 @@
 // floors: one HQ agent and everything it runs (see floorCmd below). hud tells the server which pane it runs in
 // ($HERDR_PANE_ID), so an HQ's or a lane's writes land on its own floor, and inbox, wait, ack, board, tree and
 // room list show its own floor only; --all shows every floor, and --floor ID picks a floor by hand.
-//   hud floor add ID (--hq AGENT | --start) [--name N] [--color #hex]  |  list  |  set ID [--name] [--hq] [--color]  |  rm ID
+//   hud floor add ID (--hq AGENT | --start [--kind K]) [--name N] [--color #hex]  |  list  |  set ID [--name] [--hq] [--color]  |  rm ID
 //   hud floor tell FLOOR TEXT    type a line into another floor's HQ
 //   hud lane NAME --floor ID     move a lane, with every lane under it, to another floor
 import { GUIDE } from "./src/hq-guide.ts";
@@ -71,12 +71,21 @@ function who(): Record<string, string> {
   return h;
 }
 
+// The HUD did not answer at all. An agent whose commands run in a sandbox without network (some agents default to one)
+// cannot reach 127.0.0.1 from inside it: say so, so whichever agent runs hud knows to run it outside its sandbox.
+function unreachable(e: unknown): never {
+  console.error(`hud: could not reach the HUD at ${BASE} (${(e as Error)?.message ?? e}).
+If the HUD is running, this command ran in a sandbox that blocks the network: run hud outside the sandbox (ask for escalated permissions, or allow commands that start with "hud").
+If the HUD is not running, start it: herdr plugin action invoke hq-office.start`);
+  process.exit(1);
+}
+
 async function call(method: string, path: string, body?: unknown) {
   const res = await fetch(BASE + path, {
     method,
     headers: { "content-type": "application/json", "x-hud": "1", ...who() },
     body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  }).catch(unreachable);
   const data = await res.json();
   if (!res.ok) {
     console.error(data.error ?? res.statusText);
@@ -221,7 +230,7 @@ switch (cmd) {
       console.log(JSON.stringify(await call("GET", "/api/board?refresh=1"), null, 2));
       break;
     }
-    const res = await fetch(`${BASE}/api/board?refresh=1&format=text`, { headers: who() });
+    const res = await fetch(`${BASE}/api/board?refresh=1&format=text`, { headers: who() }).catch(unreachable);
     if (!res.ok) {
       console.error(await res.text());
       process.exit(1);
@@ -410,7 +419,7 @@ async function roomCmd(args: string[]) {
         }
         const name = file.split("/").pop()!;
         const q = new URLSearchParams({ name, title: o("title") ?? name, ...(o("kind") ? { kind: o("kind")! } : {}), ...(o("as") ? { as: o("as")! } : {}) });
-        const res = await fetch(`${BASE}${path}/files?${q}`, { method: "POST", headers: { "content-type": blob.type || "application/octet-stream", "x-hud": "1", ...who() }, body: blob });
+        const res = await fetch(`${BASE}${path}/files?${q}`, { method: "POST", headers: { "content-type": blob.type || "application/octet-stream", "x-hud": "1", ...who() }, body: blob }).catch(unreachable);
         const out = await res.json();
         if (!res.ok) {
           console.error(out.error ?? res.statusText);
@@ -478,7 +487,9 @@ async function floorCmd() {
     console.error(`usage:
   hud floor list [--json]                                  every floor: its HQ, whether it is receiving, lanes, waiting on the owner
   hud floor add ID --hq AGENT [--name N] [--color #hex]    a new floor, run by the herdr agent AGENT
-  hud floor add ID --start [--name N] [--color #hex]       a new floor whose HQ the HUD starts: hq-ID, in a new herdr tab
+  hud floor add ID --start [--kind K] [--name N] [--color #hex]
+                                                           a new floor whose HQ the HUD starts: hq-ID, in a new herdr tab, as
+                                                           herdr agent kind K (herdr agent start --help lists them; default: the first floor's HQ's)
   hud floor set ID [--name N] [--hq AGENT] [--color #hex]
   hud floor rm ID                                          only an empty floor (move its lanes first: hud lane NAME --floor OTHER)
   hud floor tell FLOOR TEXT                                type a line into that floor's HQ, from your floor`);
@@ -494,16 +505,21 @@ async function floorCmd() {
       for (const f of floors) {
         const link = f.starting ? (f.notStarted ? `not started: waiting for ${f.hq} in herdr` : `STARTING: waiting for ${f.hq} in herdr`)
           : f.receiving === true ? "receiving" : f.receiving === false ? `NOT receiving (${f.reason})` : "not checked yet";
-        console.log(`${f.id === caller ? "*" : " "} ${f.id}  "${f.name}"  HQ ${f.hq}  ${link}  ${f.counts.lanes} lanes  ${f.counts.needsYou} waiting on the owner`);
+        console.log(`${f.id === caller ? "*" : " "} ${f.id}  "${f.name}"  HQ ${f.hq}${f.kind ? ` (${f.kind})` : ""}  ${link}  ${f.counts.lanes} lanes  ${f.counts.needsYou} waiting on the owner`);
       }
       break;
     }
     case "add":
       if (!id) usage();
       if (START && one("hq")) usage();
+      if (!START && one("kind")) usage();
       if (START) console.log(`starting hq-${id} in a new herdr tab…`);
-      await call("POST", "/api/floors", { id, name: one("name"), color: one("color"), ...(START ? { start: true } : { hq: one("hq") }) });
-      console.log(START ? `floor ${id} added; its HQ hq-${id} is running and gets the HQ guide` : `floor ${id} added`);
+      {
+        const r = await call("POST", "/api/floors", { id, name: one("name"), color: one("color"), ...(START ? { start: true, kind: one("kind") } : { hq: one("hq") }) });
+        if (!START) console.log(`floor ${id} added`);
+        else if (r.waiting) console.log(`floor ${id} added; its HQ hq-${id} started but waits on a prompt in its pane (answer it in herdr; it gets the HQ guide after):\n${r.waiting}`);
+        else console.log(`floor ${id} added; its HQ hq-${id} is running and gets the HQ guide`);
+      }
       break;
     case "set":
       if (!id) usage();

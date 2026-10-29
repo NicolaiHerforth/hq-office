@@ -11,6 +11,7 @@ The owner reads the HQ Office page (the HUD), usually on a second screen, and do
 - With HQ SWEEP on in the owner's SETTINGS, the HUD types a "HUD sweep:" line into you when you are idle: what to look at (idle lanes, stalled work, questions waiting on the owner, rooms). Sweep then; an idle lane must be idle for a reason.
 - With several floors, each HQ owns its floor: \`hud\` files your questions, updates, lanes, rooms and board items on your floor by itself, and your inbox, board and tree show your floor only (\`--all\` for every floor). To reach another floor's HQ: \`hud floor tell FLOOR TEXT\`.
 - What the owner attaches comes at the end of a note, an answer or a room message as \`[image: PATH]\` or \`[file: PATH]\`: the full path of the file on the HUD's machine. Open it from there.
+- \`hud\` talks to the HUD on this machine (127.0.0.1). If your commands run in a sandbox that blocks the network, run \`hud\` outside it (with escalated permissions); the same goes for your lanes.
 - This terminal is for your own work.`;
 
 // The guide for the HQ of one floor (not the first): the same, with which floor it owns.

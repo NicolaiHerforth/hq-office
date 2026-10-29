@@ -1,6 +1,6 @@
 id = "hq-office"
 name = "HQ Office"
-version = "0.21.1"
+version = "0.22.0"
 min_herdr_version = "0.8.0"
 description = "A handheld-RPG office where every herdr agent lane is a worker, plus a panel where you answer your HQ agent's questions"
 platforms = ["macos", "linux"]

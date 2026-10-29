@@ -82,10 +82,19 @@ A floor's HQ is an agent that runs in herdr **on this machine** (the HUD types i
 - **START A NEW HQ** (`POST /api/floors` with `start: true`, `hud floor add ID --start`): the server (`floor-start.ts`)
   reads `herdr agent list` for the first floor's HQ's `workspace_id` and `cwd`, runs
   `herdr tab create --workspace W --cwd C --label "<Name> HQ" --no-focus`, and starts `hq-<id>` in the new tab's root
-  pane with `herdr agent start hq-<id> --kind claude --pane P`. Only once herdr says the agent is ready is the floor
-  stored, and its HQ sent the guide for its floor. On any failure the tab is closed again, no floor is added, and the
+  pane with `herdr agent start hq-<id> --kind K --pane P`. K is the kind the owner picked (`kind`, `--kind`; any kind
+  herdr names), else the kind the first floor's HQ runs: nothing in a floor assumes a provider. `GET /api/floors/kinds`
+  gives the panel herdr's kinds (from `herdr agent start --help`), those whose herdr integration is installed (from
+  `herdr integration status`) and the first HQ's. The kind each floor's HQ ran is kept in `floor_kinds` (started or
+  seen) and shown as `S.floors[].kind`; START ITS HQ starts that kind again. Once herdr says the agent is ready the floor
+  is stored, and its HQ sent the guide for its floor. An agent that stops at a question while it starts (an update
+  notice, trusting the folder: herdr's `agent_not_ready`, the agent listed) is kept too: the floor is stored, the reply
+  and the event carry the prompt's excerpt (`waiting`), the floor shows its HQ at a prompt, and the guide goes in once
+  the owner has answered it in the pane. On any other failure the tab is closed again, no floor is added, and the
   reply says what went wrong and what to do next (the first HQ not running here, no workspace from herdr, no tab, the
   agent not starting). An id or agent name that is taken is refused before herdr is asked anything.
+- **Sandboxed agents.** `hud` reaches the HUD at 127.0.0.1. An agent whose commands run in a sandbox without network
+  (some agents' default) cannot; `hud` then says to run it outside the sandbox, and the HQ guide says so up front.
 - **The plugin's greet** (`bin/hud-plugin.ts`, on `pane.agent_detected`) treats every floor's HQ as an HQ: it asks the
   HUD for `GET /api/floors` and sends a floor's HQ the guide for its floor, once per session.
 

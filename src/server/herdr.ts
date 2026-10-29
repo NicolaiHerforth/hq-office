@@ -13,7 +13,7 @@ import { isHqAgent, setPanes } from "./floors.ts";
 export let untracked: { name: string; machine: string; status: string }[] = [];
 // Every named agent herdr runs, lanes too, from the last sync. A floor's HQ is one of those on this machine (the HUD
 // types into HQ here): runningHere.
-export let live: { name: string; machine: string; status: string; lane: boolean }[] = [];
+export let live: { name: string; machine: string; status: string; kind: string | null; lane: boolean }[] = [];
 // Whether an agent runs in herdr on this machine, at the last sync: null when it does not run at all, else where.
 export function whereRuns(name: string): string | null {
   const a = live.find((x) => x.name === name && x.status !== "gone");
@@ -137,13 +137,13 @@ export async function syncHerdr() {
   untracked = [...seen.entries()]
     .filter(([name]) => !known.has(name))
     .map(([name, { machine, agent }]) => ({ name, machine, status: agent.agent_status }));
-  live = [...seen.entries()].map(([name, { machine, agent }]) => ({ name, machine, status: agent.agent_status, lane: known.has(name) }));
+  live = [...seen.entries()].map(([name, { machine, agent }]) => ({ name, machine, status: agent.agent_status, kind: agent.agent ?? null, lane: known.has(name) }));
   lastSync = { at: now, errors };
   // HQ is typed into on this machine: check it there even when this machine's lanes are not tracked.
   if (!MACHINES.includes(LOCAL)) local = await herdrList(LOCAL).catch((e) => (errors.push(`${LOCAL}: ${(e as Error).message}`), null));
   if (!MACHINES.includes(LOCAL) && local) for (const a of local as any[]) if (a.name && a.pane_id) named.push({ machine: LOCAL, pane: a.pane_id, name: a.name });
   // A floor's HQ runs on this machine: its agents are offered even when its lanes are not tracked.
-  if (!MACHINES.includes(LOCAL) && local) for (const a of local as any[]) if (a.name && !seen.has(a.name)) live.push({ name: a.name, machine: LOCAL, status: a.agent_status, lane: known.has(a.name) });
+  if (!MACHINES.includes(LOCAL) && local) for (const a of local as any[]) if (a.name && !seen.has(a.name)) live.push({ name: a.name, machine: LOCAL, status: a.agent_status, kind: a.agent ?? null, lane: known.has(a.name) });
   // A machine that did not answer keeps the panes it had.
   setPanes(named, (machine) => errors.some((e) => e.startsWith(`${machine}:`)));
   await checkHq(local, errors.find((e) => e.startsWith(`${LOCAL}:`))?.slice(LOCAL.length + 2));

@@ -152,13 +152,17 @@ green bars for lanes working now, and amber `Zz N` when nothing is moving (lanes
 on you: HQ's to unstick; red after 20 minutes). On the page, one row over the office shows the floor you are in as a
 pill; it opens the floor list, where **+ ADD A FLOOR** adds one: give it a name and a colour, and either pick an agent
 that runs in herdr on this machine as its HQ, or **START A NEW HQ**: the HUD opens a herdr tab beside your first HQ and
-starts `hq-<floor>` in it. A floor whose HQ is not running says so where it shows, with START ITS HQ and PICK ANOTHER;
+starts `hq-<floor>` in it, as whichever agent you pick (any kind herdr can start; your first HQ's by default). Nothing
+in a floor assumes a provider: its HQ and its lanes are whatever agents you run in herdr. An agent whose commands run in
+a sandbox that blocks the network has to run `hud` outside it (with escalated permissions); `hud` and the HQ guide say
+so. A floor whose HQ is not running says so where it shows, with START ITS HQ and PICK ANOTHER;
 only an HQ that was running and stopped raises the "HQ isn't receiving" alarm. With two or more floors, BUILDING shows
 them all and the top bar has a pip per floor. `docs/floors.md` has the rules of the floor UI.
 
 ```
 hud floor add backend --hq hq-backend --name Backend --color #4a90d9   # hq-backend runs in herdr here
 hud floor add legal --start --name Legal                                  # the HUD starts its HQ, hq-legal
+hud floor add ops --start --kind codex --name Ops                         # its HQ as another herdr agent kind
 hud floor list                                                            # HQ, receiving, lanes, waiting on you
 hud floor set backend --name "Back end"
 hud floor rm backend                                                      # only an empty floor

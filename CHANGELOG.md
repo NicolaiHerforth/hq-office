@@ -3,6 +3,26 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.22.0] - 2026-10-29
+### Changed
+
+- **Any agent can run a floor.** Nothing in a floor assumes a provider anymore: its HQ and its lanes are whatever
+  agents you run in herdr (Claude, Codex, or any other CLI herdr can start). **START A NEW HQ** now asks which agent
+  to start. It lists the kinds herdr can run, those with herdr's integration installed first, and defaults to the
+  kind your first HQ runs. Before, it always started Claude. `hud floor add ID --start --kind K` does the same from the
+  CLI.
+- A floor remembers its HQ's kind, so **START ITS HQ** brings back the same kind of agent. `hud floor list` shows it.
+
+### Fixed
+
+- **An HQ that stops at a question while starting is kept.** Agents can ask something before they are ready, such as
+  an update notice or whether to trust the folder. START A NEW HQ used to give up, close the tab and add no floor.
+  Now the floor is added and the page says its HQ waits on a prompt in its pane; the activity feed shows what it
+  asks. Once you answer it there, the HQ gets its guide.
+- **`hud` says why it can't reach the HUD.** Some agents run commands in a sandbox that blocks the network, so `hud`
+  cannot reach the HUD from inside it. `hud` now says to run it outside the sandbox (with escalated permissions), and
+  the HQ guide says so up front.
+
 ## [0.21.1] - 2026-10-29
 ### Fixed
 

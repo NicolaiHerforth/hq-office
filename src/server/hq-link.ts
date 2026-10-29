@@ -3,14 +3,14 @@
 // machine and ready for input, so the page says "HQ isn't receiving" before the owner writes into the void.
 // Everything for an HQ goes through the outbox: typed in at once when it can be, held when it cannot, and sent in
 // order on the first sync that finds that HQ again. One floor's trouble never holds up another's.
-import { HERDR } from "./config.ts";
+import { HERDR, LOCAL } from "./config.ts";
 import { db } from "./db.ts";
 import { bump } from "./push.ts";
 import { event } from "./events.ts";
 import { addStatePart } from "./state.ts";
 import { withHint } from "../hq-guide.ts";
-import { promptAgent, syncHerdr } from "./herdr.ts";
-import { firstFloor, floorCounts, floorList, floorOr, hqOf, officeCounts } from "./floors.ts";
+import { live, promptAgent, syncHerdr } from "./herdr.ts";
+import { firstFloor, floorCounts, floorList, floorOr, hqKindOf, hqOf, officeCounts, rememberKind } from "./floors.ts";
 
 type Held = { id: number; at: number; text: string; ref: string | null; error: string | null; tries: number; sent_at: number | null; confirmed_at: number | null; resend: number };
 // One floor's link. seen: what the last sync found (null: fine, or not checked yet). sent: why the last delivery
@@ -82,9 +82,9 @@ function setReason(floor: string, next: { seen?: string | null; sent?: string | 
   bump();
 }
 
-// HQ by pane. herdr drops an agent's name when a session report for its pane carries another session id: a Claude
-// Code background job started from HQ's pane inherits HERDR_PANE_ID, so its compaction re-binds HQ's pane to the
-// job's session, and HQ's own next compaction then clears the name. HQ's process is still there, so the server gives
+// HQ by pane. herdr drops an agent's name when a session report for its pane carries another session id: a background
+// job an agent starts from HQ's pane can inherit HERDR_PANE_ID, so a session report from the job re-binds HQ's pane
+// to the job's session, and HQ's own next one then clears the name. HQ's process is still there, so the server gives
 // the name back, quietly: only to the pane HQ was last named in, and only while that pane has held an agent of the
 // same kind at every sync since (the same occupant). Memory only, so never across a server restart (the NAME button
 // is there for that). HUD_HQ_RENAME=0 leaves it to the owner.
@@ -149,6 +149,7 @@ async function checkFloor(floor: string, agent: string, agents: any[] | null, er
     l.candidate = null;
     l.tracked = { pane: hq.pane_id, agent: hq.agent };
     db.query("UPDATE floors SET hq_pane = ?, hq_seen_at = ? WHERE id = ?").run(hq.pane_id, Date.now(), floor);
+    if (hq.agent && hq.agent !== hqKindOf(floor)) rememberKind(floor, hq.agent);
     if (hq.agent_status === "blocked") setReason(floor, { seen: "HQ is stopped at a prompt (a permission or a question) in its pane" });
     else if (hq.interactive_ready === false) setReason(floor, { seen: "HQ's agent is starting and cannot take input yet" });
     else setReason(floor, { seen: null, sent: null }); // the flush below finds out if typing in still fails
@@ -326,6 +327,7 @@ addStatePart("floors", () =>
     const starting = neverSeen(f.id);
     return {
       id: f.id, name: f.name, color: f.color, hq: f.hq,
+      kind: live.find((a) => a.name === f.hq && a.machine === LOCAL)?.kind ?? hqKindOf(f.id), // HQ's herdr agent kind: now, or last seen
       receiving: starting ? null : l.checked ? !reason : null, reason,
       starting, notStarted: starting && notStarted(f.id),
       counts: floorCounts(f.id),

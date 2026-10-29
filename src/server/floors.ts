@@ -133,6 +133,12 @@ export function setFloor(id: string, body: any) {
 // Only a floor with no work goes: no lanes, no open question, no open room, no open board item. What was held for its
 // HQ (it never took it) moves to the first floor's HQ, marked as meant for this floor; what its HQ's owner already
 // read is dropped. What it leaves behind (answered questions, updates, notes, the log) moves to the first floor too.
+// The herdr agent kind a floor's HQ last ran (floor_kinds.sql), and remembering it.
+export const hqKindOf = (floor: string) => (db.query("SELECT kind FROM floor_kinds WHERE floor = ?").get(floor) as { kind: string } | null)?.kind ?? null;
+export function rememberKind(floor: string, kind: string | null | undefined) {
+  if (kind) db.query("INSERT INTO floor_kinds (floor, kind, at) VALUES (?, ?, ?) ON CONFLICT(floor) DO UPDATE SET kind = excluded.kind, at = excluded.at").run(floor, String(kind), Date.now());
+}
+
 export function removeFloor(id: string) {
   const f = mustFloor(id);
   if (floorList().length === 1) throw new Error("the last floor cannot go");
@@ -147,6 +153,7 @@ export function removeFloor(id: string) {
   let moved = 0, dropped = 0;
   db.transaction(() => {
     db.query("DELETE FROM floors WHERE id = ?").run(f.id);
+    db.query("DELETE FROM floor_kinds WHERE floor = ?").run(f.id);
     const to = firstFloor();
     const now = Date.now();
     for (const row of db.query("SELECT id, ref, text FROM hq_outbox WHERE floor = ? AND sent_at IS NULL").all(f.id) as { id: number; ref: string | null; text: string }[]) {
