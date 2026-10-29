@@ -2,9 +2,12 @@
 // board items, reads its own inbox, and is the one the owner's answers and notes for that floor are typed into.
 // One floor (what the upgrade makes in db.ts) behaves exactly as before floors existed. See docs/floors.md.
 //
-// Who is calling: hud sends x-hud-pane ($HERDR_PANE_ID) and x-hud-machine; the server knows every named agent's pane
-// from the last herdr sync (setPanes). A floor's HQ is on its floor, a lane is on its lane's floor, anyone else is on
-// the first floor; an explicit floor (x-hud-floor, or floor in the body or the query) wins over all of these.
+// Who is calling: hud sends x-hud-pane ($HERDR_PANE_ID), x-hud-machine, x-hud-cwd (its working directory) and
+// x-hud-session (session ids from its environment); the server knows every named agent's pane, folder and session from the last herdr sync (setPanes). A floor's HQ is on its floor, a
+// lane is on its lane's floor, anyone else is on the first floor; an explicit floor (x-hud-floor, or floor in the body
+// or the query) wins over all of these. Some agents run their commands from a process that is not in their own pane,
+// with another pane's HERDR_PANE_ID (one shared by every session of that agent); then the session id in hud's
+// environment, or the folder, says who calls: see callerOf.
 import { LOCAL } from "./config.ts";
 import { db } from "./db.ts";
 import { event } from "./events.ts";
@@ -43,13 +46,37 @@ export const floorOr = (id: string | null | undefined) => (id && floorOf(id) ? i
 
 // ---- who is calling ----
 
-// Every named agent's pane, by machine, from the last sync.
+// Every named agent's pane, by machine, from the last sync; this machine's named agents' folders (herdr's cwd and
+// foreground_cwd) and session ids (herdr's agent_session); and every pane herdr has on this machine, agent or not
+// (null: not read).
 let panes = new Map<string, string>();
-export function setPanes(list: { machine: string; pane: string; name: string }[], keep: (machine: string) => boolean = () => false) {
+let folders = new Map<string, string[]>();
+let sessions = new Map<string, string>(); // session id -> agent
+let localPanes: Set<string> | null = null;
+type Seen = { machine: string; pane: string; name: string; cwd?: string[]; session?: string | null };
+export function setPanes(list: Seen[], keep: (machine: string) => boolean = () => false, local?: Set<string> | null) {
   const next = new Map([...panes].filter(([k]) => keep(k.slice(0, k.indexOf(" ")))));
   for (const a of list) next.set(`${a.machine} ${a.pane}`, a.name);
   panes = next;
+  if (keep(LOCAL)) return;
+  const mine = list.filter((a) => a.machine === LOCAL);
+  folders = new Map(mine.filter((a) => a.cwd?.length).map((a) => [a.name, a.cwd!]));
+  sessions = new Map(mine.filter((a) => a.session).map((a) => [a.session!, a.name]));
+  if (local !== undefined) localPanes = local;
 }
+const inside = (dir: string, root: string) => dir === root || dir.startsWith(root.endsWith("/") ? root : root + "/");
+// The named agents on this machine working where `dir` is: the ones whose folder holds it most closely.
+function agentsIn(dir: string): string[] {
+  let best = -1, out: string[] = [];
+  for (const [name, roots] of folders) {
+    const len = Math.max(-1, ...roots.filter((r) => inside(dir, r)).map((r) => r.length));
+    if (len < 0 || len < best) continue;
+    if (len > best) (best = len), (out = []);
+    out.push(name);
+  }
+  return out;
+}
+
 // The agent in a pane: on the machine given, else this machine's, else any machine's.
 export function agentAt(pane: string, machine?: string | null): string | null {
   if (!pane) return null;
@@ -60,10 +87,41 @@ export function agentAt(pane: string, machine?: string | null): string | null {
   return null;
 }
 
+const floorOfAgent = (agent: string | null) => floorOfHq(agent) ?? (agent && laneFloor(agent) && floorOf(laneFloor(agent)) ? laneFloor(agent)! : firstFloor());
+
+// Which agent calls, from what hud sends (x-hud-pane, x-hud-session, x-hud-cwd), on this machine:
+// 1. a session id from hud's environment that herdr reports as an agent's session: that agent;
+// 2. the pane hud names, while herdr has that pane here and the session ids hud sent (if any) do not say it is another
+//    agent's: the agent in it (an agent's commands can run from a process outside its own pane, with another pane's
+//    HERDR_PANE_ID, shared by every session of that agent);
+// 3. otherwise the agent working in hud's folder; agents on several floors there, and no floor given, is an error that
+//    says to give one rather than filing it on the wrong floor. No agent there: the pane's agent, or the first floor.
 export function callerOf(req: Request, body?: any, url?: URL): Caller {
-  const agent = agentAt(req.headers.get("x-hud-pane") ?? "", req.headers.get("x-hud-machine"));
-  const detected = floorOfHq(agent) ?? (agent && laneFloor(agent) && floorOf(laneFloor(agent)) ? laneFloor(agent)! : firstFloor());
+  const pane = req.headers.get("x-hud-pane") ?? "", machine = req.headers.get("x-hud-machine");
   const given = req.headers.get("x-hud-floor") || (body && typeof body === "object" && body.floor ? String(body.floor) : "") || url?.searchParams.get("floor") || "";
+  let agent = agentAt(pane, machine);
+  let detected = floorOfAgent(agent);
+  if (!machine || machine === LOCAL) {
+    let cwd = "";
+    try {
+      cwd = decodeURIComponent(req.headers.get("x-hud-cwd") ?? "");
+    } catch {}
+    const ids = (req.headers.get("x-hud-session") ?? "").split(",").map((x) => x.trim()).filter(Boolean);
+    const bySession = ids.map((id) => sessions.get(id)).find(Boolean) ?? null;
+    const paneSession = agent ? [...sessions].find(([, n]) => n === agent)?.[0] : undefined;
+    const contradicted = !!agent && ids.length > 0 && !!paneSession && !ids.includes(paneSession);
+    const unknownPane = !!pane && !!localPanes && !localPanes.has(pane);
+    if (bySession) (agent = bySession), (detected = floorOfAgent(agent));
+    else if ((unknownPane || contradicted) && cwd) {
+      const there = agentsIn(cwd);
+      const floorsThere = [...new Set(there.map(floorOfAgent))];
+      if (there.length === 1) (agent = there[0]), (detected = floorOfAgent(agent));
+      else if (floorsThere.length === 1) (agent = null), (detected = floorsThere[0]);
+      else if (floorsThere.length > 1 && !given) {
+        throw new Error(`hud cannot tell which agent is calling: its herdr pane (${pane}) is not where it runs, and agents on floors ${floorsThere.join(", ")} work in ${cwd}. Add --floor ID to the hud command (your floor; hud floor list shows them).`);
+      }
+    }
+  }
   if (given === "all") return { floor: detected, explicit: null, all: true, agent };
   if (given) mustFloor(given);
   return { floor: given || detected, explicit: given || null, all: false, agent };

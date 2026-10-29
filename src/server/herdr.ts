@@ -21,6 +21,22 @@ export function whereRuns(name: string): string | null {
 }
 export let lastSync: { at: number; errors: string[] } = { at: 0, errors: [] };
 
+// Every pane herdr has on this machine, agent or not, so a pane hud names that herdr does not have is known for what it
+// is (floors.ts callerOf). null when herdr does not say.
+async function localPaneIds(): Promise<Set<string> | null> {
+  try {
+    const proc = Bun.spawn([HERDR, "pane", "list"], { stdout: "pipe", stderr: "pipe" });
+    const timer = setTimeout(() => proc.kill(), 15_000);
+    const out = await new Response(proc.stdout).text();
+    clearTimeout(timer);
+    if ((await proc.exited) !== 0) return null;
+    const panes = JSON.parse(out).result?.panes;
+    return Array.isArray(panes) ? new Set(panes.map((p: any) => String(p.pane_id))) : null;
+  } catch {
+    return null;
+  }
+}
+
 export async function herdrList(machine: string): Promise<any[]> {
   const args = machine === LOCAL ? [HERDR, "agent", "list"] : [HERDR, "--machine", machine, "agent", "list"];
   const proc = Bun.spawn(args, { stdout: "pipe", stderr: "pipe" });
@@ -59,7 +75,8 @@ export async function syncHerdr() {
   const errors: string[] = [];
   const seen = new Map<string, { machine: string; agent: any }>();
   // Every named agent's pane, so the server knows who calls hud (floors.ts).
-  const named: { machine: string; pane: string; name: string }[] = [];
+  const named: { machine: string; pane: string; name: string; cwd?: string[]; session?: string | null }[] = [];
+  const cwdOf = (a: any) => [a.cwd, a.foreground_cwd].filter((d) => typeof d === "string" && d);
   let local: any[] | null = null;
   await Promise.all(
     MACHINES.map(async (machine) => {
@@ -68,7 +85,7 @@ export async function syncHerdr() {
         if (machine === LOCAL) local = agents;
         for (const agent of agents) {
           if (agent.name) seen.set(agent.name, { machine, agent });
-          if (agent.name && agent.pane_id) named.push({ machine, pane: agent.pane_id, name: agent.name });
+          if (agent.name && agent.pane_id) named.push({ machine, pane: agent.pane_id, name: agent.name, cwd: cwdOf(agent), session: agent.agent_session?.value ?? null });
         }
       } catch (e) {
         errors.push(`${machine}: ${(e as Error).message}`);
@@ -141,11 +158,11 @@ export async function syncHerdr() {
   lastSync = { at: now, errors };
   // HQ is typed into on this machine: check it there even when this machine's lanes are not tracked.
   if (!MACHINES.includes(LOCAL)) local = await herdrList(LOCAL).catch((e) => (errors.push(`${LOCAL}: ${(e as Error).message}`), null));
-  if (!MACHINES.includes(LOCAL) && local) for (const a of local as any[]) if (a.name && a.pane_id) named.push({ machine: LOCAL, pane: a.pane_id, name: a.name });
+  if (!MACHINES.includes(LOCAL) && local) for (const a of local as any[]) if (a.name && a.pane_id) named.push({ machine: LOCAL, pane: a.pane_id, name: a.name, cwd: cwdOf(a), session: a.agent_session?.value ?? null });
   // A floor's HQ runs on this machine: its agents are offered even when its lanes are not tracked.
   if (!MACHINES.includes(LOCAL) && local) for (const a of local as any[]) if (a.name && !seen.has(a.name)) live.push({ name: a.name, machine: LOCAL, status: a.agent_status, kind: a.agent ?? null, lane: known.has(a.name) });
   // A machine that did not answer keeps the panes it had.
-  setPanes(named, (machine) => errors.some((e) => e.startsWith(`${machine}:`)));
+  setPanes(named, (machine) => errors.some((e) => e.startsWith(`${machine}:`)), await localPaneIds());
   await checkHq(local, errors.find((e) => e.startsWith(`${LOCAL}:`))?.slice(LOCAL.length + 2));
   await sweep();
   checkFolders(); // rooms' folders, in case the system's file events stalled (room-folder.ts)

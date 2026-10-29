@@ -3,6 +3,16 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.22.1] - 2026-10-29
+### Fixed
+
+- **A floor's HQ is recognised even when its commands don't run in its own pane.** Some agents (Codex, for one) run
+  every command from one background process shared by all their sessions. That process carries another pane's
+  `HERDR_PANE_ID`, so a Codex HQ's `hud tell` was filed on the first floor. `hud` now also sends the folder it runs in
+  and any session id the agent puts in its environment. The HUD uses these whenever the pane is not the caller's:
+  it matches herdr's session ids first, then the agent working in that folder. If agents on several floors work in
+  that folder, `hud` asks for `--floor` instead of guessing, and each floor's guide names its floor.
+
 ## [0.22.0] - 2026-10-29
 ### Changed
 

@@ -18,7 +18,7 @@ The owner reads the HQ Office page (the HUD), usually on a second screen, and do
 export function guideFor(floor?: { id: string; name: string } | null) {
   if (!floor) return GUIDE;
   const i = GUIDE.indexOf("\n");
-  return `${GUIDE.slice(0, i)}\nYou are the HQ of the ${floor.name} floor (floor id ${floor.id}). \`hud\` files your questions, updates, lanes, rooms and board items on it by itself; the owner sees them under that floor.${GUIDE.slice(i)}`;
+  return `${GUIDE.slice(0, i)}\nYou are the HQ of the ${floor.name} floor (floor id ${floor.id}). \`hud\` files your questions, updates, lanes, rooms and board items on it by itself; the owner sees them under that floor. If \`hud\` ever says it cannot tell which agent is calling, add \`--floor ${floor.id}\` to your hud commands.${GUIDE.slice(i)}`;
 }
 
 // One line, so it never swamps the message it follows.

@@ -63,10 +63,15 @@ function parse(argv: string[]) {
 }
 
 // Who is calling (the server maps the pane to an agent, and the agent to its floor), and the floor asked for by hand.
+// Also the folder hud runs in and any session ids the calling agent put in the environment (*_SESSION_ID,
+// *_THREAD_ID): an agent whose commands do not run in its own herdr pane is found by those (floors.ts callerOf).
 function who(): Record<string, string> {
   const h: Record<string, string> = {};
   if (process.env.HERDR_PANE_ID) h["x-hud-pane"] = process.env.HERDR_PANE_ID;
   if (process.env.HUD_LOCAL_MACHINE) h["x-hud-machine"] = process.env.HUD_LOCAL_MACHINE;
+  h["x-hud-cwd"] = encodeURIComponent(process.cwd());
+  const ids = Object.entries(process.env).filter(([k, v]) => /(^|_)(SESSION|THREAD)_ID$/.test(k) && v && /^[A-Za-z0-9._:-]{8,100}$/.test(v)).map(([, v]) => v!);
+  if (ids.length) h["x-hud-session"] = [...new Set(ids)].join(",");
   if (FLOOR) h["x-hud-floor"] = FLOOR;
   return h;
 }

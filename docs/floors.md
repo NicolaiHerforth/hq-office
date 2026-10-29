@@ -23,11 +23,23 @@ Shared by every floor: secrets, settings (the sweep settings too), machines and 
 
 ## Who is calling
 
-`hud` sends `x-hud-pane: $HERDR_PANE_ID`, and `x-hud-machine: $HUD_LOCAL_MACHINE` when it is set. Every sync
-records each named agent's pane (by machine). The caller's floor is:
+`hud` sends `x-hud-pane: $HERDR_PANE_ID`, `x-hud-machine: $HUD_LOCAL_MACHINE` when it is set, `x-hud-cwd` (the
+folder it runs in) and `x-hud-session` (the values of any `*_SESSION_ID` or `*_THREAD_ID` in its environment). Every
+sync records each named agent's pane (by machine) and, on this machine, its folders (herdr's `cwd`, `foreground_cwd`),
+its session id (`agent_session`) and every pane herdr has (`herdr pane list`). The calling agent is:
+
+1. the agent whose herdr session id hud sent; else
+2. the agent in the pane hud named, while herdr has that pane and the session ids hud sent do not say it is another
+   agent's (an agent in its own pane is trusted wherever it runs hud, e.g. an HQ in a lane's worktree); else
+3. the agent working in hud's folder (the one whose folder holds it most closely). Agents on several floors there and
+   no floor given is an error that says to add `--floor ID`, never a write on the wrong floor.
+
+Some agents run their commands from one background process shared by all their sessions, started in another pane: its
+`HERDR_PANE_ID` is that pane's, gone or another agent's. Steps 1 and 3 find them without any provider-specific code.
+The caller's floor is then:
 
 1. an explicit floor: `x-hud-floor` (`hud ... --floor ID`), or `floor` in the body or the query; then
-2. the floor whose HQ is the agent in that pane; then
+2. the floor whose HQ is the calling agent; then
 3. the floor of the lane the agent is; then
 4. the first floor.
 

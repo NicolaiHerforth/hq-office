@@ -4,6 +4,7 @@
 // says it started but lists nothing while <dir>/hide-start exists: an HQ that never shows up; or, while
 // <dir>/block-start exists, lists it blocked and fails with agent_not_ready: an agent stopped at a startup question,
 // whose pane read answers that file's text); `agent start --help` and `integration status` answer like herdr's own;
+// `pane list` lists every agent's pane and the plain shells in <dir>/shells.json;
 
 // `--machine M agent list` answers <dir>/agents-M.json (empty when missing): another machine's agents;
 // `agent prompt NAME TEXT` fails with agent_not_found for a name not in the list, else appends to <dir>/typed/.
@@ -11,7 +12,7 @@
 import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-export type FakeAgent = { name?: string; agent_status: string; pane_id: string; agent: string; workspace_id?: string; cwd?: string; interactive_ready?: boolean };
+export type FakeAgent = { name?: string; agent_status: string; pane_id: string; agent: string; workspace_id?: string; cwd?: string; foreground_cwd?: string; interactive_ready?: boolean; agent_session?: { value: string } };
 
 const SCRIPT = (dir: string) => `#!${process.execPath}
 const { appendFileSync, existsSync, readFileSync, writeFileSync, mkdirSync } = require("node:fs");
@@ -35,6 +36,8 @@ else if (a === "tab" && b === "create") {
   process.stdout.write("Options:\\n      --kind <KIND>\\n          [possible values: pi, claude, codex, gemini]\\n");
 } else if (a === "integration" && b === "status") {
   process.stdout.write("pi: not installed (/x)\\nclaude: current (v10) (/x)\\ncodex: current (v8) (/x)\\nletta (experimental): not installed (/x)\\n");
+} else if (a === "pane" && b === "list") {
+  process.stdout.write(JSON.stringify({ result: { panes: [...agents(), ...(existsSync(D + "/shells.json") ? JSON.parse(readFileSync(D + "/shells.json", "utf8")) : [])].map((x) => ({ pane_id: x.pane_id, cwd: x.cwd })) } }));
 } else if (a === "pane" && b === "read") {
   process.stdout.write(existsSync(D + "/block-start") ? readFileSync(D + "/block-start", "utf8") : "");
 } else if (a === "agent" && b === "start" && existsSync(D + "/block-start")) {
