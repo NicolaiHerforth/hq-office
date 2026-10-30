@@ -39,8 +39,11 @@
 .opt .pick { font: 7px/1 var(--pixel); color: var(--green); }
 /* QUESTIONS / MESSAGES: two tabs over the question column, one list at a time */
 .qwrap { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 8px; }
-.qtabs { display: flex; align-items: center; gap: 6px; }
-.qtabs .tab { font-size: 9px; padding: 7px 10px; border-width: 3px; }
+.qtabs { display: flex; align-items: center; gap: 5px; }
+.qtabs .tab { font-size: 9px; padding: 7px 8px; border-width: 3px; gap: 5px; white-space: nowrap; }
+/* five tabs in the question column: tighter where the column is narrow, so the last one never hides */
+@media (max-width: 1300px) { .qtabs .tab { font-size: 8px; padding: 7px 6px; } .qtabs { gap: 4px; } .qtabs .tab .tag { padding-inline: 4px; } }
+@media (max-width: 430px) { .qtabs .tab { padding: 7px 5px; } .qtabs { gap: 3px; } }
 /* Four tabs (ROOMS joined in 0.9): they tighten to fit a narrow column or a phone, and the row scrolls sideways
    rather than ever widening the page. */
 .qtabs { min-width: 0; overflow-x: auto; scrollbar-width: none; }

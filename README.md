@@ -94,6 +94,16 @@ Questions from HQ appear at the top of the panel, most urgent first. Pick an opt
 
 HQ uses the CLI in `hud.ts` (the `hud` command after the install hud command action, or `bun hud.ts` from the plugin directory with `HUD_URL` set if you changed the port) to add lanes, ask questions and wait for your answers. HQ posts progress to the **MESSAGES** tab with `hud tell --title "PR is up" [--body "details"] [--lane NAME]` (`hud say` is the same command); the tab counts unread updates until you open it. MESSAGES is the whole conversation: HQ's updates, your notes and your answers to HQ's questions (with whether HQ acted on them), oldest at the top. `hud guide` prints how HQ should reach you.
 
+## Briefs
+
+A brief is a longer write-up from a floor's HQ: a project update, a plan, a summary. Messages are too narrow for that. HQ posts one with:
+
+```sh
+hud brief --title "Weekly: pricing and search" --file brief.md   # or --body "...", or pipe it in
+```
+
+It goes on the HQ's own floor. The **BRIEFS** tab lists the floor's briefs newest first, with dates and a count of new ones. Opening one takes the right column at full width, the way a room does, with its markdown rendered (headings, tables, lists, code), **NEWER**, **OLDER** and **BACK**; on a phone it fills the screen. Each new brief also puts one short line in MESSAGES that opens it. The HQ guide tells every HQ to use briefs for anything longer than a few lines.
+
 ## Layouts
 
 **MENU**, top right, holds SECRETS, SETTINGS, SOUND and LAYOUT. LAYOUT is each viewer's own choice, remembered in that browser:

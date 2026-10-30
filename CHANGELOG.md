@@ -3,6 +3,21 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.26.0] - 2026-10-30
+### Added
+
+- **Briefs.** A floor's HQ can post a longer write-up, such as a project update, a plan or a summary, as a brief:
+  `hud brief --title T --file brief.md` (or `--body`, or pipe it in). The new **BRIEFS** tab lists the floor's briefs
+  newest first, with dates and how many are new. A brief opens at the full width of the right column, with headings,
+  tables and lists. **NEWER** and **OLDER** step between briefs, and **BACK** or Esc returns. On a phone a brief fills
+  the screen. Each new brief puts one line in MESSAGES that opens it. The HQ guide now tells every HQ to post anything
+  longer than a few lines as a brief.
+
+### Changed
+
+- The tab counts are plain numbers everywhere, so all five tabs fit in the question column, phones included.
+- Links in HQ's text to a brief or a room (`#brief/12`, `#room/slug`) open them on the page instead of in a new tab.
+
 ## [0.25.1] - 2026-10-29
 ### Fixed
 

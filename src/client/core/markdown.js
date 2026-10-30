@@ -1,6 +1,7 @@
 // The one renderer for text that HQ or a lane wrote: md() for blocks, mdInline() for one-line places, mdClip() for
 // long text with MORE/LESS, and COPY on code boxes. Everything is escaped first; the only tags are the ones made
-// here, and a link goes only to http(s), mailto or this HUD's own /uploads/, /room-files/ and /rooms/ paths.
+// here, and a link goes only to http(s), mailto, this HUD's own /uploads/, /room-files/ and /rooms/ paths, or a place
+// on this page (#brief/ID, #room/SLUG).
 //
 // Blocks: paragraphs (a line break shows), headings, bullet, numbered and task lists (nested by indent), quotes,
 // rules, tables and ``` fences (a code box with COPY, verbatim). Inline: `code`, **bold**, *italic*, ~~struck~~,
@@ -28,9 +29,11 @@ function fileRef(escaped) {
   if (!name || name.startsWith(".")) return null;
   return { name, url: room ? `/rooms/${room[1]}/files/${encodeURIComponent(name)}` : `/uploads/${encodeURIComponent(name)}` };
 }
-// A link's target, as escaped text: http(s), mailto, or a path on this HUD that does not climb out of it.
-const safeUrl = (u) => /^(?:https?:\/\/[^\s/]|mailto:[^\s/])/i.test(u) || (/^\/(?:uploads|room-files|rooms)\//.test(u) && !/\.\.|\\/.test(u));
-const anchor = (href, label) => `<a href="${href}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+// A link's target, as escaped text: http(s), mailto, a path on this HUD that does not climb out of it, or a place on
+// this page (#brief/ID, #room/SLUG), which opens here rather than in a new tab.
+const IN_PAGE = /^#(?:brief\/\d{1,9}|room\/[a-z0-9][a-z0-9-]{0,47})$/;
+const safeUrl = (u) => /^(?:https?:\/\/[^\s/]|mailto:[^\s/])/i.test(u) || (/^\/(?:uploads|room-files|rooms)\//.test(u) && !/\.\.|\\/.test(u)) || IN_PAGE.test(u);
+const anchor = (href, label) => (IN_PAGE.test(href) ? `<a href="${href}">${label}</a>` : `<a href="${href}" target="_blank" rel="noopener noreferrer">${label}</a>`);
 const shorten = (u) => { const t = unesc(u); return esc(t.length > 60 ? t.slice(0, 57) + "…" : t); };
 const LINK = /\[([^\]\n]+)\]\(([^\s)]+)\)/g;
 

@@ -19,7 +19,9 @@ function oldData() {
   const data = mkdtempSync(join(tmpdir(), "hq-floors-upgrade-"));
   dirs.push(data);
   const db = new Database(join(data, "hud.db"), { create: true });
-  for (const f of readdirSync(SCHEMA).filter((f) => f.endsWith(".sql") && f !== "floors.sql").sort()) {
+  // Tables born with or after floors (a floor of their own from the start) were never in such a database.
+  const AFTER = new Set(["floors.sql", "floor_kinds.sql", "briefs.sql"]);
+  for (const f of readdirSync(SCHEMA).filter((f) => f.endsWith(".sql") && !AFTER.has(f)).sort()) {
     db.exec(readFileSync(join(SCHEMA, f), "utf8").replace(/,\s*floor TEXT/g, ""));
   }
   const now = Date.now();

@@ -19,6 +19,8 @@
 //   hud event [--lane L] TEXT
 //   hud tell --title T [--lane L] [--body B]   an update for the owner: information, no reply asked for
 //                                              (hud say is the same command)
+//   hud brief --title T (--body B | --file PATH | piped in)   a brief on your floor's BRIEFS page: a longer
+//                        write-up in markdown (an update, a plan, a summary); MESSAGES gets one line linking to it
 //   hud inbox            answers and notes HQ has not acted on
 //   hud ack a:ID | n:ID  mark an answer or note as acted on
 //   hud wait             block until the owner answers or writes (exits with the inbox)
@@ -188,6 +190,20 @@ switch (cmd) {
   case "say":
     await call("POST", "/api/updates", { lane: one("lane"), title: one("title"), body: one("body") });
     break;
+  case "brief": {
+    // The body: --body, else the file --file names, else what is piped in.
+    const file = one("file");
+    let body = one("body");
+    if (body === undefined && file) {
+      const f = Bun.file(file);
+      if (!(await f.exists())) { console.error(`hud brief: no file ${file}`); process.exit(2); }
+      body = await f.text();
+    }
+    body = await textArg(body);
+    const r = await call("POST", "/api/briefs", { title: one("title"), body });
+    console.log(`brief #${r.id} posted on ${r.floorName}: ${one("title")}`);
+    break;
+  }
   case "inbox":
     console.log(JSON.stringify(await call("GET", "/api/inbox"), null, 2));
     break;
@@ -253,7 +269,7 @@ switch (cmd) {
     await floorCmd();
     break;
   default:
-    console.log("usage: hud ask|update|comment|item|lane|rm-lane|tree|withdraw|event|tell|say|inbox|ack|wait|state|sync|secret|track|done|pause|resume|board|room|floor|guide");
+    console.log("usage: hud ask|update|comment|item|lane|rm-lane|tree|withdraw|event|tell|say|brief|inbox|ack|wait|state|sync|secret|track|done|pause|resume|board|room|floor|guide");
     console.log("HQ: run `hud guide` for how to reach the owner (through the HUD, never only in your terminal).");
 }
 
