@@ -65,7 +65,19 @@ export function renderQTabs() {
   $("qtUnread").hidden = !u;
   $("qtUnread").textContent = u; // a number, like every tab's count; the colour says new
   $("qtUnread").title = `${u} new from HQ`;
+  fitTabs();
 }
+// With many counts on a narrow screen the tabs scroll sideways: the edge fades where there is more, and the tab you
+// are on is scrolled into view.
+function fitTabs() {
+  const q = $("qtabs");
+  const more = q.scrollWidth - q.clientWidth > 1;
+  q.classList.toggle("more-r", more && q.scrollLeft + q.clientWidth < q.scrollWidth - 1);
+  q.classList.toggle("more-l", more && q.scrollLeft > 1);
+  if (more) q.querySelector(".tab.on")?.scrollIntoView({ block: "nearest", inline: "nearest" });
+}
+$("qtabs").addEventListener("scroll", fitTabs, { passive: true });
+addEventListener("resize", fitTabs);
 // Unread updates from HQ: a floor's (S.floors counts every one, not only the newest 40), or every floor's.
 export const unreadIn = (floor) => (floor ? floorById(S, floor)?.counts?.unreadMessages ?? 0 : S.updatesUnread ?? 0);
 // A chime when HQ sends something new (SOUND on).

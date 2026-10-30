@@ -3,6 +3,13 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.26.1] - 2026-10-30
+### Fixed
+
+- The five question tabs fit in one row on narrow screens (1180 px and phones). With many large counts they scroll
+  sideways: the edge fades where there are more tabs, and the tab you are on scrolls into view. Before, the last tab
+  could slide out of sight with no sign of it.
+
 ## [0.26.0] - 2026-10-30
 ### Added
 

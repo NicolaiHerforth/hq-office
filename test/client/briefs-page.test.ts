@@ -97,6 +97,15 @@ test.skipIf(!chromeFound)("inside a floor, that floor's briefs only", async () =
   expect(await ev(`document.querySelector("#briefs .brow .bt").textContent`)).toBe("CRM import plan");
 }, 20_000);
 
+test.skipIf(!chromeFound)("tabs too wide for their row scroll sideways: the edge fades where there is more, the tab you pick comes into view", async () => {
+  await ev(`document.querySelector('[data-qtab="questions"]').click()`); // the first tab, so the row starts at its left
+  await ev(`(() => { const q = document.getElementById("qtabs"); q.style.width = "220px"; q.style.flex = "none"; dispatchEvent(new Event("resize")); })()`);
+  await until(`document.getElementById("qtabs").classList.contains("more-r")`);
+  await ev(`document.querySelector('[data-qtab="briefs"]').click()`);
+  await until(`(() => { const q = document.getElementById("qtabs"), t = q.querySelector('[data-qtab="briefs"]').getBoundingClientRect(), r = q.getBoundingClientRect(); return t.right <= r.right + 1 && q.classList.contains("more-l"); })()`);
+  await ev(`(() => { const q = document.getElementById("qtabs"); q.style.width = ""; q.style.flex = ""; dispatchEvent(new Event("resize")); })()`);
+}, 20_000);
+
 test.skipIf(!chromeFound)("on a phone a brief fills the screen, with BACK in reach and no sideways scroll", async () => {
   await load(390, 844, true);
   await ev(`location.hash = "#brief/${first}"`);

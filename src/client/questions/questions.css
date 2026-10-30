@@ -42,11 +42,15 @@
 .qtabs { display: flex; align-items: center; gap: 5px; }
 .qtabs .tab { font-size: 9px; padding: 7px 8px; border-width: 3px; gap: 5px; white-space: nowrap; }
 /* five tabs in the question column: tighter where the column is narrow, so the last one never hides */
-@media (max-width: 1300px) { .qtabs .tab { font-size: 8px; padding: 7px 6px; } .qtabs { gap: 4px; } .qtabs .tab .tag { padding-inline: 4px; } }
-@media (max-width: 430px) { .qtabs .tab { padding: 7px 5px; } .qtabs { gap: 3px; } }
+@media (max-width: 1300px) { .qtabs .tab { font-size: 8px; padding: 7px 4px; gap: 4px; } .qtabs { gap: 3px; } .qtabs .tab .tag { padding-inline: 3px; } }
+@media (max-width: 430px) { .qtabs .tab { padding: 7px 3px; } .qtabs { gap: 2px; } }
 /* Four tabs (ROOMS joined in 0.9): they tighten to fit a narrow column or a phone, and the row scrolls sideways
    rather than ever widening the page. */
 .qtabs { min-width: 0; overflow-x: auto; scrollbar-width: none; }
+/* more tabs past an edge: that edge fades (messages.js fitTabs) */
+.qtabs.more-r { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); }
+.qtabs.more-l { -webkit-mask-image: linear-gradient(to left, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to left, #000 calc(100% - 28px), transparent); }
+.qtabs.more-l.more-r { -webkit-mask-image: linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent); }
 .qtabs::-webkit-scrollbar { display: none; }
 .qtabs .tab { flex: 0 0 auto; }
 @media (min-width: 1151px) and (max-width: 1300px) { .qtabs { gap: 4px; } .qtabs .tab { padding: 7px 6px; gap: 4px; } }
