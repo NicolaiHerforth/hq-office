@@ -181,11 +181,21 @@ function json(data: unknown, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: { "content-type": "application/json", "cache-control": "no-store" } });
 }
 
-// Every secret route: from this machine only, never from another origin.
-export function secretGuard(req: Request, ip: string | undefined | null, boundHost: string): Response | null {
-  if (!isLoopbackAddress(ip)) return FORBIDDEN();
-  if (!originAllowed(req, boundHost)) return FORBIDDEN();
-  return null;
+// Who may use the secret routes (set, remove, the list of names, a question's secret fields). Everyone who uses the
+// HUD, from wherever they open it, and no attacker:
+// - this machine: a loopback address, and no Origin (the CLI) or this server's own page's Origin; or
+// - a page address the owner trusts (HUD_TRUSTED_ORIGINS: the tailnet, a proxy on this machine), the same list every
+//   other write accepts, with x-hud on a write. Against another site's page: its browser sends that page's Origin
+//   (which no page can fake), and x-hud is a custom header it cannot send without a preflight this server never
+//   allows. Sec-Fetch-Site, when the browser sends it (https and localhost only), must also say same-origin.
+// None of these routes gives a value back; the CLI reads one with hud secret get. The refusal says where to set one.
+export const REFUSED = "forbidden: a secret is set from the HUD's own page (on this machine, or at an address listed in HUD_TRUSTED_ORIGINS), or with hud secret set NAME --minutes N on this machine";
+export function secretGuard(req: Request, ip: string | undefined | null, boundHost: string, trusted: string[] = []): Response | null {
+  if (isLoopbackAddress(ip) && originAllowed(req, boundHost)) return null;
+  const origin = req.headers.get("origin");
+  const site = req.headers.get("sec-fetch-site");
+  const trustedPage = origin !== null && trusted.includes(origin) && (site === null || site === "same-origin") && (req.method === "GET" || req.headers.get("x-hud") === "1");
+  return trustedPage ? null : json({ error: REFUSED }, 403);
 }
 
 // COPY on the SECRETS tab: the one route that gives a value to a browser, and only to the owner's own page. It has an
@@ -267,7 +277,7 @@ export async function secretRoute(
   opts: { host: string; onSet?: (m: SecretMeta) => void; lost?: LostBook; handover?: Handover; trusted?: string[]; onCopy?: (name: string) => void; onRedact?: (name: string, value: string) => unknown },
 ): Promise<Response> {
   if (path === "/api/secrets/copy") return copyRoute(req, ip, store, opts);
-  const refused = secretGuard(req, ip, opts.host);
+  const refused = secretGuard(req, ip, opts.host, opts.trusted);
   if (refused) return refused;
   if (req.method === "GET" && path === "/api/secrets") return json([...store.list(), ...(opts.lost?.list() ?? [])]);
   if (req.method !== "POST" || req.headers.get("x-hud") !== "1") return FORBIDDEN();

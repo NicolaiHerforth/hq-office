@@ -3,6 +3,16 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.26.2] - 2026-10-30
+### Fixed
+
+- **Saving a secret works from wherever you open the HUD.** From any address listed in `HUD_TRUSTED_ORIGINS` (the
+  tailnet through `tailscale serve`, a proxy on this machine), SAVE in MENU › SECRETS used to answer "forbidden".
+  Setting, removing and listing secrets now accept those addresses, the same ones every other write accepts. They are
+  still guarded against other sites: the page's own `x-hud` header is required, and so is same-origin wherever the
+  browser says. Any other address is refused, with a message that says where a secret can be set. No page can read a
+  value back except through COPY, as before; HQ reads values with `hud secret get`.
+
 ## [0.26.1] - 2026-10-30
 ### Fixed
 

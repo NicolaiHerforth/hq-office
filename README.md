@@ -127,7 +127,7 @@ hud secret list                          # names, who set them, when they expire
 
 Every expiry is said both ways, in local time: `expires in 6d 23h (Mon 2 Nov, 13:45)`, or `expires in 23h (tomorrow 13:45)`.
 
-Values live in the server's memory only: never in the database, the log, `/api/state` or any listing. The deadline is checked on every read. Secret routes answer only to this machine, the read route only to a client that is not a browser, and any request from another web origin is refused.
+Values live in the server's memory only: never in the database, the log, `/api/state` or any listing. The deadline is checked on every read. Setting, removing and listing secrets works from the HUD's own page wherever you open it: on this machine, or at an address listed in `HUD_TRUSTED_ORIGINS` (the tailnet through `tailscale serve`, say), the same addresses every other write accepts. A write from such an address needs the page's own `x-hud` header and, where the browser sends `Sec-Fetch-Site`, same-origin; another site's page can do neither, so it is refused, as is any address not listed. The read route answers only a client that is not a browser (`hud secret get`), and no page gets a value except through COPY (below).
 
 One exception, for you: **COPY** on a secret in MENU › SECRETS puts its value on your clipboard. It is the only way a value reaches a browser, and the server gives it only to the HUD's own page:
 - the page's own origin, or one you listed in `HUD_TRUSTED_ORIGINS` (such as your tailnet address);
@@ -268,7 +268,7 @@ Set these in `config.env`. An empty value means the default.
 | `HUD_OWNER` | empty | Your name: on the desk sign, on the default hero, and in the notes and answers HQ is sent. Empty means "the owner" (and "YOU" on the hero). |
 | `HUD_PORT` | `4747` | Port the server listens on. |
 | `HUD_HOST` | `127.0.0.1` | Address the server binds to. |
-| `HUD_TRUSTED_ORIGINS` | empty | Extra page addresses that may use the page, comma-separated and exact, such as a phone reaching it through `tailscale serve` (`https://name.tailnet.ts.net:4747`). Every other site is refused, and secrets stay this machine's own page only. |
+| `HUD_TRUSTED_ORIGINS` | empty | Extra page addresses that may use the page, comma-separated and exact, such as a phone reaching it through `tailscale serve` (`https://name.tailnet.ts.net:4747`). Every other site is refused. A listed address may also set and remove secrets (never read a value, except COPY). |
 | `HUD_GITHUB_REPO` | empty | `owner/repo`, used to link lanes to pull requests. |
 | `HUD_LINEAR_WORKSPACE` | empty | Linear workspace slug, used to link lanes to issues. |
 | `HUD_LOCAL_MACHINE` | `local` | Name of this machine in the room. |

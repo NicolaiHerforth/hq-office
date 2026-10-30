@@ -47,7 +47,7 @@ Bun.serve({
     const askSecrets = req.method === "POST" ? path.match(/^\/api\/asks\/(\d+)\/secrets$/) : null;
     if (askSecrets) {
       if (req.headers.get("x-hud") !== "1") return json({ error: "forbidden" }, 403);
-      const refused = secretGuard(req, ip, HOST);
+      const refused = secretGuard(req, ip, HOST, TRUSTED_ORIGINS);
       if (refused) return refused;
       try {
         answerWithSecrets(Number(askSecrets[1]), await req.json().catch(() => ({})));
