@@ -93,6 +93,7 @@ async function poll() {
   clearTimeout(timer);
   const name = polling;
   if (!name || document.hidden) return;
+  const started = Date.now();
   try {
     const r = await fetch(`/api/lanes/${encodeURIComponent(name)}/live`, { cache: "no-store" });
     const d = await r.json();
@@ -100,7 +101,8 @@ async function poll() {
     live = r.ok ? d : { name, terminal: { text: null, at: Date.now(), error: d.error || "could not read it" }, said: [] };
     renderCard();
   } catch {}
-  if (polling === name) timer = setTimeout(poll, EVERY);
+  // Every 3 seconds from the start of one read to the next, however long herdr takes to answer.
+  if (polling === name) timer = setTimeout(poll, Math.max(250, EVERY - (Date.now() - started)));
 }
 // A hidden page reads nothing; back in view, it reads at once.
 document.addEventListener("visibilitychange", () => { if (!document.hidden && polling) poll(); });

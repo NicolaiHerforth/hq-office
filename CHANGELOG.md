@@ -3,6 +3,12 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.25.1] - 2026-10-29
+### Fixed
+
+- The agent drawer's terminal now refreshes every 3 seconds, as intended. It used to wait 3 seconds after each read
+  finished, so with a slow read it refreshed about every 4.
+
 ## [0.25.0] - 2026-10-29
 ### Added
 
