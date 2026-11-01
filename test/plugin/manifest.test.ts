@@ -14,7 +14,7 @@ test("every action, pane and event runs a command the plugin knows", () => {
     const sub = String(a.command.at(-1)).match(/bin\/hud-plugin\.ts (\S+)/)?.[1];
     expect({ id: a.id, sub, known: known.includes(sub) }).toEqual({ id: a.id, sub, known: true });
   }
-  expect(manifest.actions.map((a: any) => a.id)).toEqual(["start", "stop", "reload", "open", "install-service", "remove-service", "install-hud"]);
+  expect(manifest.actions.map((a: any) => a.id)).toEqual(["start", "stop", "reload", "open", "install-service", "remove-service", "install-hud", "install-queue-hook", "remove-queue-hook"]);
 });
 
 test("a detected agent runs greet, with the same PATH wrapper as the actions", () => {

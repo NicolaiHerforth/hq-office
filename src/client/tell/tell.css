@@ -21,3 +21,7 @@
 /* a long floor name shortens; it never pushes SEND out of the box */
 #compose .acts:has(> .tto:not([hidden])) { min-width: 0; overflow: hidden; }
 #compose .reply:has(.tto:not([hidden])) { min-width: 0; }
+/* URGENT on Tell HQ (HQ QUEUE on): past the queue, straight into HQ's pane */
+.urgentsw { margin-left: auto; padding: 4px 7px; border: 2px solid var(--edge-2); border-radius: 5px; background: var(--box); font: 7px/1 var(--pixel); color: var(--muted); cursor: pointer; }
+.urgentsw[aria-pressed="true"] { border-color: var(--red); background: var(--red); color: #fff; }
+.urgentsw[hidden] { display: none; }

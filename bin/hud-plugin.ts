@@ -11,6 +11,7 @@ import { installHud } from "./hud-command.ts";
 import { GUIDE, guideFor } from "../src/hq-guide.ts";
 import { herdrConfigDir, resolveDirs } from "./dirs.ts";
 import { giveSecrets, takeSecrets, type Held } from "../src/secret-handover.ts";
+import { hookCommand, run as runQueueHook } from "./queue-hook.ts";
 
 const ROOT = dirname(import.meta.dir);
 const PLUGIN_ID = pluginId(ROOT);
@@ -21,7 +22,7 @@ const CONFIG_FILE = join(CONFIG_DIR, "config.env");
 const PID_FILE = join(STATE, "hud.pid");
 const LOG_FILE = join(STATE, "server.log");
 const HEALTH_TIMEOUT_MS = 8_000;
-const COMMANDS = ["start", "stop", "reload", "open", "status", "install-service", "remove-service", "install-hud", "greet"];
+const COMMANDS = ["start", "stop", "reload", "open", "status", "install-service", "remove-service", "install-hud", "greet", "install-queue-hook", "remove-queue-hook"];
 const command = process.argv[2] ?? "";
 const FORCE = process.argv.includes("--force");
 const service = serviceFor(PLUGIN_ID);
@@ -427,7 +428,20 @@ function guideLine() {
   return `on, sent to ${HQ_NAME} this session${at}; ${hint}`;
 }
 
+// HQ's hook for the HQ QUEUE (bin/queue-hook.ts): only when the owner runs it.
+function queueHook(add: boolean) {
+  const r = runQueueHook(add, process.env.HOME || "", hookCommand(bunPath(), ROOT, URL_BASE));
+  if (!r.ok) fail(r.lines.join("\n"));
+  for (const l of r.lines) console.log(l);
+}
+
 switch (command) {
+  case "install-queue-hook":
+    queueHook(true);
+    break;
+  case "remove-queue-hook":
+    queueHook(false);
+    break;
   case "greet":
     await greet();
     break;

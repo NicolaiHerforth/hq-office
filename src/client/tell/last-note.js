@@ -18,6 +18,7 @@ export function deliveryMark(ref, acked, ackedText, waitingText, floor) {
   if (held(link, ref)) return mark("red", "HELD: HQ isn't receiving");
   const d = link?.deliveries?.[ref];
   if (d === "held") return mark("amber", "sending to HQ");
+  if (d === "queued") return mark("amber", "in HQ's queue");
   if (d === "unconfirmed") return mark("amber", "typed in while HQ was busy; sent again once it is free");
   if (d === "delivered") return mark("green", "delivered to HQ");
   return mark("amber", waitingText);

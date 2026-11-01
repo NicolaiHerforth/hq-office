@@ -43,6 +43,14 @@ export function renderStats() {
   setText($("sMove").previousElementSibling, o.stall ? "NOTHING MOVING" : "WORKING");
   setText($("sHq"), S.lanes.filter((l) => ["hq_turn", "stale", "gone"].includes(l.status)).length);
   setText($("sBank"), S.score.bank);
+  // HQ QUEUE (when on): what waits in every floor's HQ queue, unread plus waiting for HQ's answer; red when unread.
+  const q = S.queue?.on ? Object.values(S.queue.floors ?? {}).reduce((n, f) => ({ unread: n.unread + f.unread, waiting: n.waiting + f.waiting }), { unread: 0, waiting: 0 }) : null;
+  $("sQueueCell").hidden = !q;
+  if (q) {
+    setText($("sQueue"), q.unread + q.waiting);
+    $("sQueue").classList.toggle("hot", q.unread > 0);
+    $("sQueueCell").title = `${q.unread} unread in HQ's queue, ${q.waiting} waiting for HQ's answer`;
+  }
   // Any floor's HQ (docs/floors.md); with one floor, S.hq.
   const down = S.hq?.ok === false || (S.floors ?? []).some((f) => f.receiving === false);
   const title = (down ? "HQ ISN'T RECEIVING · " : "") + (n ? `(${n}) HQ Office` : "HQ Office");

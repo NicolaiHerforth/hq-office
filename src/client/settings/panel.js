@@ -39,6 +39,7 @@ function renderSettings() {
     + `<form class="srow" data-levels><span class="k">LEVEL NAMES</span><div class="opts2"><input class="levels" name="levels" maxlength="200" spellcheck="false" autocomplete="off" value="${esc(settings.levels)}" aria-label="Level names, comma-separated"><button class="btn-s" type="submit">SAVE</button></div><span class="hint">From the top, comma-separated. Deeper lanes use the last name.</span></form>`
     + row("theme")
     + sweepRow()
+    + queueRow()
     + (floorsFirst ? "" : floorsRow())
     + `<div class="sfoot"><button class="btn-s" type="button" data-reset>RESET TO DEFAULTS</button></div>`;
 }
@@ -52,6 +53,16 @@ function sweepHint(sw) {
   const when = sw.lastAt ? `Last ${clock(sw.lastAt)}, next from ${clock(sw.nextAt)}.` : "No nudge yet.";
   return `On: every ${sw.minutes} min from ${hh(a)} to ${hh(b)}, while HQ is idle and something needs a look. ${when}`;
 }
+// HQ QUEUE: what lanes and you send HQ waits in a queue HQ reads at its pace (src/server/hq-queue.ts). Off is the HUD
+// as it was. Lanes change nothing; HQ's hook (a plugin action adds it) holds what they type into HQ's pane.
+function queueRow() {
+  const q = S?.queue ?? { on: false, hook: false };
+  const btn = (v, label, on) => `<button class="btn-s ${on ? "on" : ""}" type="button" data-queue-on="${v}">${label}</button>`;
+  const hint = !q.on
+    ? "Off: lanes and your notes are typed straight into HQ's pane, as always."
+    : `On: what lanes type into HQ's pane and your Tell HQ notes wait in HQ's queue (URGENT on Tell HQ, or a lane's message that starts with URGENT, goes straight in). HQ sees the count at every step and reads with hud req next. ${q.hook ? "HQ's hook is installed." : "HQ's hook is not installed yet, so lanes' messages still go straight in: run the plugin action \"HQ Office: add HQ's queue hook\"."}`;
+  return `<div class="srow" data-queue><span class="k">HQ QUEUE</span><div class="opts2">${btn("false", "OFF", !q.on)}${btn("true", "ON", q.on)}</div><span class="hint">${esc(hint)}</span></div>`;
+}
 function sweepRow() {
   const sw = S?.sweep ?? { on: false, minutes: 20, hours: "8-24" };
   const btn = (attr, v, label, on) => `<button class="btn-s ${on ? "on" : ""}" type="button" ${attr}="${v}">${label}</button>`;
@@ -64,6 +75,8 @@ function sweepRow() {
 // The row follows the state while the panel is open (a change here, on another page or by HQ; the last and next
 // nudge), except while the hours are being typed.
 on("state", (state) => {
+  const qel = !$("settings").hidden && document.querySelector("#settings [data-queue]");
+  if (qel) { const qh = queueRow(); if (qel.outerHTML !== qh) qel.outerHTML = qh; }
   const el = !$("settings").hidden && document.querySelector("#settings [data-sweep]");
   if (!el || el.contains(document.activeElement) && document.activeElement.name === "hours") return;
   const html = sweepRow();
@@ -99,6 +112,8 @@ $("settings").addEventListener("submit", (e) => {
   changeSettings({ levels: levels || DEFAULTS.levels });
 });
 $("settings").addEventListener("click", (e) => {
+  const q = e.target.closest("[data-queue-on]");
+  if (q) { post("/api/settings", { settings: { hqQueue: q.dataset.queueOn === "true" } }).catch((err) => toast(err.message)); return; }
   const on = e.target.closest("[data-sweep-on]"), min = e.target.closest("[data-sweep-min]");
   if (on || min) {
     post("/api/settings", { settings: on ? { hqSweep: on.dataset.sweepOn === "true" } : { hqSweepMinutes: Number(min.dataset.sweepMin) } }).catch((err) => toast(err.message));

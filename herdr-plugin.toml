@@ -1,6 +1,6 @@
 id = "hq-office"
 name = "HQ Office"
-version = "0.26.2"
+version = "0.27.0"
 min_herdr_version = "0.8.0"
 description = "A handheld-RPG office where every herdr agent lane is a worker, plus a panel where you answer your HQ agent's questions"
 platforms = ["macos", "linux"]
@@ -65,3 +65,17 @@ title = "HQ Office: status"
 description = "Whether the server is up, whether its service is installed and running, open questions, lanes by status, the HQ agent and the data directory"
 placement = "popup"
 command = ["sh", "-c", "PATH=\"$HOME/.bun/bin:$PATH\" exec bun bin/hud-plugin.ts status"]
+
+[[actions]]
+id = "install-queue-hook"
+title = "HQ Office: add HQ's queue hook"
+description = "For HQ QUEUE: add HQ's hook to this user's Claude Code settings (~/.claude/settings.json, backed up first). It acts only in a floor's HQ's own session while HQ QUEUE is on"
+contexts = ["global"]
+command = ["sh", "-c", "PATH=\"$HOME/.bun/bin:$PATH\" exec bun bin/hud-plugin.ts install-queue-hook"]
+
+[[actions]]
+id = "remove-queue-hook"
+title = "HQ Office: remove HQ's queue hook"
+description = "Remove HQ's queue hook from this user's Claude Code settings (~/.claude/settings.json, backed up first)"
+contexts = ["global"]
+command = ["sh", "-c", "PATH=\"$HOME/.bun/bin:$PATH\" exec bun bin/hud-plugin.ts remove-queue-hook"]

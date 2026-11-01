@@ -104,6 +104,24 @@ hud brief --title "Weekly: pricing and search" --file brief.md   # or --body "..
 
 It goes on the HQ's own floor. The **BRIEFS** tab lists the floor's briefs newest first, with dates and a count of new ones. Opening one takes the right column at full width, the way a room does, with its markdown rendered (headings, tables, lists, code), **NEWER**, **OLDER** and **BACK**; on a phone it fills the screen. Each new brief also puts one short line in MESSAGES that opens it. The HQ guide tells every HQ to use briefs for anything longer than a few lines.
 
+## HQ queue
+
+**HQ QUEUE** in SETTINGS is off by default, and off is the HUD as it always was: lanes and your notes are typed straight into HQ's pane. Turned on, what reaches HQ waits in a queue HQ reads at its own pace, instead of interrupting it mid-turn:
+
+- **Lanes change nothing.** What a lane types into HQ's pane (as lanes do today, `herdr agent prompt hq "api-auth: ..."`) is held by HQ's hook and filed in the queue; the name before the colon says who sent it. `hud request TEXT` files one directly. A message that starts with **URGENT** goes straight in: for when main is red, production is affected, or you are waiting on it (`hud guide lane` gives lanes that rule).
+- **Your Tell HQ notes** wait there too; the **URGENT** switch on Tell HQ sends one straight in. Its mark says "in HQ's queue" until HQ reads it.
+- **HQ always sees the count**: a line on every prompt and tool call, with what is unread and which lane is waiting for an answer, from whom and since when. It cannot stop while something is unread, and the HUD prompts it when it sits idle with unread items.
+- **HQ reads and answers**: `hud req next` reads the next item; `hud req answer ID TEXT` types the answer into the lane's pane (or, for your note, posts it as an update); `hud req close ID WHY`. A lane's item stays open until HQ does one of these. `hud req list`, `hud req line`.
+- The top bar shows **HQ QUEUE** with the count while it is on.
+
+**HQ's hook** is what holds lanes' messages. It is a Claude Code hook, added to this user's `~/.claude/settings.json` by the plugin action **HQ Office: add HQ's queue hook** (`herdr plugin action invoke hq-office.install-queue-hook`). That action:
+
+- writes a backup first, `~/.claude/settings.json.hq-office-<time>.bak`;
+- adds three entries under `hooks` (`UserPromptSubmit`, `PostToolUse`, `Stop`), each running `HUD_URL=http://127.0.0.1:<port> bun <plugin>/bin/hq-queue-hook.ts` with a 5 second timeout, and changes nothing else;
+- is undone by **HQ Office: remove HQ's queue hook** (`hq-office.remove-queue-hook`), which takes out exactly those entries (again after a backup), or by restoring the backup.
+
+The hook does nothing in any session but a floor's HQ's own (the HUD matches the session id herdr reports for HQ), and nothing while HQ QUEUE is off. It fails open: if the HUD is down, slow (1.5 s) or answers anything else, the message reaches HQ untouched; a message is held only after the HUD has stored it. Without the hook, the queue still takes your notes and `hud request`, and still prompts an idle HQ; lanes' typed messages then reach HQ directly, as before.
+
 ## Layouts
 
 **MENU**, top right, holds SECRETS, SETTINGS, SOUND and LAYOUT. LAYOUT is each viewer's own choice, remembered in that browser:

@@ -64,6 +64,8 @@ export function setPanes(list: Seen[], keep: (machine: string) => boolean = () =
   sessions = new Map(mine.filter((a) => a.session).map((a) => [a.session!, a.name]));
   if (local !== undefined) localPanes = local;
 }
+// The agent herdr reports a session id for, on this machine (the HQ queue's hook knows its session only by id).
+export const agentOfSession = (id: string | null | undefined) => (id ? sessions.get(id) ?? null : null);
 const inside = (dir: string, root: string) => dir === root || dir.startsWith(root.endsWith("/") ? root : root + "/");
 // The named agents on this machine working where `dir` is: the ones whose folder holds it most closely.
 function agentsIn(dir: string): string[] {

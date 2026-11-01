@@ -21,6 +21,10 @@
 //                                              (hud say is the same command)
 //   hud brief --title T (--body B | --file PATH | piped in)   a brief on your floor's BRIEFS page: a longer
 //                        write-up in markdown (an update, a plan, a summary); MESSAGES gets one line linking to it
+//   hud request TEXT [--urgent] [--file PATH]   a message for your floor's HQ: in its queue when HQ QUEUE is on,
+//                        typed into its pane when it is off; --urgent always goes straight in (main is red, production
+//                        is affected, or the owner is waiting on it)
+//   hud req next | list [--all] | answer ID TEXT | close ID [WHY] | line   HQ's queue (HQ QUEUE on)
 //   hud inbox            answers and notes HQ has not acted on
 //   hud ack a:ID | n:ID  mark an answer or note as acted on
 //   hud wait             block until the owner answers or writes (exits with the inbox)
@@ -45,7 +49,7 @@
 //   hud floor add ID (--hq AGENT | --start [--kind K]) [--name N] [--color #hex]  |  list  |  set ID [--name] [--hq] [--color]  |  rm ID
 //   hud floor tell FLOOR TEXT    type a line into another floor's HQ
 //   hud lane NAME --floor ID     move a lane, with every lane under it, to another floor
-import { GUIDE } from "./src/hq-guide.ts";
+import { GUIDE, LANE_GUIDE } from "./src/hq-guide.ts";
 import { treeText } from "./src/lane-tree.ts";
 import { atText, expiresText } from "./src/client/secrets/expiry.js";
 import { restartTime } from "./src/server/secrets.ts";
@@ -114,7 +118,9 @@ const [cmd, ...argv] = process.argv.slice(2);
 const ALL = argv.includes("--all");
 // --start (hud floor add: the server starts the new floor's HQ) takes no value either.
 const START = cmd === "floor" && argv.includes("--start");
-const { flags, rest, one } = parse(argv.filter((a) => a !== "--all" && !(cmd === "floor" && a === "--start")));
+// --urgent (hud request) takes no value either.
+const URGENT = cmd === "request" && argv.includes("--urgent");
+const { flags, rest, one } = parse(argv.filter((a) => a !== "--all" && !(cmd === "floor" && a === "--start") && !(cmd === "request" && a === "--urgent")));
 // `hud floor` names its floor as an argument; everywhere else --floor ID picks the floor by hand.
 const FLOOR = ALL ? "all" : cmd === "floor" ? undefined : one("floor");
 
@@ -204,6 +210,22 @@ switch (cmd) {
     console.log(`brief #${r.id} posted on ${r.floorName}: ${one("title")}`);
     break;
   }
+  case "request": {
+    const file = one("file");
+    let text = rest.join(" ");
+    if (file) {
+      const f = Bun.file(file);
+      if (!(await f.exists())) { console.error(`hud request: no file ${file}`); process.exit(2); }
+      text = [text, await f.text()].filter((t) => t.trim()).join("\n\n");
+    }
+    text = await textArg(text || undefined);
+    const r = await call("POST", "/api/queue", { text, urgent: URGENT });
+    console.log(r.queued ? `queued for HQ as #${r.id}` : `sent to HQ${r.id ? ` (kept as #${r.id})` : ""}`);
+    break;
+  }
+  case "req":
+    await reqCmd();
+    break;
   case "inbox":
     console.log(JSON.stringify(await call("GET", "/api/inbox"), null, 2));
     break;
@@ -260,7 +282,7 @@ switch (cmd) {
     break;
   }
   case "guide":
-    console.log(GUIDE);
+    console.log(rest[0] === "lane" ? LANE_GUIDE : GUIDE);
     break;
   case "room":
     await roomCmd(argv);
@@ -269,7 +291,7 @@ switch (cmd) {
     await floorCmd();
     break;
   default:
-    console.log("usage: hud ask|update|comment|item|lane|rm-lane|tree|withdraw|event|tell|say|brief|inbox|ack|wait|state|sync|secret|track|done|pause|resume|board|room|floor|guide");
+    console.log("usage: hud ask|update|comment|item|lane|rm-lane|tree|withdraw|event|tell|say|brief|request|req|inbox|ack|wait|state|sync|secret|track|done|pause|resume|board|room|floor|guide");
     console.log("HQ: run `hud guide` for how to reach the owner (through the HUD, never only in your terminal).");
 }
 
@@ -497,6 +519,48 @@ async function roomCmd(args: string[]) {
       break;
     default:
       usage();
+  }
+}
+
+// ---- the HQ queue (hud req ...), for a floor's HQ ----
+
+async function reqCmd() {
+  const [verb, id, ...words] = rest;
+  const ago = (t: number) => { const m = Math.round((Date.now() - t) / 60_000); return m < 1 ? "now" : m < 60 ? `${m}m ago` : `${Math.round(m / 60)}h ago`; };
+  const show = (it: any, state = true) => `#${it.id} from ${it.from_name === "owner" ? "the owner" : it.from_name}, ${ago(it.at)}${it.urgent ? ", URGENT" : ""}${!state ? "" : it.answered_at ? ", answered" : it.closed_at ? ", closed" : it.read_at ? ", read" : ", unread"}`;
+  switch (verb) {
+    case "next": {
+      const { item } = await call("POST", "/api/queue/next", {});
+      if (!item) { console.log("the queue is empty"); break; }
+      console.log(`${show(item, false)}:\n${item.text}\n`);
+      console.log(item.from_name === "owner"
+        ? `Answer the owner: hud req answer ${item.id} TEXT (an update he reads), or hud req close ${item.id} WHY.`
+        : item.from_name === "unknown" ? `Close it once handled: hud req close ${item.id} WHY.` : `Answer ${item.from_name} (typed into its pane): hud req answer ${item.id} TEXT, or hud req close ${item.id} WHY.`);
+      if (item.left) console.log(`${item.left} more unread: hud req next`);
+      break;
+    }
+    case "list": {
+      const { on, items } = await call("GET", `/api/queue${ALL ? "?all=1" : ""}`);
+      if (!on) console.log("(HQ QUEUE is off: messages are typed into HQ's pane)");
+      for (const it of items) console.log(`${show(it)}: ${it.text.replace(/\s+/g, " ").slice(0, 100)}`);
+      if (!items.length) console.log("nothing open");
+      break;
+    }
+    case "answer":
+      if (!id || !words.length) { console.error("usage: hud req answer ID TEXT"); process.exit(2); }
+      console.log(`answered #${id}: sent to ${(await call("POST", `/api/queue/${encodeURIComponent(id)}/answer`, { text: words.join(" ") })).to}`);
+      break;
+    case "close":
+      if (!id) { console.error("usage: hud req close ID [WHY]"); process.exit(2); }
+      await call("POST", `/api/queue/${encodeURIComponent(id)}/close`, { why: words.join(" ") });
+      console.log(`closed #${id}${words.length ? "" : " with no reply"}`);
+      break;
+    case "line":
+      console.log((await call("GET", "/api/queue/line")).line ?? "the queue is empty");
+      break;
+    default:
+      console.error("usage: hud req next | list [--all] | answer ID TEXT | close ID [WHY] | line");
+      process.exit(2);
   }
 }
 

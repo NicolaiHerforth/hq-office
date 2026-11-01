@@ -7,6 +7,7 @@ import { event } from "./events.ts";
 import { UNREAD, promptIn } from "./prompt.ts";
 import { checkHq, notifyHq } from "./hq-link.ts";
 import { sweep } from "./hq-sweep.ts";
+import { kickQueue } from "./hq-queue.ts";
 import { checkFolders } from "./room-folder.ts";
 import { isHqAgent, setPanes } from "./floors.ts";
 
@@ -165,6 +166,7 @@ export async function syncHerdr() {
   setPanes(named, (machine) => errors.some((e) => e.startsWith(`${machine}:`)), await localPaneIds());
   await checkHq(local, errors.find((e) => e.startsWith(`${LOCAL}:`))?.slice(LOCAL.length + 2));
   await sweep();
+  await kickQueue();
   checkFolders(); // rooms' folders, in case the system's file events stalled (room-folder.ts)
   for (const lane of nowBlocked) tellBlocked(lane);
   if (changed) bump();
