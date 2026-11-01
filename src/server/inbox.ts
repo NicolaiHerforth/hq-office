@@ -8,8 +8,10 @@ export function inbox(floor: string | null = null) {
   const on = floor ? " AND floor = ?" : "";
   const args = floor ? [floor] : [];
   return {
-    answers: (db.query(`SELECT * FROM asks WHERE status = 'answered' AND acked_at IS NULL${on} ORDER BY answered_at`).all(...args) as Ask[]).map((a) => ({
+    answers: (db.query(`SELECT * FROM asks WHERE status IN ('answered', 'defaulted') AND acked_at IS NULL${on} ORDER BY answered_at`).all(...args) as Ask[]).map((a) => ({
       ...a,
+      // What HQ reads: a default says so, and an answer after one says it changed.
+      summary: a.status === "defaulted" ? `#${a.id} defaulted to "${a.answer}"` : a.defaulted_at ? `#${a.id} answered after the default: ${a.answer}` : undefined,
       options: a.options ? JSON.parse(a.options) : [],
       secrets: a.secrets ? JSON.parse(a.secrets) : [],
     })),

@@ -58,3 +58,11 @@
 .qtabs .tag[hidden] { display: none; }
 .tag.count { background: var(--red); color: #fff; }
 .hud[hidden], .msgs[hidden] { display: none; }
+
+/* WENT AHEAD: an ask whose deadline passed, below every open question. Quiet; CHANGE opens the answer. */
+.went { display: grid; gap: 6px; padding: 10px 14px; background: var(--box); border-style: dashed; opacity: .92; }
+.went .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.went .change { margin-left: auto; }
+.went h3 { margin: 0; font: 700 14px/1.3 var(--text); overflow-wrap: anywhere; }
+.went .text { color: #3a3a52; font-size: 14px; overflow-wrap: anywhere; }
+.tag.went-tag { background: #e6e6f6; color: var(--ink); }

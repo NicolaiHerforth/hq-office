@@ -1,6 +1,7 @@
 #!/usr/bin/env bun
 // HQ's side of the command centre.
 //   hud ask --lane L --title T [--body B] [--opt A --opt B] [--rec A] [--kind decision|action|info] [--link URL] [--due HH:MM]
+//           [--by HH:MM|+30m|+2h]   with --rec: if unanswered by then the ask goes ahead with the recommended option
 //           [--secret NAME ...]   ask the owner for named secrets, filled in on the question card
 //           [--item TEXT ...]     a checklist; an item naming a PR (#123) ticks itself when it merges, and the
 //                                 question closes itself ("all done") when every item is done
@@ -109,6 +110,19 @@ function dueAt(hhmm?: string) {
   return d.getTime();
 }
 
+// A deadline: HH:MM today (tomorrow when already past), or +30m / +2h from now.
+function byAt(spec?: string) {
+  if (!spec) return undefined;
+  const rel = spec.match(/^\+(\d+)([mh])$/);
+  if (rel) return Date.now() + Number(rel[1]) * (rel[2] === "h" ? 3600_000 : 60_000);
+  if (!/^\d{1,2}:\d{2}$/.test(spec)) {
+    console.error(`--by ${spec}: use HH:MM, +30m or +2h`);
+    process.exit(1);
+  }
+  const at = dueAt(spec)!;
+  return at > Date.now() ? at : at + 86_400_000;
+}
+
 const [cmd, ...argv] = process.argv.slice(2);
 // --all (every floor) takes no value; --json neither (read with `"json" in flags`, so it goes last or alone).
 const ALL = argv.includes("--all");
@@ -120,6 +134,10 @@ const FLOOR = ALL ? "all" : cmd === "floor" ? undefined : one("floor");
 
 switch (cmd) {
   case "ask": {
+    if (one("by") && !one("rec")) {
+      console.error("--by needs --rec: the ask goes ahead with the recommended option");
+      process.exit(1);
+    }
     const out = await call("POST", flags.item ? "/api/ledger/asks" : "/api/asks", {
       lane: one("lane"),
       kind: one("kind"),
@@ -129,6 +147,7 @@ switch (cmd) {
       recommended: one("rec"),
       link: one("link"),
       due: dueAt(one("due")),
+      default_by: byAt(one("by")),
       secrets: flags.secret ?? [],
       items: flags.item,
     });
