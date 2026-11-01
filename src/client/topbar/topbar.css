@@ -24,6 +24,7 @@
 .strip > div { display: grid; gap: 6px; }
 .strip .k { font: 8px/1 var(--pixel); color: var(--muted); }
 .strip .v { font: 13px/1 var(--pixel); }
+.strip .v.hot { color: var(--red); }
 .fromhq { display: grid; gap: 6px; padding: 10px 14px; text-align: left; font: inherit; color: inherit; }
 .fromhq:hover { background: #fff; }
 .fromhq .k { font: 8px/1 var(--pixel); color: var(--muted); }

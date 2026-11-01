@@ -38,11 +38,13 @@ $("compose").addEventListener("submit", async (e) => {
   if (wait) { toast(wait); return; }
   const floor = tellFloor();
   try {
-    await post("/api/notes", { text: withImages("note", typed), ...(floor ? { floor } : {}) });
+    const urgent = S?.queue?.on && $("tellUrgent").getAttribute("aria-pressed") === "true";
+    await post("/api/notes", { text: withImages("note", typed), ...(floor ? { floor } : {}), ...(urgent ? { urgent: true } : {}) });
+    $("tellUrgent").setAttribute("aria-pressed", "false");
     if (floor) remember(floor);
     $("noteText").value = ""; $("noteText").style.height = ""; clearImages("note");
     const f = multi(S) ? floorById(S, floor) : null, to = f ? `${f.name.toUpperCase()} HQ` : "HQ";
-    toast(linkOf(S, floor)?.ok === false ? `KEPT. ${to} ISN'T RECEIVING; IT GOES WHEN IT IS BACK.` : f?.starting ? `KEPT. IT GOES WHEN ${to} RUNS.` : `SENT TO ${to}.`);
+    toast(S?.queue?.on && !urgent ? `IN ${to}'S QUEUE.` : linkOf(S, floor)?.ok === false ? `KEPT. ${to} ISN'T RECEIVING; IT GOES WHEN IT IS BACK.` : f?.starting ? `KEPT. IT GOES WHEN ${to} RUNS.` : `SENT TO ${to}.`);
     renderTell();
   } catch (err) { toast(err.message); }
 });
@@ -90,6 +92,9 @@ function renderTell() {
   if ($("noteText").placeholder !== text) $("noteText").placeholder = text;
 }
 on("state", renderTell);
+// URGENT on Tell HQ, while HQ QUEUE is on: this note goes straight into HQ's pane, past the queue.
+on("state", () => { const b = $("tellUrgent"); b.hidden = !S?.queue?.on; if (b.hidden) b.setAttribute("aria-pressed", "false"); });
+$("tellUrgent").addEventListener("click", () => { const b = $("tellUrgent"); b.setAttribute("aria-pressed", String(b.getAttribute("aria-pressed") !== "true")); });
 // TELL <HQ>, from a floor where nothing moves: this box, to that floor.
 document.addEventListener("click", (e) => {
   const b = e.target.closest?.("[data-tell-floor]");

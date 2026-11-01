@@ -262,6 +262,9 @@ function deliveries(floor: string) {
   const out: Record<string, string> = {};
   const rows = db.query("SELECT ref, sent_at, confirmed_at FROM hq_outbox WHERE ref IS NOT NULL AND at > ? AND floor = ? ORDER BY id").all(Date.now() - 86_400_000, floor) as { ref: string; sent_at: number | null; confirmed_at: number | null }[];
   for (const r of rows) out[r.ref] = alreadyRead(r.ref) ? "acked" : !r.sent_at ? "held" : r.confirmed_at ? "delivered" : "unconfirmed";
+  // Notes in the HQ QUEUE: waiting there (queued), or read by HQ (delivered).
+  const queued = db.query("SELECT ref, read_at FROM hq_queue WHERE ref IS NOT NULL AND at > ? AND floor = ?").all(Date.now() - 86_400_000, floor) as { ref: string; read_at: number | null }[];
+  for (const q of queued) out[q.ref] = alreadyRead(q.ref) ? "acked" : q.read_at ? "delivered" : "queued";
   return out;
 }
 

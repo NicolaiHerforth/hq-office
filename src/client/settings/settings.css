@@ -17,6 +17,9 @@
 .srow .hours { flex: 0 0 72px; min-width: 0; border: 3px solid var(--edge-2); border-radius: 6px; padding: 4px 8px; font: 16px/1.3 var(--text); background: #fff; color: var(--ink); text-align: center; }
 .srow .hours:focus { outline: none; border-color: var(--edge); }
 .srow .hint { color: var(--muted); font-size: 12px; }
+.qheld { font-size: 12px; line-height: 1.4; }
+.qheld.yes { color: var(--green); }
+.qheld.no { color: #9a5b00; }
 /* FLOORS: a row per floor, and the form that adds or changes one */
 .flist { display: grid; gap: 4px; }
 .frow { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; font-size: 13px; }

@@ -24,6 +24,7 @@
         <div><span class="k">WORKING</span><span class="v" id="sMove">0</span></div>
         <div><span class="k">ON HQ</span><span class="v" id="sHq">0</span></div>
         <div><span class="k">₽ BANK</span><span class="v" id="sBank">0</span></div>
+        <div id="sQueueCell" hidden><span class="k">HQ QUEUE</span><span class="v" id="sQueue">0</span></div>
       </div>
       <div class="spacer"></div>
       <div class="box health" id="machines"><span class="k">MACHINES</span><span class="v">-</span></div>
@@ -58,7 +59,7 @@
       </div>
       <div class="box tell">
         <form class="compose" id="compose">
-          <div class="head"><h2>TELL HQ</h2><span class="hint">⌘↩ sends</span><button class="below" id="below" type="button" hidden></button></div>
+          <div class="head"><h2>TELL HQ</h2><span class="hint">⌘↩ sends</span><button class="urgentsw" id="tellUrgent" type="button" aria-pressed="false" hidden title="Straight into HQ's pane, past the queue">URGENT</button><button class="below" id="below" type="button" hidden></button></div>
           <div class="reply" data-composer="note">
             <div class="chips" data-chips="note"></div>
             <textarea id="noteText" rows="1" placeholder="An order, a change of plan, a question."></textarea>

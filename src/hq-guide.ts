@@ -13,6 +13,7 @@ The owner reads the HQ Office page (the HUD), usually on a second screen, and do
 - With several floors, each HQ owns its floor: \`hud\` files your questions, updates, lanes, rooms and board items on your floor by itself, and your inbox, board and tree show your floor only (\`--all\` for every floor). To reach another floor's HQ: \`hud floor tell FLOOR TEXT\`.
 - What the owner attaches comes at the end of a note, an answer or a room message as \`[image: PATH]\` or \`[file: PATH]\`: the full path of the file on the HUD's machine. Open it from there.
 - \`hud\` talks to the HUD on this machine (127.0.0.1). If your commands run in a sandbox that blocks the network, run \`hud\` outside it (with escalated permissions); the same goes for your lanes.
+- If HQ QUEUE is on (the owner's SETTINGS), what lanes type into your pane and the owner's Tell HQ notes wait in your queue instead of interrupting you. The line \`HQ QUEUE: ...\` on your prompts and tool calls counts what is unread and which lane is waiting for your answer, and since when. Read the next with \`hud req next\`; answer a lane with \`hud req answer ID TEXT\` (typed into its pane) or \`hud req close ID WHY\`; a lane's item stays open until you do. Give your lanes the lane guide: \`hud guide lane\`.
 - This terminal is for your own work.`;
 
 // The guide for the HQ of one floor (not the first): the same, with which floor it owns.
@@ -21,6 +22,13 @@ export function guideFor(floor?: { id: string; name: string } | null) {
   const i = GUIDE.indexOf("\n");
   return `${GUIDE.slice(0, i)}\nYou are the HQ of the ${floor.name} floor (floor id ${floor.id}). \`hud\` files your questions, updates, lanes, rooms and board items on it by itself; the owner sees them under that floor. If \`hud\` ever says it cannot tell which agent is calling, add \`--floor ${floor.id}\` to your hud commands.${GUIDE.slice(i)}`;
 }
+
+// What a lane needs to know to report to HQ: \`hud guide lane\` prints it, and HQ hands it to its lanes.
+export const LANE_GUIDE = `HQ Office, for lanes (\`hud guide lane\` prints it again):
+- Report to HQ as you do now: type into HQ's pane, starting with your own name and a colon, e.g. herdr agent prompt hq "api-auth: PR #812 is up, ready for review". Or run \`hud request TEXT\`. Your name lets HQ see who is waiting.
+- HQ may have a queue on: then your message waits until HQ is ready, and HQ's answer is typed into your pane. Nothing to change on your side.
+- Start a message with URGENT only when main is red, production is affected, or the owner is waiting on it. An URGENT message goes straight to HQ, even past the queue. Anything else is not urgent.
+- If you asked HQ for a go, wait for the answer; HQ sees your request until it answers.`;
 
 // One line, so it never swamps the message it follows.
 export const HINT = "Reply through the HUD (hud tell --title T, or hud comment ID TEXT on an open question); the owner does not read this terminal.";

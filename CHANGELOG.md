@@ -3,6 +3,33 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.27.0] - 2026-11-01
+### Added
+
+- **HQ QUEUE** (SETTINGS, off by default; off is exactly the HUD as before). Turned on, what lanes and you send HQ
+  waits in a queue HQ reads at its own pace, instead of interrupting it mid-turn:
+  - Lanes change nothing. What a lane types into HQ's pane is held by HQ's hook and filed in the queue, with who sent
+    it (the name before the colon). `hud request TEXT` files one directly. A message that starts with URGENT still
+    goes straight in.
+  - Your Tell HQ notes queue too, with an **URGENT** switch that sends one straight in; the note's mark says "in HQ's
+    queue" until HQ reads it.
+  - HQ sees a count line on every prompt and tool call: what is unread, and which lane is waiting for an answer, and
+    since when. It cannot stop while something is unread, and the HUD prompts it when it sits idle with unread items.
+  - `hud req next | list | answer ID TEXT | close ID WHY | line`. An answer to a lane is typed into its pane; an
+    answer to your note reaches you as an update. A lane's item stays open until HQ answers or closes it.
+  - The top bar shows HQ QUEUE with the count while it is on.
+  - SETTINGS says, per floor, whether lanes' typed messages are actually held there, and if not why: the hook not
+    installed, HQ not running, an HQ agent kind without a prompt hook (Codex), herdr not reporting HQ's session, or the
+    hook not yet run in HQ's session. "Yes" means the hook has run in that HQ's session.
+  - HQ's hook is a Claude Code hook. Plugin actions add it to and remove it from this user's
+    `~/.claude/settings.json`, with a backup each time; they change nothing else. The hook acts only in a floor's HQ's
+    own session and only while the queue is on. It fails open: if the HUD is down, slow or erring, the message
+    reaches HQ untouched.
+- `hud guide lane`: what a lane needs to know to report to HQ, with the rule for URGENT (main is red, production is
+  affected, or the owner is waiting on it).
+
+Built from the design in PR #7, rebuilt on the current HUD.
+
 ## [0.26.2] - 2026-10-30
 ### Fixed
 
