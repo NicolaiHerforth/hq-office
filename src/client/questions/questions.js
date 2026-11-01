@@ -35,6 +35,11 @@ on("attach", (key) => {
   if (a && btn) btn.disabled = !canSend(a, drafts.get(a.id) || {});
 });
 
+// An ask is open, or went ahead with its recommended option and can still be answered.
+export const askById = (id) => S.open.find((a) => a.id === id) ?? (S.defaulted ?? []).find((a) => a.id === id);
+// Went-ahead cards whose options and answer box are showing (CHANGE).
+export const changing = new Set();
+
 const KIND_LABEL = { decision: "QUESTION", action: "TO DO", info: "FYI" };
 
 // Nothing waits on you on this floor. When nothing moves either, that is not "all good": it says so, and whose it is.
@@ -60,11 +65,26 @@ export function renderHud() {
   const open = pick(S.open), tags = tagged();
   const here = scope().all ? null : floorById(S, scope().floor);
   const head = open.length ? "" : here ? emptyFloorHTML(here) : `<div class="box"><h2>NOTHING NEEDS YOU</h2><div style="color:var(--muted);font-size:14px">Every worker is either at its desk or waiting on HQ or CI. Decisions and things only you can do land here.</div></div>`;
+  const optsOf = (a, d) => a.options.map((o) => `<button class="opt ${d.opt === o ? "sel" : ""}" data-opt="${esc(o)}">${esc(o)}${a.recommended === o ? ` <span class="pick">HQ PICK</span>` : ""}</button>`).join("");
+  // Went ahead: under every open question, never above one. One quiet line each; CHANGE opens the options and the box.
+  const went = pick(S.defaulted ?? []).map((a) => {
+    const d = drafts.get(a.id) || {}, kind = a.kind, opts = optsOf(a, d), edit = changing.has(a.id);
+    return `<article class="box went" data-ask="${a.id}" data-lane="${esc(a.lane || "")}">
+      <div class="meta">
+        ${tags ? floorTagHTML(S, a.floor) : ""}${a.lane ? `<button class="tag lane" data-select="${esc(a.lane)}">${esc(a.lane)}</button>` : ""}
+        <span class="tag went-tag">WENT AHEAD</span><span class="due">${clock(a.defaulted_at)}</span>
+        <button class="btn-s change" type="button">${edit ? "CANCEL" : "CHANGE"}</button>
+      </div>
+      <h3>${mdInline(a.title)}</h3>
+      <div class="text">Went ahead: ${mdInline(a.answer || "")}</div>
+      ${edit ? `${opts ? `<div class="menu">${opts}</div>` : ""}${composer(a.id, `<textarea rows="1" placeholder="Your answer instead">${esc(d.text || "")}</textarea>`, `<button class="send ${kind !== "decision" ? "go" : ""}" ${canSend(a, d) ? "" : "disabled"}>SEND</button>`)}` : ""}
+    </article>`;
+  }).join("");
   const html = head + open.map((a) => {
     const d = drafts.get(a.id) || {};
     const kind = a.kind;
     const want = a.secrets ?? [];
-    const opts = a.options.map((o) => `<button class="opt ${d.opt === o ? "sel" : ""}" data-opt="${esc(o)}">${esc(o)}${a.recommended === o ? ` <span class="pick">HQ PICK</span>` : ""}</button>`).join("");
+    const opts = optsOf(a, d);
     return `<article class="box ask" data-ask="${a.id}" data-lane="${esc(a.lane || "")}" data-created="${a.created_at}" data-due="${a.due || ""}">
       <div class="meta">
         ${tags ? floorTagHTML(S, a.floor) : ""}${a.lane ? `<button class="tag lane" data-select="${esc(a.lane)}">${esc(a.lane)}</button>` : ""}
@@ -82,7 +102,7 @@ export function renderHud() {
       ${composer(a.id, `<textarea rows="1" placeholder="${kind === "action" ? "Optional note for HQ" : a.options.length ? "Add detail, or your own answer" : "Your answer"}">${esc(d.text || "")}</textarea>`,
         `${kind === "action" ? `<button class="notyet" type="button">NOT YET</button>` : ""}<button class="send ${kind !== "decision" ? "go" : ""}" ${canSend(a, d) ? "" : "disabled"}>${kind === "action" ? "DONE" : kind === "info" ? "OK" : "SEND"}</button>`)}
     </article>`;
-  }).join("");
+  }).join("") + went;
   // Values being pasted are kept in memory only and put back as the input's value, never as markup.
   for (const id of secretDrafts.keys()) if (!S.open.some((a) => a.id === id)) secretDrafts.delete(id);
   for (const key of imageKeys()) if (/^\d+$/.test(key) && !S.open.some((a) => String(a.id) === key)) clearImages(key);

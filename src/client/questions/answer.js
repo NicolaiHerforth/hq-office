@@ -4,7 +4,7 @@ import { drafts, secretDrafts } from "./drafts.js";
 import { S } from "../core/state.js";
 import { copyCode } from "../core/markdown.js";
 import { post } from "../core/net.js";
-import { canSend, renderHud } from "./questions.js";
+import { askById, canSend, changing, renderHud } from "./questions.js";
 import { clearImages, notReady, withImages } from "../images/images.js";
 
 $("main").addEventListener("click", async (e) => {
@@ -22,13 +22,18 @@ $("main").addEventListener("click", async (e) => {
   if (!card) return;
   const id = Number(card.dataset.ask);
   const d = drafts.get(id) || {};
+  if (e.target.closest(".change")) {
+    changing.has(id) ? changing.delete(id) : changing.add(id);
+    renderHud();
+    return;
+  }
   const opt = e.target.closest(".opt");
   if (opt) {
     // Changed in place, not by building the list again: the option stays exactly where it was clicked.
     d.opt = d.opt === opt.dataset.opt ? undefined : opt.dataset.opt;
     drafts.set(id, d);
     for (const b of card.querySelectorAll(".opt")) b.classList.toggle("sel", b.dataset.opt === d.opt);
-    const send = card.querySelector(".send"), ask = S.open.find((a) => a.id === id);
+    const send = card.querySelector(".send"), ask = askById(id);
     if (send && ask) send.disabled = !canSend(ask, d);
     return;
   }
@@ -47,7 +52,7 @@ $("main").addEventListener("click", async (e) => {
     return;
   }
   if (e.target.closest(".send")) {
-    const ask = S.open.find((a) => a.id === id);
+    const ask = askById(id);
     const wait = notReady(id);
     if (wait) { toast(wait); return; }
     const text = withImages(id, (d.text || "").trim());
@@ -63,7 +68,7 @@ $("main").addEventListener("click", async (e) => {
       return;
     }
     e.target.disabled = true;
-    try { await post(`/api/asks/${id}/answer`, { answer }); drafts.delete(id); clearImages(id); toast("SENT. HQ HAS IT."); }
+    try { await post(`/api/asks/${id}/answer`, { answer }); drafts.delete(id); changing.delete(id); clearImages(id); toast("SENT. HQ HAS IT."); }
     catch (err) { toast(err.message); e.target.disabled = false; }
   }
 });
@@ -72,7 +77,7 @@ $("main").addEventListener("input", (e) => {
   if (!card) return;
   const id = Number(card.dataset.ask);
   const d = drafts.get(id) || {};
-  const ask = S.open.find((a) => a.id === id);
+  const ask = askById(id);
   if (e.target.dataset.secret !== undefined || e.target.dataset.secretMin !== undefined) {
     if (e.target.dataset.secretMin !== undefined) { d.minutes = e.target.value; drafts.set(id, d); }
     else secretDrafts.set(id, { ...secretDrafts.get(id), [e.target.dataset.secret]: e.target.value });

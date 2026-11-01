@@ -21,7 +21,7 @@ export function score(now: number) {
     const from = Math.max(a.created_at, startOfDay(now));
     const to = a.answered_at ?? now;
     lost += Math.max(0, Math.floor((to - from) / 60_000) - 5);
-    if (a.answered_at && a.answered_at - a.created_at <= 10 * 60_000) {
+    if (a.answered_at && a.status !== "defaulted" && a.answered_at - a.created_at <= 10 * 60_000) {
       bonus += 20;
       fast++;
     }
