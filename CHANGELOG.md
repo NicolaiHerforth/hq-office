@@ -18,6 +18,9 @@ All notable changes to HQ Office are listed here, newest first. The format follo
   - `hud req next | list | answer ID TEXT | close ID WHY | line`. An answer to a lane is typed into its pane; an
     answer to your note reaches you as an update. A lane's item stays open until HQ answers or closes it.
   - The top bar shows HQ QUEUE with the count while it is on.
+  - SETTINGS says, per floor, whether lanes' typed messages are actually held there, and if not why: the hook not
+    installed, HQ not running, an HQ agent kind without a prompt hook (Codex), herdr not reporting HQ's session, or the
+    hook not yet run in HQ's session. "Yes" means the hook has run in that HQ's session.
   - HQ's hook is a Claude Code hook. Plugin actions add it to and remove it from this user's
     `~/.claude/settings.json`, with a backup each time; they change nothing else. The hook acts only in a floor's HQ's
     own session and only while the queue is on. It fails open: if the HUD is down, slow or erring, the message

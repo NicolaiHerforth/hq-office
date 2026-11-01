@@ -17,7 +17,7 @@ import { addStatePart } from "./state.ts";
 import { getSettings } from "./settings.ts";
 import { postUpdate } from "./updates.ts";
 import { live, promptAgent } from "./herdr.ts";
-import { agentOfSession, floorList, floorOf, floorOfHq, floorOr, hqOf } from "./floors.ts";
+import { agentOfSession, floorList, floorOf, floorOfHq, floorOr, hasSession, hqOf } from "./floors.ts";
 import { hqLink, hqNowOf } from "./hq-link.ts";
 import { installed as hookInstalled } from "../../bin/queue-hook.ts";
 
@@ -137,10 +137,11 @@ function clearInput(floor: string, text: string) {
 // session id for it), with the queue on, gets anything; everyone else gets {} and the hook does nothing.
 export type HookIn = { event?: string; session_id?: string; prompt?: string; stop_hook_active?: boolean };
 export function hookDecision(input: HookIn): { output?: unknown; text?: string } {
-  if (!queueOn()) return {};
   const agent = agentOfSession(input.session_id);
   const floor = floorOfHq(agent);
   if (!agent || !floor) return {};
+  hookRan.set(floor, Date.now());
+  if (!queueOn()) return {};
   const line = queueLine(floor);
   if (input.event === "UserPromptSubmit") {
     const p = String(input.prompt ?? "");
@@ -177,14 +178,32 @@ export async function kickQueue(now = Date.now()) {
 }
 
 // Whether HQ's hook is in this user's Claude Code settings (bin/queue-hook.ts), looked at once per 10 s at most.
+const HOOK_CHECK_MS = process.env.HUD_QUEUE_HOOK_CHECK_MS !== undefined ? Number(process.env.HUD_QUEUE_HOOK_CHECK_MS) : 10_000;
 let hookSeen = { at: 0, yes: false };
 const hookIn = () => {
-  if (Date.now() - hookSeen.at > 10_000) hookSeen = { at: Date.now(), yes: !!process.env.HOME && hookInstalled(process.env.HOME) };
+  if (Date.now() - hookSeen.at >= HOOK_CHECK_MS) hookSeen = { at: Date.now(), yes: !!process.env.HOME && hookInstalled(process.env.HOME) };
   return hookSeen.yes;
 };
+// When HQ's hook last ran in each floor's HQ's session (memory only: a restart forgets it until the next event).
+const hookRan = new Map<string, number>();
+
+// Whether lanes' typed messages are held on a floor right now, and if not, why: the hook must be installed, HQ must
+// run a Claude Code agent herdr reports a session for, and the hook must have run in that session.
+export function heldOn(floor: string, now = Date.now()): { held: boolean; why: string } {
+  const f = floorOf(floor);
+  const hq = f ? live.find((a) => a.name === f.hq && a.machine === LOCAL) : undefined;
+  if (!hookIn()) return { held: false, why: "HQ's hook is not installed (plugin action: HQ Office: add HQ's queue hook)" };
+  if (!hq) return { held: false, why: `HQ (${f?.hq ?? "?"}) is not running in herdr on this machine` };
+  if (hq.kind && hq.kind !== "claude") return { held: false, why: `HQ runs ${hq.kind}, which has no prompt hook: lanes' messages go straight in (notes and hud request still queue)` };
+  if (!hasSession(hq.name)) return { held: false, why: "herdr does not report HQ's session, so the hook cannot tell it is HQ" };
+  const ran = hookRan.get(floor);
+  if (!ran) return { held: false, why: "the hook has not run in HQ's session yet: restart HQ's session to load it" };
+  const m = Math.round((now - ran) / 60_000);
+  return { held: true, why: `the hook last ran ${m < 1 ? "just now" : `${m} min ago`}` };
+}
 // S.queue: whether it is on, whether HQ's hook is installed, and each floor's counts, for the page (top bar, SETTINGS).
 addStatePart("queue", () => {
   const on = queueOn();
   if (!on) return { on, hook: false, floors: {} }; // off: the user's settings are not even looked at
-  return { on, hook: hookIn(), floors: Object.fromEntries(floorList().map((f) => { const c = counts(f.id); return [f.id, { unread: c.unread, waiting: c.waiting.length }]; })) };
+  return { on, hook: hookIn(), floors: Object.fromEntries(floorList().map((f) => { const c = counts(f.id); return [f.id, { unread: c.unread, waiting: c.waiting.length, ...heldOn(f.id) }]; })) };
 });

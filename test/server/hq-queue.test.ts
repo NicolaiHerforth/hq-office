@@ -9,6 +9,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnServer } from "../../scripts/room-hash.ts";
 import { fakeHerdr } from "../fake-herdr.ts";
+import { install } from "../../bin/queue-hook.ts";
 
 const ROOT = join(import.meta.dir, "..", "..");
 const DATA = mkdtempSync(join(tmpdir(), "hq-queue-"));
@@ -25,7 +26,7 @@ const sendKeys = () => herdr.calls().filter((c) => c[0] === "agent" && c[1] === 
 const setHq = (status: string) => herdr.world(herdr.agents().map((a) => (a.name === "hq" ? { ...a, agent_status: status } : a)));
 
 beforeAll(async () => {
-  server = await spawnServer({ cwd: ROOT, env: { ...process.env, HOME: DATA, HUD_HOST: "127.0.0.1", HUD_DATA_DIR: DATA, HERDR_BIN: herdr.bin, HUD_MACHINES: "local", HUD_LOCAL_MACHINE: "local", HUD_HQ_AGENT: "hq", HUD_HQ_HINT: "0", HUD_HQ_RENAME: "0", HUD_GH_BIN: "false", HUD_QUEUE_CLEAR_MS: "50", HUD_QUEUE_KICK_MS: "600000" } });
+  server = await spawnServer({ cwd: ROOT, env: { ...process.env, HOME: DATA, HUD_QUEUE_HOOK_CHECK_MS: "0", HUD_HOST: "127.0.0.1", HUD_DATA_DIR: DATA, HERDR_BIN: herdr.bin, HUD_MACHINES: "local", HUD_LOCAL_MACHINE: "local", HUD_HQ_AGENT: "hq", HUD_HQ_HINT: "0", HUD_HQ_RENAME: "0", HUD_GH_BIN: "false", HUD_QUEUE_CLEAR_MS: "50", HUD_QUEUE_KICK_MS: "600000" } });
   for (const name of ["api", "docs"]) await post("/api/lanes", { name, machine: "local" });
   await post("/api/sync");
 }, 30_000);
@@ -46,8 +47,27 @@ test("off, the default: the hook does nothing, a note is typed into HQ, hud requ
   expect(sendKeys()).toEqual([]);
 });
 
-test("on: a lane's typed message is stored, then held back; who sent it is read from 'name:'", async () => {
+test("on, per floor: whether lane messages are held, and why not", async () => {
   expect((await post("/api/settings", { settings: { hqQueue: true } })).status).toBe(200);
+  const held = async () => (await get("/api/state")).queue.floors.hq;
+  expect(await held()).toMatchObject({ held: false, why: expect.stringContaining("HQ's hook is not installed") });
+  install(DATA, "HUD_URL=x bun /p/bin/hq-queue-hook.ts");
+  await hook("PostToolUse"); // the hook runs in HQ's session
+  expect(await held()).toMatchObject({ held: true, why: "the hook last ran just now" });
+  // a Claude HQ whose session the hook has not run in yet, a Codex HQ, and a Claude HQ herdr reports no session for
+  herdr.world([...herdr.agents(), { name: "hq-fresh", agent_status: "idle", pane_id: "w1:p8", agent: "claude", agent_session: { value: "sess-fresh" } }, { name: "hq-plain", agent_status: "idle", pane_id: "w1:p9", agent: "claude" }]);
+  await post("/api/sync");
+  await post("/api/floors", { id: "fr", name: "FR", hq: "hq-fresh" });
+  await post("/api/floors", { id: "cx", name: "CX", hq: "docs" });
+  await post("/api/floors", { id: "ns", name: "NS", hq: "hq-plain" });
+  const fl = (await get("/api/state")).queue.floors;
+  expect(fl.fr).toMatchObject({ held: false, why: expect.stringContaining("has not run in HQ's session yet: restart HQ's session") });
+  expect(fl.cx).toMatchObject({ held: false, why: expect.stringContaining("HQ runs codex, which has no prompt hook") });
+  expect(fl.ns).toMatchObject({ held: false, why: expect.stringContaining("herdr does not report HQ's session") });
+  for (const id of ["fr", "cx", "ns"]) await post(`/api/floors/${id}`, { rm: true });
+});
+
+test("on: a lane's typed message is stored, then held back; who sent it is read from 'name:'", async () => {
   writeFileSync(join(DATA, "block-start"), "────\n❯ api: can I go ahead with A4?\n────\n");
   const r = await hook("UserPromptSubmit", { prompt: "api: can I go ahead with A4?" });
   expect(r.output.decision).toBe("block");

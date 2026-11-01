@@ -60,8 +60,12 @@ function queueRow() {
   const btn = (v, label, on) => `<button class="btn-s ${on ? "on" : ""}" type="button" data-queue-on="${v}">${label}</button>`;
   const hint = !q.on
     ? "Off: lanes and your notes are typed straight into HQ's pane, as always."
-    : `On: what lanes type into HQ's pane and your Tell HQ notes wait in HQ's queue (URGENT on Tell HQ, or a lane's message that starts with URGENT, goes straight in). HQ sees the count at every step and reads with hud req next. ${q.hook ? "HQ's hook is installed." : "HQ's hook is not installed yet, so lanes' messages still go straight in: run the plugin action \"HQ Office: add HQ's queue hook\"."}`;
-  return `<div class="srow" data-queue><span class="k">HQ QUEUE</span><div class="opts2">${btn("false", "OFF", !q.on)}${btn("true", "ON", q.on)}</div><span class="hint">${esc(hint)}</span></div>`;
+    : `On: what lanes type into HQ's pane and your Tell HQ notes wait in HQ's queue (URGENT on Tell HQ, or a lane's message that starts with URGENT, goes straight in). HQ sees the count at every step and reads with hud req next. Where lane messages are not held (below), they go straight in, as with the queue off.`;
+  // Per floor: whether lanes' typed messages are held there right now, and why not (src/server/hq-queue.ts heldOn).
+  const floors = q.on ? Object.entries(q.floors ?? {}) : [];
+  const many = floors.length > 1;
+  const held = floors.map(([id, f]) => `<span class="qheld ${f.held ? "yes" : "no"}">${many ? `<b>${esc(S.floors?.find((x) => x.id === id)?.name ?? id)}</b>: ` : ""}lane messages held: ${f.held ? "yes" : "no"} (${esc(f.why)})</span>`).join("");
+  return `<div class="srow" data-queue><span class="k">HQ QUEUE</span><div class="opts2">${btn("false", "OFF", !q.on)}${btn("true", "ON", q.on)}</div><span class="hint">${esc(hint)}</span>${held}</div>`;
 }
 function sweepRow() {
   const sw = S?.sweep ?? { on: false, minutes: 20, hours: "8-24" };
