@@ -6,25 +6,25 @@
 @media (min-width: 1151px) { .work { height: 100%; overflow-y: auto; overscroll-behavior: contain; } }
 .work .sum { font: 8px/1.6 var(--pixel); color: var(--muted); }
 .work h4 { margin: 4px 0 0; font: 8px/1 var(--pixel); color: var(--muted); }
-.work h4.stalled { color: var(--red); }
-.wi { display: grid; gap: 3px; padding: 6px 10px; border-radius: 8px; border: 2px solid #e2e2ee; }
-.wi.stalled { border-color: var(--red); background: #fff0f0; }
+.work h4.stalled { color: var(--red-text); }
+.wi { display: grid; gap: 3px; padding: 6px 10px; border-radius: 8px; border: 2px solid var(--rule); }
+.wi.stalled { border-color: var(--red); background: var(--red-tint); }
 .wi.done { opacity: .6; }
 .wi .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
 .wi .key { font: 9px/1 var(--pixel); color: var(--ink); text-decoration: none; }
 .wi .age { margin-left: auto; font: 8px/1 var(--pixel); color: var(--muted); }
-.wi.stalled .age { color: var(--red); }
-.wi .what { font-size: 13px; color: #3a3a52; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.tag.ws { color: #fff; }
+.wi.stalled .age { color: var(--red-text); }
+.wi .what { font-size: 13px; color: var(--ink-2); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.tag.ws { color: var(--on-fill); }
 .tag.ws.stalled { background: var(--red); }
-.tag.ws.owner { background: #b0306a; }
+.tag.ws.owner { background: var(--owner-fill); }
 .tag.ws.ci { background: var(--blue); }
 .tag.ws.moving { background: var(--green); }
-.tag.ws.paused, .tag.ws.done { background: #6a6a82; }
-.tag.pr.merged { background: #e6dcff; }
-.tag.pr.draft { background: #eee; color: var(--muted); }
-.tag.muted { background: #e8e8f4; color: var(--muted); }
-.stall { display: grid; gap: 4px; padding: 8px 12px; background: var(--red); color: #fff; border: 3px solid #8a2020; border-radius: 8px; text-align: left; font: inherit; }
+.tag.ws.paused, .tag.ws.done { background: var(--idle-fill); }
+.tag.pr.merged { background: var(--merged-bg); }
+.tag.pr.draft { background: var(--chip-2); color: var(--muted); }
+.tag.muted { background: var(--chip); color: var(--muted); }
+.stall { display: grid; gap: 4px; padding: 8px 12px; background: var(--red); color: var(--on-fill); border: 3px solid var(--red-edge); border-radius: 8px; text-align: left; font: inherit; }
 .stall:hover { filter: brightness(1.05); }
 .stall .k { font: 8px/1.4 var(--pixel); }
 .stall .row { font-size: 13px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
@@ -32,7 +32,7 @@
 /* the manager a group of work reports to, when lanes form a tree */
 .work .under { font: 7px/1 var(--pixel); color: var(--muted); margin: 8px 0 4px; display: flex; align-items: center; gap: 6px; }
 /* blocked on a prompt: on top, the excerpt as its why */
-.work h4.blocked { color: var(--red); }
-.wi.blocked { border-color: var(--red); background: #fff0f0; }
+.work h4.blocked { color: var(--red-text); }
+.wi.blocked { border-color: var(--red); background: var(--red-tint); }
 .wi.blocked .what { white-space: normal; }
-.tag.ws.blocked { background: #b01e1e; }
+.tag.ws.blocked { background: var(--blocked-fill); }

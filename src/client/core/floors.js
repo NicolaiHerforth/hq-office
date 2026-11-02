@@ -125,6 +125,7 @@ export function readingLineHTML(c, now = Date.now()) {
 export const hqShown = (f) => (f && f.hq !== f.id ? f.hq : "");
 
 // Ink or white on a floor's colour, whichever reads: the colour is the owner's choice (or hud's), any #rrggbb.
+// Fixed values, not the theme's --ink: the floor's colour is the same in light and dark, so its text is too.
 export function inkOn(color) {
   const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(color ?? "");
   if (!m) return "#fff";

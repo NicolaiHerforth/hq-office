@@ -344,7 +344,7 @@ hud page data briefs/8 votes         # one collection
 hud page data briefs/8 votes/owner   # one document
 ```
 
-The page never talks to the server. It talks to the HUD page that shows it, which decides which page it is from the frame it sits in, never from what the page says, and answers only the page's own frame. `bun scripts/parity-lab/harness.ts` measures what a page can do next to a Claude artifact.
+The page never talks to the server. It talks to the HUD page that shows it, which decides which page it is from the frame it sits in, never from what the page says, and answers only the page's own frame. `bun scripts/parity-lab/harness.ts` measures what a page can do next to a Claude artifact, clicking the checks that need a click (copy, fullscreen, saving a file) for real; `--expect N` fails when fewer than N checks pass.
 
 Pages run in a sandbox: the server sends each with `Content-Security-Policy: sandbox allow-scripts ...` without `allow-same-origin`, and the HUD shows it in an `<iframe sandbox>` without it too. The page gets an origin of its own: it cannot read the HUD's page, its data, its storage or its cookies, cannot send anything to the HUD's server (it may only connect to https; what it keeps goes through the runtime above), and cannot navigate the HUD. Secret values are masked in a page as they are in the agent drawer. As in an artifact, a click in a page may copy to the clipboard (`navigator.clipboard.writeText`) and take the page full screen (`requestFullscreen`): the frame allows `clipboard-write` and `fullscreen`, and nothing else.
 

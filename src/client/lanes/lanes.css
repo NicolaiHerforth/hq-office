@@ -8,9 +8,9 @@
 .lbcol { display: flex; flex-direction: column; gap: 2px; min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
 .lbcol h3 { position: sticky; top: 0; z-index: 1; display: flex; align-items: center; gap: 8px; margin: 0 0 4px; padding: 2px 0 6px; background: var(--box); border-bottom: 3px solid currentColor; font: 8px/1 var(--pixel); letter-spacing: 1px; }
 .lbcol h3 em { margin-left: auto; font-style: normal; }
-.lbcol.lbwork h3 { color: var(--green); }
-.lbcol.lbyou h3 { color: var(--red); }
-.lbcol.lbstill h3 { color: #8a5200; }
+.lbcol.lbwork h3 { color: var(--green-text); }
+.lbcol.lbyou h3 { color: var(--red-text); }
+.lbcol.lbstill h3 { color: var(--amber-strong-4); }
 .lbsig { width: 10px; height: 10px; background: currentColor; }
 .lbcol.lbstill .lbsig { border-radius: 50%; }
 .lbrow, .lbchip { all: unset; box-sizing: border-box; display: grid; align-items: baseline; gap: 8px; border-radius: 5px; cursor: pointer; color: var(--ink); }
@@ -20,16 +20,16 @@
 .lbrow .lbx { grid-column: 1 / -1; grid-row: 2; }
 .lbrow .lbt { grid-row: 1; grid-column: -2 / -1; }
 .lbrow .lbn { overflow: hidden; text-overflow: ellipsis; }
-.lbrow:hover, .lbchip:hover, .lbrow.on, .lbchip.on { background: #eef0fb; }
+.lbrow:hover, .lbchip:hover, .lbrow.on, .lbchip.on { background: var(--hover); }
 .lbrow:focus-visible, .lbchip:focus-visible { outline: 3px solid var(--blue); outline-offset: -3px; }
 .lbsw { width: 8px; height: 8px; border-radius: 2px; align-self: center; }
 .lbn { font: 8px/1.2 var(--pixel); letter-spacing: .5px; white-space: nowrap; }
 .lbx { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); }
 .lbcol.lbyou .lbx { color: var(--ink); font-weight: 700; }
-.lbcol.lbstill .lbx { color: #8a5200; }
+.lbcol.lbstill .lbx { color: var(--amber-strong-4); }
 .lbt { font: 8px/1 var(--pixel); color: var(--muted); white-space: nowrap; justify-self: end; }
 .lbchips { display: flex; flex-wrap: wrap; gap: 4px; }
-.lbchip { grid-auto-flow: column; padding: 6px 8px; min-height: 32px; border: 2px solid #cfe9d8; background: #f2faf5; }
+.lbchip { grid-auto-flow: column; padding: 6px 8px; min-height: 32px; border: 2px solid var(--green-edge-soft); background: var(--green-tint); }
 @media (pointer: coarse) { .lbrow, .lbchip { min-height: 44px; } }
 .lbempty { margin: 4px 6px; font-size: 13px; color: var(--muted); }
 /* narrow: the columns stack, WAITING ON YOU first, and the page scrolls instead of each column */

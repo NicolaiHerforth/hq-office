@@ -75,7 +75,7 @@ test.skipIf(!chromeFound)("the line in MESSAGES opens the brief at full width, w
 }, 20_000);
 
 test.skipIf(!chromeFound)("NEWER and OLDER step through the briefs; BACK and Esc return to the office", async () => {
-  await ev(`document.querySelector(".bvbar a:not(.off)").click()`); // NEWER from the oldest
+  await ev(`[...document.querySelectorAll(".bvbar a")].find((a) => a.textContent === "NEWER" && !a.classList.contains("off")).click()`); // NEWER from the oldest
   await until(`location.hash === "#brief/${crm}" && document.querySelector(".briefview h1")?.textContent === "CRM import plan"`);
   await ev(`document.querySelector("[data-brief-back]").click()`);
   await until(`document.querySelector(".briefview").hidden && !document.querySelector(".stage").classList.contains("inbrief") && location.hash === ""`);

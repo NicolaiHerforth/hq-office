@@ -86,6 +86,14 @@ export const FREEZE = `(() => {
   const realFetch = window.fetch.bind(window);
   window.fetch = async (url, init) => {
     const res = await realFetch(url, init);
+    // The worker card's times (when the server read the terminal, when each thing it last said was posted) come
+    // from the server's clock: pinned, or a minute ticking over between two captures changes the line.
+    if (String(url).startsWith("/api/lanes/") && String(url).endsWith("/live")) {
+      const l = await res.json();
+      if (l.terminal?.at) l.terminal.at = now();
+      l.said?.forEach((x, i) => { if (x.at) x.at = EPOCH - (i + 1) * 60000; });
+      return new Response(JSON.stringify(l), { headers: { "content-type": "application/json" } });
+    }
     if (!String(url).includes("/api/state")) return res;
     const s = await res.json();
     s.now = now();
@@ -125,12 +133,13 @@ const canvasHash = (masks: number[][]) => `(async () => {
 const STYLE_HASH = `(async (raw) => {
   const out = [];
   // Every element the page shows (not the script, style and link tags, which the restructure changes by design),
-  // its box, every computed property in name order, and its text when it is a leaf.
+  // its box, every computed property in name order, and its text when it is a leaf. Custom properties (the colour
+  // tokens) are left out: what they resolve to is in the properties that use them.
   for (const el of [document.documentElement, ...document.body.querySelectorAll("*")]) {
     if (["SCRIPT", "STYLE", "LINK", "META"].includes(el.tagName)) continue;
     const cs = getComputedStyle(el), r = el.getBoundingClientRect();
     const props = [];
-    for (let i = 0; i < cs.length; i++) props.push(cs[i] + ":" + cs.getPropertyValue(cs[i]));
+    for (let i = 0; i < cs.length; i++) if (!cs[i].startsWith("--")) props.push(cs[i] + ":" + cs.getPropertyValue(cs[i]));
     props.sort();
     out.push(el.tagName + "#" + el.id + "." + el.className + "|" + [r.x, r.y, r.width, r.height].map(Math.round).join(",") + "|" + props.join(";") + "|" + (el.children.length ? "" : el.textContent.replace(/\\s+/g, " ")));
   }
@@ -269,7 +278,11 @@ export async function capture(dir: string, opts: { timing?: boolean } = {}): Pro
     const { s, evaluate } = await newSession(cdp, errors);
     await s("Network.setBlockedURLs", { urls: ["*fonts.googleapis.com*", "*fonts.gstatic.com*"] });
     await s("Emulation.setTimezoneOverride", { timezoneId: "UTC" });
+    // A light browser, whatever this machine's own setting: SYSTEM then draws the light theme, as every base tree does.
+    await s("Emulation.setEmulatedMedia", { features: [{ name: "prefers-color-scheme", value: "light" }] });
     await s("Page.addScriptToEvaluateOnNewDocument", { source: FREEZE });
+    // PIXEL_THEME=light|dark: MENU › THEME as this viewer picked it (a tree from before the dark theme ignores it).
+    if (process.env.PIXEL_THEME) await s("Page.addScriptToEvaluateOnNewDocument", { source: `try { localStorage.setItem("hq-theme", ${JSON.stringify(process.env.PIXEL_THEME)}); } catch {}` });
     const size = (width: number, height: number) => s("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 1, mobile: false });
     const open = async (query: string, t: number) => {
       // Through a blank page: a URL that differs only in its hash would not load again, and keep the old clock.
@@ -298,11 +311,13 @@ export async function capture(dir: string, opts: { timing?: boolean } = {}): Pro
     // The floor bar (BUILDING, a tab per floor, + FLOOR) is on the stage since floors' navigation, also with one floor;
     // it is left out of the style hash so the rest of the page compares with a tree from before. It comes back when the
     // window narrows (it moves under the top bar), so it goes before every hash; the room then fits its box again.
+    // MENU's THEME row (new with the dark theme) is left out the same way, and SUBS (0.30), which shows once this
+    // machine's own subscription reading comes in: in one capture and not in another.
     // Floors' UI rework (0.21) moved the +N MORE OUT OF VIEW pill (hidden in these scenes) to the foot of the question
     // list and made SETTINGS' header sticky; both are put back as they were before each hash, so the rest compares with a tree from before.
     const noBar = async () => {
       if (await evaluate(`(() => { const n = document.querySelector(".floornav"); n?.remove(); return !!n; })()`)) await Bun.sleep(200);
-      await evaluate(`(() => { const b = document.getElementById("below"); if (b) document.querySelector(".tell .head")?.append(b); const h = document.querySelector("#settings > .shead"); if (h) h.style.cssText = "position: static; top: auto; z-index: auto; background: none; box-shadow: none"; })()`);
+      await evaluate(`(() => { const b = document.getElementById("below"); if (b) document.querySelector(".tell .head")?.append(b); const h = document.querySelector("#settings > .shead"); if (h) h.style.cssText = "position: static; top: auto; z-index: auto; background: none; box-shadow: none"; document.querySelector("#menuDrop .mtheme")?.remove(); document.querySelector(".subswrap")?.remove(); })()`);
     };
     const noScroll = () => evaluate("document.documentElement.scrollHeight <= innerHeight && document.documentElement.scrollWidth <= innerWidth");
 
@@ -332,6 +347,8 @@ export async function capture(dir: string, opts: { timing?: boolean } = {}): Pro
     styles["1440x900 messages tab"] = await evaluate(STYLE_HASH);
     await evaluate(`document.querySelector('[data-qtab="questions"]').click()`);
     await evaluate(`document.querySelector('[data-select="bravo"]').click()`);
+    // The card's live part (its terminal, what it last said) comes from the server a moment after the click.
+    for (let i = 0; i < 100 && (await evaluate(`[...document.querySelectorAll("#card .agnone")].some((p) => p.textContent === "…")`)); i++) await Bun.sleep(50);
     await noBar();
     styles["1440x900 worker selected"] = await evaluate(STYLE_HASH);
     await size(800, 900);

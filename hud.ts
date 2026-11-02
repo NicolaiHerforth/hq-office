@@ -26,6 +26,7 @@
 //   hud brief reply ID TEXT [--reply N]          answer in a brief's comments (or from stdin)
 //   hud page comments KEY [--json] | reply KEY TEXT [--reply N]   the same for a room's page: KEY is
 //                        rooms/SLUG/brief or rooms/SLUG/files/NAME.html (its address after #page/ works too)
+//                        Your floor's briefs and pages only; --all for another floor's
 //   hud request TEXT [--urgent] [--file PATH]   a message for your floor's HQ: in its queue when HQ QUEUE is on,
 //                        typed into its pane when it is off; --urgent always goes straight in (main is red, production
 //                        is affected, or the owner is waiting on it)
@@ -49,7 +50,7 @@
 // pages: what the owner entered on an HTML page (a brief or a room's page) through its runtime, read back
 //   hud page data PAGE [PATH]   PAGE is briefs/ID, rooms/SLUG/brief or rooms/SLUG/files/NAME; PATH a db collection
 //                               (votes) or document (votes/owner); without PATH, its storage and every document
-//   hud page data               every page that keeps anything
+//   hud page data               every page that keeps anything (another floor's briefs with --all only)
 // conference rooms: one per piece of work, where the owner talks straight to the lane that owns it (see roomCmd below)
 //   hud room create|path|brief|artifact|say|read|list|archive ...   `hud room` prints the usage
 // floors: one HQ agent and everything it runs (see floorCmd below). hud tells the server which pane it runs in
@@ -580,10 +581,10 @@ async function pageData(page?: string, path?: string) {
 
 async function commentCmd(kind: "brief" | "page", args: string[]) {
   const json = args.includes("--json");
-  const { rest: r, one: o } = parse(args.filter((a) => a !== "--json"));
+  const { rest: r, one: o } = parse(args.filter((a) => a !== "--json" && a !== "--all"));
   const [verb, id, ...words] = r;
   const usage = () => {
-    console.error(kind === "brief" ? "usage: hud brief comments ID [--json] | hud brief reply ID TEXT [--reply N] [--as AGENT]" : "usage: hud page comments KEY [--json] | hud page reply KEY TEXT [--reply N] [--as AGENT] | hud page data [KEY [PATH]]   (KEY: rooms/SLUG/brief or rooms/SLUG/files/NAME.html; data also takes briefs/ID)");
+    console.error(kind === "brief" ? "usage: hud brief comments ID [--json] [--all] | hud brief reply ID TEXT [--reply N] [--as AGENT] [--all]" : "usage: hud page comments KEY [--json] | hud page reply KEY TEXT [--reply N] [--as AGENT] | hud page data [KEY [PATH]]   (KEY: rooms/SLUG/brief or rooms/SLUG/files/NAME.html; data also takes briefs/ID)");
     process.exit(2);
   };
   if (!id || !["comments", "reply"].includes(verb)) usage();

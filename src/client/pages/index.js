@@ -59,7 +59,7 @@ function route() {
   view.hidden = false;
   stage.classList.add("inpage");
   document.documentElement.classList.add("pageopen");
-  setHTML(view, `<div class="pvbar"><button class="btn-s" type="button" data-page-back>◀ BACK</button><b class="pvtitle">${esc(p.title)}</b><span class="pvvbtn"></span><a class="btn-s" href="${esc(p.src)}" target="_blank" rel="noopener">OPEN IN NEW TAB</a><div class="pvvers" hidden></div></div><div class="pvold"${p.v ? "" : " hidden"}></div>${frameHTML(p.src, p.title)}<aside class="cmount" data-comments="${esc(p.key)}"></aside>`);
+  setHTML(view, `<div class="pvbar"><button class="btn-s" type="button" data-page-back>◀ BACK</button><b class="pvtitle">${esc(p.title)}</b><span class="pvvbtn"></span><button class="btn-s" type="button" data-comments-toggle="${esc(p.key)}">COMMENTS</button><button class="btn-s wideonly" type="button" data-view-full>FULL SCREEN</button><a class="btn-s" href="${esc(p.src)}" target="_blank" rel="noopener">OPEN IN NEW TAB</a><div class="pvvers" hidden></div></div><div class="pvold"${p.v ? "" : " hidden"}></div>${frameHTML(p.src, p.title)}<aside class="cmount" data-comments="${esc(p.key)}"></aside>`);
   emit("comments:mount", view.querySelector(".cmount"));
   renderVersions();
   if (p.versions) loadVersions(p);
@@ -123,6 +123,12 @@ function back() {
 }
 view.addEventListener("click", (e) => {
   if (e.target.closest("[data-page-back]")) { back(); return; }
+  // FULL SCREEN: the page alone on the screen (Esc, or the button again, leaves it).
+  if (e.target.closest("[data-view-full]")) {
+    if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+    else view.requestFullscreen?.().catch(() => {});
+    return;
+  }
   if (e.target.closest("[data-page-versions]")) { listOpen = !listOpen; renderVersions(); return; }
   const go = e.target.closest("[data-page-version]");
   if (go && !e.metaKey && !e.ctrlKey && !e.shiftKey) { e.preventDefault(); location.replace(go.getAttribute("href")); }
@@ -140,3 +146,6 @@ addEventListener("hashchange", (e) => {
   route();
 });
 route();
+document.addEventListener("fullscreenchange", () => {
+  for (const b of view.querySelectorAll("[data-view-full]")) b.textContent = document.fullscreenElement === view ? "EXIT FULL SCREEN" : "FULL SCREEN";
+});

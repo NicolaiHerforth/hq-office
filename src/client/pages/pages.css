@@ -1,5 +1,5 @@
 /* HTML PAGES: a lane's page on the stage, in a sandboxed frame at full width (the whole screen on a phone). */
-.pageview[hidden] { display: none; }
+.pageview[hidden] { display: none !important; } /* over any layout rule, the comments' grid included */
 .stage.inpage > .room, .stage.inpage > .under, .stage.inpage > .building, .stage.inpage > .floornav, .stage.inpage > .roomview, .stage.inpage > .briefview { display: none; }
 .pageview { display: flex; flex-direction: column; gap: 10px; padding: 10px 12px; min-height: 0; }
 .pageview > .pageframe { flex: 1 1 auto; min-height: 0; }
@@ -33,3 +33,7 @@
   .pvbar .pvtitle { order: 1; flex-basis: 100%; font-size: 14px; }
   .pvbar > :not(.pvtitle):not(.pvvers):nth-child(n) { flex: 1 1 auto; justify-content: center; }
 }
+
+/* FULL SCREEN: the page alone */
+.pageview:fullscreen { background: var(--box); padding: 10px; }
+@media (max-width: 1150px) { .pvbar .wideonly { display: none; } }

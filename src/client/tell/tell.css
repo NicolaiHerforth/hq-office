@@ -4,9 +4,9 @@
 .tell .head { display: flex; align-items: baseline; gap: 10px; }
 .tell h2 { margin: 0; font: 10px/1.4 var(--pixel); }
 .tell .hint { color: var(--muted); font-size: 13px; }
-.tell .lastnote { font-size: 13px; color: #3a3a52; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.tell .lastnote { font-size: 13px; color: var(--ink-2); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .tell .lastnote > b:first-child { font: 7px/1 var(--pixel); color: var(--muted); margin-right: 6px; }
-.tell .lastnote button { background: none; border: 0; padding: 0 0 0 6px; font: 7px/1 var(--pixel); color: var(--blue); }
+.tell .lastnote button { background: none; border: 0; padding: 0 0 0 6px; font: 7px/1 var(--pixel); color: var(--blue-text); }
 .compose { display: grid; gap: 8px; }
 /* With two or more floors: "to: Backend ▾" left of SEND, as wide as the name (a native select lies over it) */
 .tto { position: relative; display: inline-flex; flex: 0 1 auto; align-items: center; gap: 4px; min-width: 0; max-width: 40%; height: 32px; margin-left: auto; padding: 0 8px; border: 2px solid var(--edge-2); border-left: 6px solid var(--fc, var(--edge-2)); border-radius: 8px; background: var(--box); color: var(--ink); font-size: 13px; cursor: pointer; }
@@ -23,5 +23,5 @@
 #compose .reply:has(.tto:not([hidden])) { min-width: 0; }
 /* URGENT on Tell HQ (HQ QUEUE on): past the queue, straight into HQ's pane */
 .urgentsw { margin-left: auto; padding: 4px 7px; border: 2px solid var(--edge-2); border-radius: 5px; background: var(--box); font: 7px/1 var(--pixel); color: var(--muted); cursor: pointer; }
-.urgentsw[aria-pressed="true"] { border-color: var(--red); background: var(--red); color: #fff; }
+.urgentsw[aria-pressed="true"] { border-color: var(--red); background: var(--red); color: var(--on-fill); }
 .urgentsw[hidden] { display: none; }

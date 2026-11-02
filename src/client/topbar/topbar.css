@@ -13,37 +13,37 @@
 .urgent .k { font: 9px/1.5 var(--pixel); color: var(--muted); }
 .urgent .old { margin-left: auto; display: grid; gap: 6px; justify-items: end; }
 .urgent .old .k { font-size: 8px; line-height: 1; }
-.urgent .old .v { font: 13px/1 var(--pixel); color: var(--blue); }
-.urgent .old.warm .v { color: var(--amber); }
-.urgent .old.hot .v { color: var(--red); }
+.urgent .old .v { font: 13px/1 var(--pixel); color: var(--blue-text); }
+.urgent .old.warm .v { color: var(--amber-text); }
+.urgent .old.hot .v { color: var(--red-text); }
 .urgent.alert { border-color: var(--red); }
-.urgent.alert .count { color: var(--red); }
-.urgent.ok .count { color: var(--green); }
+.urgent.alert .count { color: var(--red-text); }
+.urgent.ok .count { color: var(--green-text); }
 /* everything else about the office, quiet, in one box */
 .strip { display: flex; gap: 18px; padding: 10px 14px; }
 .strip > div { display: grid; gap: 6px; }
 .strip .k { font: 8px/1 var(--pixel); color: var(--muted); }
 .strip .v { font: 13px/1 var(--pixel); }
-.strip .v.hot { color: var(--red); }
+.strip .v.hot { color: var(--red-text); }
 .fromhq { display: grid; gap: 6px; padding: 10px 14px; text-align: left; font: inherit; color: inherit; }
-.fromhq:hover { background: #fff; }
+.fromhq:hover { background: var(--lift); }
 .fromhq .k { font: 8px/1 var(--pixel); color: var(--muted); }
 .fromhq .v { font: 13px/1 var(--pixel); color: var(--muted); }
 .fromhq.unread { border-color: var(--amber); }
-.fromhq.unread .v { color: var(--amber); }
+.fromhq.unread .v { color: var(--amber-text); }
 .health { display: grid; gap: 6px; padding: 10px 14px; cursor: default; }
 .health .k { font: 8px/1 var(--pixel); color: var(--muted); }
 .health .v { display: flex; align-items: center; gap: 6px; font: 11px/1 var(--pixel); }
 .health i { width: 9px; height: 9px; border-radius: 2px; background: var(--green); box-shadow: 0 0 0 2px var(--ink); }
 .health i.bad { background: var(--red); }
 .health i.off { background: var(--amber); }
-.health.bad .v { color: var(--red); }
-.health.off .v { color: var(--amber); }
+.health.bad .v { color: var(--red-text); }
+.health.off .v { color: var(--amber-text); }
 /* NOTHING MOVING in the whole office: as loud as WAITING ON YOU, amber, then red after 20 minutes */
 .strip.stall { border-color: var(--amber); }
-.strip.stall > div:first-child .k, .strip.stall > div:first-child .v { color: #a86410; }
+.strip.stall > div:first-child .k, .strip.stall > div:first-child .v { color: var(--amber-strong-2); }
 .strip.stall.late { border-color: var(--red); }
-.strip.stall.late > div:first-child .k, .strip.stall.late > div:first-child .v { color: var(--red); }
+.strip.stall.late > div:first-child .k, .strip.stall.late > div:first-child .v { color: var(--red-text); }
 /* 1151 to 1300 px: no label wraps */
 @media (min-width: 1151px) and (max-width: 1300px) {
   .top .right .k, .top .right .v { white-space: nowrap; }

@@ -1,5 +1,5 @@
 /* The top bar's BLOCKED count: red, and only there while a lane waits at a prompt in herdr. */
-.blockedbox { display: grid; gap: 6px; padding: 10px 14px; text-align: left; font: inherit; color: inherit; border-color: var(--red); background: #fff0f0; cursor: pointer; }
+.blockedbox { display: grid; gap: 6px; padding: 10px 14px; text-align: left; font: inherit; color: inherit; border-color: var(--red); background: var(--red-tint); cursor: pointer; }
 .blockedbox[hidden] { display: none; }
-.blockedbox .k { font: 8px/1 var(--pixel); color: var(--red); }
-.blockedbox .v { font: 13px/1 var(--pixel); color: var(--red); }
+.blockedbox .k { font: 8px/1 var(--pixel); color: var(--red-text); }
+.blockedbox .v { font: 13px/1 var(--pixel); color: var(--red-text); }

@@ -33,11 +33,15 @@ const firstWords = (s: string, n = 80) => {
 };
 const hhmm = (t: number) => new Date(t).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
-// The agent a brief's comments go to: the lane that posted it, else (an HQ posted it, or the lane is not registered)
-// the floor's HQ.
-function authorOf(by: string) {
+// The agent a page's comments go to: the lane that wrote it, else (an HQ wrote it, or the lane is not registered or
+// now works on another floor) the floor's HQ. A comment never goes to an agent on another floor than its page's.
+function authorOf(by: string, floor: string) {
   if (!by || isHq(by) || isHqAgent(by)) return "hq";
-  return db.query("SELECT 1 FROM lanes WHERE name = ?").get(by) ? by : "hq";
+  return laneOn(by, floor) ? by : "hq";
+}
+function laneOn(name: string, floor: string) {
+  const l = db.query("SELECT floor FROM lanes WHERE name = ?").get(name) as { floor: string | null } | null;
+  return !!l && floorOr(l.floor) === floor;
 }
 
 // A page's key from what the page or the CLI gives: the key itself, or the page's address (#brief/ID, #page/KEY, a
@@ -48,7 +52,8 @@ export function pageOf(raw: unknown): Page {
   if (brief) {
     const b = db.query("SELECT id, floor, by, title FROM briefs WHERE id = ?").get(Number(brief[1])) as { id: number; floor: string; by: string; title: string } | null;
     if (!b) throw new Error(`no brief #${brief[1]}`);
-    return { key: `briefs/${b.id}`, kind: "brief", title: b.title, what: `brief #${b.id} ("${b.title}")`, floor: floorOr(b.floor), to: authorOf(b.by), link: `#brief/${b.id}`, read: `hud brief comments ${b.id}`, reply: `hud brief reply ${b.id}` };
+    const floor = floorOr(b.floor);
+    return { key: `briefs/${b.id}`, kind: "brief", title: b.title, what: `brief #${b.id} ("${b.title}")`, floor, to: authorOf(b.by, floor), link: `#brief/${b.id}`, read: `hud brief comments ${b.id}`, reply: `hud brief reply ${b.id}` };
   }
   const m = key.match(new RegExp(`^rooms/${SLUG}/(brief|files/([^/]+))$`));
   if (!m) throw new Error(`not a page with comments: ${str(raw) || "(none)"}. A page is briefs/ID, rooms/SLUG/brief or rooms/SLUG/files/NAME.html`);
@@ -62,7 +67,8 @@ export function pageOf(raw: unknown): Page {
   key = name ? `rooms/${r.slug}/files/${name}` : `rooms/${r.slug}/brief`;
   const title = name ? `${name} in room ${r.slug}` : `the brief of room ${r.slug}`;
   const link = name ? `#page/rooms/${r.slug}/files/${encodeURIComponent(name)}` : `#page/rooms/${r.slug}/brief`;
-  return { key, kind: "page", title, what: name ? `the page ${title}` : title, floor: floorOr(r.floor), to: isHq(r.owner) ? "hq" : r.owner, link, read: `hud page comments ${key}`, reply: `hud page reply ${key}` };
+  const floor = floorOr(r.floor);
+  return { key, kind: "page", title, what: name ? `the page ${title}` : title, floor, to: isHq(r.owner) || !laneOn(r.owner, floor) ? "hq" : r.owner, link, read: `hud page comments ${key}`, reply: `hud page reply ${key}` };
 }
 const nameOf = (p: Page) => (p.to === "hq" ? hqOf(p.floor) : p.to);
 
@@ -139,6 +145,11 @@ function deliver(id: number) {
     db.query("UPDATE page_comments SET delivery = ?, error = ?, delivered_at = CASE WHEN ? = 'sent' THEN ? ELSE delivered_at END WHERE id = ?").run(delivery, error, delivery, Date.now(), id);
   let p: Page;
   try { p = pageOf(c.page); } catch (e) { set("failed", (e as Error).message.slice(0, 200)); return; }
+  // Kept for a lane that has since moved to another floor: its page's floor's HQ gets it instead.
+  if (c.to_agent !== "hq" && p.to === "hq") {
+    db.query("UPDATE page_comments SET to_agent = 'hq' WHERE id = ?").run(id);
+    c.to_agent = "hq";
+  }
   // An HQ: through its outbox, which holds it while HQ cannot take it and sends it once it can.
   if (c.to_agent === "hq") {
     set("hq");

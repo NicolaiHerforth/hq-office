@@ -229,7 +229,7 @@ export function removeFloor(id: string) {
         moved += 1;
       }
     }
-    for (const t of ["asks", "updates", "notes", "rooms", "hq_outbox", "events", "work_items"]) db.query(`UPDATE ${t} SET floor = ? WHERE floor = ?`).run(to, f.id);
+    for (const t of ["asks", "updates", "notes", "rooms", "hq_outbox", "events", "work_items", "briefs", "page_comments"]) db.query(`UPDATE ${t} SET floor = ? WHERE floor = ?`).run(to, f.id);
   })();
   event("hud", `floor ${f.id} removed: ${moved} held ${moved === 1 ? "message" : "messages"} moved to ${firstFloor()}, ${dropped} dropped (already read, or only for its HQ)`);
 }

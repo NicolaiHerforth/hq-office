@@ -11,7 +11,7 @@ import { linkOf } from "../core/floors.js";
 // working on it), typed in while HQ was busy (sent again once it is free), or held (not typed in yet).
 // Each floor's HQ has its own link (S.hqLinks); the first floor's is S.hq.
 const held = (link, ref) => (link?.held ?? []).some((h) => h.ref === ref);
-const mark = (color, text) => `<span style="color:var(--${color})">· ${text}</span>`;
+const mark = (color, text) => `<span style="color:var(--${color}-text)">· ${text}</span>`;
 export function deliveryMark(ref, acked, ackedText, waitingText, floor) {
   if (acked) return mark("green", ackedText);
   const link = linkOf(S, floor);
