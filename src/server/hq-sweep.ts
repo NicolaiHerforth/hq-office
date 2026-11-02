@@ -16,7 +16,7 @@ import { board } from "./work-board.ts";
 import { withHint } from "../hq-guide.ts";
 import { agentFolders, promptAgent } from "./herdr.ts";
 import { hqLink, hqNowOf } from "./hq-link.ts";
-import { firstFloor, floorList, hqOf } from "./floors.ts";
+import { firstFloor, floorList, hqOf, isHqAgent } from "./floors.ts";
 
 // Every sweep asks for housekeeping as well; the lanes the HUD can tell are done are named in the findings.
 const HOUSEKEEPING = "Housekeeping too: close lanes whose work is merged or done, stop their stacks and test containers, and prune their worktrees on each machine.";
@@ -53,10 +53,12 @@ const waitMin = (minutes: number, floor: string) => Math.min(MAX_WAIT_MIN, minut
 
 // What a floor's HQ should look at, in one line; null when there is nothing.
 function findings(floor: string): string | null {
-  const lanes = db.query("SELECT name, herdr FROM lanes WHERE herdr IN ('idle', 'done') AND bg IS NULL AND phase != 'done' AND floor = ? ORDER BY name").all(floor) as { name: string }[];
+  // A lane that is a floor's HQ is never reported to an HQ as one of its lanes: it is the HQ.
+  const notHq = <T extends { name: string }>(rows: T[]) => rows.filter((l) => !isHqAgent(l.name));
+  const lanes = notHq(db.query("SELECT name, herdr FROM lanes WHERE herdr IN ('idle', 'done') AND bg IS NULL AND phase != 'done' AND floor = ? ORDER BY name").all(floor) as { name: string }[]);
   // Housekeeping: lanes marked done with nothing open (no open question), each with the folder its agent works in.
-  const done = db.query("SELECT l.name FROM lanes l WHERE l.phase = 'done' AND l.floor = ? AND NOT EXISTS (SELECT 1 FROM asks a WHERE a.lane = l.name AND a.status = 'open') ORDER BY l.name").all(floor) as { name: string }[];
-  const gone = db.query("SELECT name FROM lanes WHERE herdr = 'gone' AND phase NOT IN ('done', 'parked') AND floor = ? ORDER BY name").all(floor) as { name: string }[];
+  const done = notHq(db.query("SELECT l.name FROM lanes l WHERE l.phase = 'done' AND l.floor = ? AND NOT EXISTS (SELECT 1 FROM asks a WHERE a.lane = l.name AND a.status = 'open') ORDER BY l.name").all(floor) as { name: string }[]);
+  const gone = notHq(db.query("SELECT name FROM lanes WHERE herdr = 'gone' AND phase NOT IN ('done', 'parked') AND floor = ? ORDER BY name").all(floor) as { name: string }[]);
   const stalled = board.view({ floor }).items.filter((i: any) => i.state === "stalled").map((i: any) => i.issue as string);
   const asks = db.query("SELECT COUNT(*) AS n, MIN(created_at) AS at FROM asks WHERE status = 'open' AND floor = ?").get(floor) as { n: number; at: number | null };
   const rooms = db.query("SELECT DISTINCT m.slug FROM room_messages m JOIN rooms r ON r.slug = m.slug WHERE m.author IS NULL AND m.delivery IN ('away', 'failed') AND r.floor = ? ORDER BY m.slug").all(floor) as { slug: string }[];

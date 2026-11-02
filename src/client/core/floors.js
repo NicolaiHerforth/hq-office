@@ -8,6 +8,8 @@ export const floorsOf = (S) => S?.floors ?? [];
 export const multi = (S) => floorsOf(S).length >= 2;
 export const floorById = (S, id) => (id ? floorsOf(S).find((f) => f.id === id) ?? null : null);
 export const firstFloor = (S) => floorsOf(S)[0]?.id ?? null;
+// A lane that is a floor's HQ (a lane promoted to run a domain) works at that floor's terminal, never also at a desk.
+export const deskLanes = (S, lanes) => { const hqs = new Set(floorsOf(S).map((f) => f.hq).filter(Boolean)); return lanes.filter((l) => !hqs.has(l.name)); };
 // A floor's HQ link (S.hqLinks); the first floor's is S.hq, as before floors.
 export const linkOf = (S, id) => S?.hqLinks?.[id ?? firstFloor(S)] ?? (!id || id === firstFloor(S) ? S?.hq : null) ?? null;
 // A floor's name for a label: upper case, cut as a worker's name is (room/loop.js).

@@ -3,6 +3,13 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.28.1] - 2026-11-02
+### Fixed
+
+- **A lane that runs its own floor.** When a lane becomes a floor's HQ and stays registered as a lane (so the rooms it
+  owns keep reaching it), its floor's sweep no longer reports it to itself as an idle, gone or done lane, and the
+  office and its tile in THE BUILDING draw it at the terminal only, not also at a desk.
+
 ## [0.28.0] - 2026-11-02
 ### Added
 

@@ -87,7 +87,9 @@ this floor, and `hq-<id>` becomes its HQ) and **PICK ANOTHER** (EDIT at the HQ s
 A floor's HQ is an agent that runs in herdr **on this machine** (the HUD types into HQ here), or one the HUD starts:
 
 - **An agent that runs** (USE AN AGENT on the page, `hud floor add ID --hq AGENT`): any named agent herdr lists on this
-  machine, a lane too (a lane promoted to run a domain). One that is not running is refused ("`X` is not running in
+  machine, a lane too (a lane promoted to run a domain: move it to the new floor with `hud lane NAME --floor ID` and
+  keep it registered, so the rooms it owns still reach it; its floor's sweep never lists it, and the office draws it
+  at the terminal only). One that is not running is refused ("`X` is not running in
   herdr: pick an agent that runs, or START A NEW HQ"), one on another machine too; the server reads herdr again first
   when its last sync did not show it. The same holds for `hud floor set ID --hq AGENT` and EDIT. The HUD sends the new
   HQ the HQ guide for its floor (`guideFor` in `src/hq-guide.ts`) through its outbox.

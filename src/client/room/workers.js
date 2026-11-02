@@ -7,15 +7,15 @@ import { on } from "../core/bus.js";
 import { COUCH, DONE_SPOT, HQ_SPOT, OVERFLOW, QUEUE, SEATS, WAIT_SPOT, slot } from "./spots.js";
 import { deskCount, rebuildBlocked, route } from "./collision.js";
 import { isIdle } from "./breakroom.js";
-import { multi } from "../core/floors.js";
+import { deskLanes, multi } from "../core/floors.js";
 import { officeFloor } from "../core/scope.js";
 
 export const workers = new Map(); // name -> { x, y, path, dir, step, t, lane, seat, pal, bob }
 // With floors the office is the floor you are in: its lanes only, and none while the building shows (docs/floors.md).
 export function officeLanes() {
-  if (!multi(S)) return S.lanes;
+  if (!multi(S)) return deskLanes(S, S.lanes);
   const f = officeFloor();
-  return f ? S.lanes.filter((l) => l.floor === f) : [];
+  return f ? deskLanes(S, S.lanes.filter((l) => l.floor === f)) : [];
 }
 
 // Who works at a desk: a lane that is moving, blocked or gone (the default in targetFor).
