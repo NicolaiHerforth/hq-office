@@ -3,6 +3,13 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.32.1] - 2026-11-02
+### Fixed
+
+- **Leaving a full-screen brief froze the screen.** BACK, the browser's back or Esc from a brief or a page in FULL
+  SCREEN hid it but left the browser full screen on the hidden view, so the screen looked frozen until a reload.
+  Leaving now leaves full screen first.
+
 ## [0.32.0] - 2026-11-02
 ### Added
 
