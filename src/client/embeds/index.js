@@ -10,6 +10,7 @@
 // #lane/NAME, #ask/ID and #floor/ID are actions, not places: a click opens the lane's drawer, goes to the question or
 // enters the floor without changing the address, so a card inside a brief or a room leaves it open. Typed into the
 // address, they act once and the address is cleared. A shelf file that is not a page opens in a new tab, as on the shelf.
+// Cards inside an HTML page (<hud-card ref>) are pages.js.
 import { on } from "../core/bus.js";
 import { S } from "../core/state.js";
 import { toast } from "../core/dom.js";
@@ -21,6 +22,7 @@ import { floorById, inkOn, multi } from "../core/floors.js";
 import { enter, listFloor, officeFloor } from "../core/scope.js";
 import { select } from "../room/input.js";
 import { cardOf } from "./model.js";
+import { allowedIn } from "./pages.js";
 
 // ---- what a card says: from S, else from the server ----
 
@@ -178,8 +180,19 @@ function route() {
   if (!ACTION.test(location.hash) || !S) return;
   const p = parseRef(location.hash);
   history.replaceState(history.state, "", location.pathname + location.search);
+  if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {}); // a card in a full-screen page opened it
   if (p) act(p);
 }
+// A <hud-card> in a page, clicked (page-runtime/index.js): what a click on the card in the HUD does.
+on("page:open", ({ page, ref }) => {
+  const p = parseRef(ref);
+  if (!p || !allowedIn(page, p.ref)) return;
+  if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+  // The click left the keyboard in the page's frame: back to the HUD, so Esc closes what opened.
+  if (document.activeElement?.tagName === "IFRAME") document.activeElement.blur();
+  if (ACTION.test(`#${p.ref}`)) act(p);
+  else location.hash = `#${p.ref}`;
+});
 addEventListener("hashchange", route);
 on("state", route);
 route();

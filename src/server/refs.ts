@@ -3,13 +3,19 @@
 // only for what S does not hold (a shelf file, a room's brief, an old brief, question or room); hud ref asks here
 // whether a thing exists. A summary only (a title, its status, one line), every string with secret values masked.
 // Read-only.
+//
+// An HTML page shows cards with <hud-card ref="brief/12">, and resolves only the references its author wrote into
+// it: the ones in its stored source that are also in the newest version a lane or HQ wrote. A page can publish a new
+// version of itself (page-publish.ts), so its current source alone would let it name, and so enumerate, anything.
+import { readFileSync } from "node:fs";
 import { db } from "./db.ts";
 import { secrets } from "./push.ts";
 import { floorCounts, floorOf } from "./floors.ts";
 import { laneStatus, withTree } from "./lanes.ts";
 import { isPage, pageText } from "./pages.ts";
 import { roomsView } from "./rooms.ts";
-import { briefVersionsDir, fileVersionsDir, servedFile, versions } from "./room-folder.ts";
+import { MAX_VERSIONS, briefVersionsDir, fileVersionsDir, servedFile, versions } from "./room-folder.ts";
+import { sourceOf } from "./page-publish.ts";
 import type { Ask, Lane } from "./types.ts";
 import { parseRef } from "../client/core/refs.js";
 import { cardOf } from "../client/embeds/model.js";
@@ -70,4 +76,56 @@ export function cards(refs: string[]) {
     out[raw] = p ? mask(cardOf(p, find) ?? null) : null;
   }
   return out;
+}
+
+// ---- references in an HTML page ----
+
+const CARD = /<hud-card\b[^>]*?\sref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/gi;
+// The references a page's HTML names in its <hud-card ref> elements.
+export function refsIn(html: string | null | undefined) {
+  const out = new Set<string>();
+  for (const m of String(html ?? "").matchAll(CARD)) {
+    const p = parseRef((m[1] ?? m[2] ?? m[3]).replace(/&amp;/g, "&"));
+    if (p) out.add(p.ref);
+  }
+  return out;
+}
+// A page's own publish is written as the owner: any other author is a lane or HQ.
+const byAuthor = (by: string | null | undefined) => !!by && by !== "owner";
+const SLUG = "([a-z0-9][a-z0-9-]{0,47})";
+// The newest version of a page its author wrote (not the page publishing itself), or null when none is kept.
+function authorSource(page: string): string | null {
+  let m = page.match(/^asks\/(\d{1,9})$/);
+  if (m) return (db.query("SELECT html FROM ask_pages WHERE ask_id = ?").get(Number(m[1])) as { html: string } | null)?.html ?? null; // an ask's page cannot publish itself
+  if ((m = page.match(/^briefs\/(\d{1,9})$/))) {
+    // Only a publish changes a brief's body, and each keeps the body it replaced: the first kept is the author's,
+    // unless as many publishes have pushed it out.
+    const kept = db.query("SELECT html FROM page_versions WHERE page = ? ORDER BY at, id").all(page) as { html: string }[];
+    return !kept.length ? sourceOf(page) : kept.length < MAX_VERSIONS ? kept[0].html : null;
+  }
+  const older = (dir: string) => { const v = versions(dir).find((x) => byAuthor(x.by)); return v ? readFileSync(v.path, "utf8") : null; };
+  if ((m = page.match(new RegExp(`^rooms/${SLUG}/brief$`)))) {
+    const r = db.query("SELECT brief_by FROM rooms WHERE slug = ?").get(m[1]) as { brief_by: string | null } | null;
+    if (!r) return null;
+    return byAuthor(r.brief_by) ? sourceOf(page) : older(briefVersionsDir(m[1]));
+  }
+  if ((m = page.match(new RegExp(`^rooms/${SLUG}/files/(.+)$`)))) {
+    const f = servedFile(m[1], encodeURIComponent(m[2]));
+    if (!f) return null;
+    const row = db.query("SELECT by FROM room_artifacts WHERE slug = ? AND path = ? ORDER BY id DESC LIMIT 1").get(m[1], f.path) as { by: string } | null;
+    return !row || byAuthor(row.by) ? sourceOf(page) : older(fileVersionsDir(m[1], m[2]));
+  }
+  return null;
+}
+// What PAGE may resolve: the references in its stored source that its author wrote.
+export function pageRefs(page: string) {
+  const now = refsIn(page.startsWith("asks/") ? authorSource(page) : sourceOf(page)), author = refsIn(authorSource(page));
+  return new Set([...now].filter((r) => author.has(r)));
+}
+// The cards PAGE asks for: each reference it may resolve gets its card (null when gone); any other gets null too, so
+// a page cannot tell a reference it may not resolve from one that names nothing.
+export function cardsForPage(page: string, refs: string[]) {
+  const allowed = pageRefs(page);
+  const mine = refs.slice(0, MAX_REFS).filter((r) => allowed.has(parseRef(r)?.ref ?? ""));
+  return { ...Object.fromEntries(refs.slice(0, MAX_REFS).map((r) => [r, null])), ...cards(mine) };
 }

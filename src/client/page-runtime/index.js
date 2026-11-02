@@ -5,8 +5,9 @@
 // sends. After that the page and the bridge talk over the port: storage writes, db calls and subscriptions (refetched
 // when the page's version in S.pageData moves), downloads, which the owner confirms here before the HUD saves them,
 // publish, after which every view of the page reloads to the new version (S.pagePublished), rooms (each view is a
-// peer in its page's rooms, over one stream per HUD tab), sample, which the owner allows here first, and comments: a
-// quote from the page opens its thread here.
+// peer in its page's rooms, over one stream per HUD tab), sample, which the owner allows here first, comments: a
+// quote from the page opens its thread here, and cards: a <hud-card ref> asks for its card and opens it on a click,
+// with the page's key from its frame, so it resolves only references its author wrote (embeds/pages.js).
 import { CONFIG, S } from "../core/state.js";
 import { emit, on } from "../core/bus.js";
 
@@ -123,6 +124,13 @@ async function handle(c, d) {
         return;
       case "sample":
         reply(await sample(c, d));
+        return;
+      case "cards":
+        c.cards ??= { push: (cards) => lines.has(c) && c.port.postMessage({ cards }), alive: () => lines.has(c) };
+        emit("page:cards", { page: c.page, refs: d.refs, reply, view: c.cards });
+        return;
+      case "open":
+        emit("page:open", { page: c.page, ref: String(d.ref ?? "") });
         return;
       case "sampleAbort":
         c.aborts.get(d.re)?.abort();
