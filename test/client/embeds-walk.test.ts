@@ -23,7 +23,8 @@ const opened: { targetId: string; url: string }[] = [];
 const ev = (e: string) => page.evaluate(e);
 const until = async (expr: string, ms = 8000) => {
   for (const end = Date.now() + ms; Date.now() < end; await Bun.sleep(50)) if (await ev(expr).catch(() => false)) return true;
-  throw new Error(`timed out waiting for ${expr}`);
+  const now = await ev(`JSON.stringify({ hash: location.hash, full: !!document.fullscreenElement, stage: document.querySelector(".stage").className, toast: [...document.querySelectorAll(".toast")].map((t) => t.textContent), focus: document.activeElement?.tagName + "." + document.activeElement?.className, btn: document.querySelector("[data-view-full]")?.textContent })`).catch(() => "?");
+  throw new Error(`timed out waiting for ${expr}; now ${now}`);
 };
 const post = async (p: string, b: unknown, headers: Record<string, string> = {}) => {
   const r = await fetch(`${server.base}${p}`, { method: "POST", headers: { "content-type": "application/json", "x-hud": "1", ...headers }, body: JSON.stringify(b) });
@@ -116,13 +117,13 @@ async function openedWindow() {
   return { targetId: t.targetId, url };
 }
 
-test.skipIf(!chromeFound)("BRIEFS › a brief › its room card › the browser's back › the brief again › Esc › the office", async () => {
+test.skipIf(!chromeFound)("BRIEFS › a brief › its room card puts the room beside it › the browser's back › the brief again › Esc › the office", async () => {
   await load("");
   await click('[data-qtab="briefs"]');
   await click(`#briefs .brow[href="#brief/${brief}"]`);
   await briefReady();
   await click(card("room/ope-12"));
-  await until(`location.hash === "#room/ope-12" && ${shows("#roomView")}`);
+  await until(`location.hash === "#room/ope-12+brief/${brief}" && ${shows("#roomView")} && ${shows(".briefview")}`);
   await back();
   await until(`location.hash === "#brief/${brief}" && ${shows(".briefview")}`);
   await briefReady();
@@ -131,11 +132,11 @@ test.skipIf(!chromeFound)("BRIEFS › a brief › its room card › the browser'
   expect(errors).toEqual([]);
 }, 30_000);
 
-test.skipIf(!chromeFound)("a lane card opens its drawer over the brief; Esc closes the drawer, the brief stays; Esc again leaves it", async () => {
+test.skipIf(!chromeFound)("a lane card opens its drawer beside the brief; Esc closes the drawer, the brief stays; Esc again leaves it", async () => {
   await load(`#brief/${brief}`);
   await briefReady();
   await click(card("lane/api-auth"));
-  await until(`${shows("#card")} && document.querySelector("#card h3").textContent === "api-auth"`);
+  await until(`${shows("#card")} && ${shows(".briefview")} && document.querySelector("#card h3").textContent === "api-auth"`);
   expect(await ev(`location.hash`)).toBe(`#brief/${brief}`);
   await key("Escape");
   await until(`document.getElementById("card").hidden && ${shows(".briefview")}`);
@@ -195,12 +196,15 @@ test.skipIf(!chromeFound)("FULL SCREEN › a lane card leaves full screen and sh
   await click(card("lane/api-auth"));
   await until(`!document.fullscreenElement && ${shows("#card")}`);
   await key("Escape");
-  await until(`document.getElementById("card").hidden`);
+  // the label says FULL SCREEN again once the browser has left it; until then the bar is laid out for EXIT FULL SCREEN
+  await until(`document.getElementById("card").hidden && document.querySelector("[data-view-full]").textContent === "FULL SCREEN"`);
   await click("[data-view-full]");
   await until(`document.fullscreenElement === document.querySelector(".briefview")`);
   await click(card("room/ope-12"));
-  await until(`!document.fullscreenElement && location.hash === "#room/ope-12" && ${shows("#roomView")}`);
+  await until(`!document.fullscreenElement && location.hash === "#room/ope-12+brief/${brief}" && ${shows("#roomView")}`);
   await click("[data-room-back]");
+  await until(`location.hash === "#brief/${brief}" && ${shows(".briefview")}`);
+  await key("Escape");
   await until(office);
 }, 30_000);
 
@@ -214,7 +218,7 @@ test.skipIf(!chromeFound)("COMMENTS: a comment that is only a reference shows as
   await click(".briefview .cmount [data-csend]");
   await until(`!!document.querySelector('.briefview .cmount .hudcard[data-ref="room/ope-12"]:not(.loading)')`);
   await click('.briefview .cmount .hudcard[data-ref="room/ope-12"]');
-  await until(`location.hash === "#room/ope-12" && ${shows("#roomView")}`);
+  await until(`location.hash === "#room/ope-12+brief/${brief}" && ${shows("#roomView")}`);
 }, 30_000);
 
 test.skipIf(!chromeFound)("NEW WINDOW: the brief in a window of its own has its cards", async () => {

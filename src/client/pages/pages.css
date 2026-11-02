@@ -1,9 +1,9 @@
 /* HTML PAGES: a lane's page on the stage, in a sandboxed frame at full width (the whole screen on a phone). */
 .pageview[hidden] { display: none !important; } /* over any layout rule, the comments' grid included */
-.stage.inpage > .room, .stage.inpage > .under, .stage.inpage > .building, .stage.inpage > .floornav, .stage.inpage > .roomview, .stage.inpage > .briefview { display: none; }
+.stage.inpage:not(.split) > .room, .stage.inpage:not(.split) > .under, .stage.inpage:not(.split) > .building, .stage.inpage:not(.split) > .floornav, .stage.inpage:not(.split) > .roomview, .stage.inpage:not(.split) > .briefview { display: none; }
 .pageview { display: flex; flex-direction: column; gap: 10px; padding: 10px 12px; min-height: 0; }
 .pageview > .pageframe { flex: 1 1 auto; min-height: 0; }
-@media (min-width: 1151px) { .stage.inpage { grid-template-rows: minmax(0, 1fr) !important; } .pageview { height: 100%; box-sizing: border-box; } }
+@media (min-width: 1151px) { .stage.inpage:not(.split) { grid-template-rows: minmax(0, 1fr) !important; } .pageview { height: 100%; box-sizing: border-box; } }
 .pvbar { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .pvbar .pvtitle { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 800 15px/1.3 var(--text); }
 .pvbar .btn-s { min-height: 32px; padding: 8px 10px; text-decoration: none; color: var(--ink); flex: none; white-space: nowrap; display: inline-flex; align-items: center; box-sizing: border-box; }

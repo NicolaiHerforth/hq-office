@@ -3,6 +3,35 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.35.0] - 2026-11-02
+### Added
+
+- **A brief or a page beside a room or a lane.** On a wide screen, a brief or a page opened from a room, or with a
+  lane's card open over the office, sits beside it instead of covering it: the room (or the office with the card) on
+  the left, the brief or the page on the right, and a divider between them that you drag (or move with the arrow keys;
+  a double-click makes it half and half). **SPLIT** and **SINGLE** in the brief's or the page's bar switch between
+  side by side and one at a time, and this browser remembers your choice and where you left the divider. A brief
+  opened over the office alone still takes the whole column, and on a narrower screen nothing changes.
+- **The address holds both**, as `#room/pricing+brief/12`, so a reload, the browser's back and a link bring back the
+  same pair. **BACK** closes the brief or the page and returns to the room under it, side by side or not (before, BACK
+  from a brief opened in a room went to the office).
+- **A PM's questions are the PM's.** When a lane that runs lanes asks you something (`hud ask` from that lane), the
+  card says who it is for (FOR PM · Manager), the recommended option is that lane's pick, and your answer, the secrets
+  you give and NOT YET go to that lane's pane instead of HQ's. If it is away or in the middle of something, the answer
+  is kept and sent when it can take it, and MESSAGES says so (PM AWAY · KEPT); if it has been gone half an hour, its
+  floor's HQ gets it. HQ still sees that the answer came, in `hud inbox`. The lane's own `hud inbox`, `hud wait` and
+  `hud ack` show only its answers. Questions HQ asks, and every older question, work as before.
+
+### Changed
+
+- **Esc closes what opened last first.** A lane's card opened from a brief closes before the brief, side by side as
+  well as one at a time; the next Esc closes the brief, and the one after leaves the room.
+- **Esc in a text box first leaves the box** (a comment, the room's send box) and keeps what you wrote; the next Esc
+  closes the brief or leaves the room as before.
+- **Waiting on its boss, by name.** A lane that waits on the lane it reports to says "Waiting on pm" (on its card, the
+  LANES BOARD, a lane's card in a message and `hud tree`), and its worker waits behind that lane's desk instead
+  of at HQ's. ON HQ in the top bar counts only the lanes that report straight to HQ.
+
 ## [0.34.0] - 2026-11-02
 ### Added
 

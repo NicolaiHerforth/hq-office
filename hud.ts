@@ -34,7 +34,7 @@
 //                        typed into its pane when it is off; --urgent always goes straight in (main is red, production
 //                        is affected, or the owner is waiting on it)
 //   hud req next | list [--all] | answer ID TEXT | close ID [WHY] | line   HQ's queue (HQ QUEUE on)
-//   hud inbox            answers and notes HQ has not acted on
+//   hud inbox            answers and notes HQ has not acted on (from a lane that asked: its own answers)
 //   hud ack a:ID | n:ID  mark an answer or note as acted on
 //   hud wait             block until the owner answers or writes (exits with the inbox)
 //   hud state            the board as JSON

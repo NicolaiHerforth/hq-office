@@ -17,6 +17,8 @@
 .ask.flash { animation: flash .9s ease 2; }
 .ask .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .tag.lane { background: var(--ink); color: var(--on-ink); }
+/* FOR PM: the lane that asked it, and gets the answer; outlined, so it reads apart from the lane tag */
+.tag.for { background: var(--box); color: var(--ink); box-shadow: inset 0 0 0 2px var(--ink); }
 .tag.decision { background: var(--decision-bg); color: var(--decision-ink); }
 .tag.action { background: var(--action-bg); color: var(--action-ink); }
 .tag.info { background: var(--chip-2); }

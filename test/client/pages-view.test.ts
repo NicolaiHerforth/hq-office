@@ -131,7 +131,8 @@ test.skipIf(!chromeFound)("the shelf's OPEN on a .html file: the page on the sta
   expect(f.sandbox).toContain("allow-scripts");
   expect(f.sandbox).not.toContain("allow-same-origin");
   expect(await ev(`document.querySelector(".pvtitle").textContent`)).toBe("probe.html");
-  expect(await ev(`getComputedStyle(document.querySelector(".roomview")).display`)).toBe("none");
+  // a wide stage: the room stays beside the page (split/)
+  expect(await ev(`getComputedStyle(document.querySelector(".roomview")).display`)).toBe("flex");
   await sandboxedProbe();
   // BACK: to the room
   await ev(`document.querySelector("[data-page-back]").click()`);

@@ -19,9 +19,9 @@
 @media (pointer: coarse) { .brow { min-height: 44px; } }
 
 /* one brief: it takes the stage the way a room does */
-.stage.inbrief > .room, .stage.inbrief > .under, .stage.inbrief > .building, .stage.inbrief > .floornav, .stage.inbrief > .roomview { display: none; }
+.stage.inbrief:not(.split) > .room, .stage.inbrief:not(.split) > .under, .stage.inbrief:not(.split) > .building, .stage.inbrief:not(.split) > .floornav, .stage.inbrief:not(.split) > .roomview { display: none; }
 .briefview { display: grid; grid-template-rows: auto minmax(0, 1fr); grid-template-columns: minmax(0, 1fr); gap: 10px; padding: 12px 14px; min-height: 0; }
-@media (min-width: 1151px) { .stage.inbrief { grid-template-rows: minmax(0, 1fr) !important; } .briefview { height: 100%; box-sizing: border-box; } }
+@media (min-width: 1151px) { .stage.inbrief:not(.split) { grid-template-rows: minmax(0, 1fr) !important; } .briefview { height: 100%; box-sizing: border-box; } }
 .bvbar { display: flex; align-items: center; gap: 6px; }
 .bvbar .spacer { flex: 1; }
 .bvbar .btn-s { min-height: 32px; padding: 8px 10px; text-decoration: none; color: var(--ink); display: inline-flex; align-items: center; box-sizing: border-box; }

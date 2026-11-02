@@ -9,6 +9,7 @@ import { post } from "../core/net.js";
 import { mdInline } from "../core/markdown.js";
 import { pick } from "../core/scope.js";
 import { on } from "../core/bus.js";
+import { open } from "../core/stage.js";
 
 const stage = document.querySelector(".stage");
 let box = null, form = null;
@@ -76,7 +77,7 @@ function goWhenThere(slug) {
   if (has(slug)) arrive();
   setTimeout(() => { if (going === slug) going = null; }, 10_000);
 }
-function arrive() { const slug = going; going = null; location.hash = `#room/${slug}`; }
+function arrive() { const slug = going; going = null; open({ room: slug }); }
 on("state", () => { if (going && has(going)) arrive(); });
 const split = (s) => s.split(/[\s,]+/).map((x) => x.trim()).filter(Boolean);
 async function save() {

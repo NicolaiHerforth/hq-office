@@ -7,11 +7,13 @@
 import { $, overOffice } from "../core/dom.js";
 import { CONFIG, S } from "../core/state.js";
 import { select, selected } from "../room/input.js";
-import { STATUS_TEXT } from "../core/status.js";
+import { laneStatusText } from "../core/status.js";
+import { pickWord } from "../questions/asker.js";
 import { clock, dur, esc, setHTML } from "../core/format.js";
 import { fence, md, mdInline } from "../core/markdown.js";
 import { ranked, themeOf } from "../room/looks.js";
 import { settings } from "../settings/prefs.js";
+import { on } from "../core/bus.js";
 
 const EVERY = 3000;
 let live = null; // { name, terminal: { text, at, error }, said: [...] } for the selected lane, from the server
@@ -35,7 +37,7 @@ export function renderCard() {
   if (!was) card.classList.remove("in"), void card.offsetWidth, card.classList.add("in");
   if (live?.name !== lane.name) live = null;
   if (polling !== lane.name) startPolling(lane.name);
-  const [label, color] = STATUS_TEXT[lane.status] || [lane.status, "#6a6a82"];
+  const [label, color] = laneStatusText(lane);
   const asks = S.open.filter((a) => a.lane === lane.name);
   const links = [
     ...(lane.issue && CONFIG.linearWorkspace ? lane.issue.split(/[ ,]+/).filter(Boolean).map((i) => `<a class="tag" href="https://linear.app/${esc(CONFIG.linearWorkspace)}/issue/${esc(i)}" target="_blank" rel="noopener">${esc(i)}</a>`) : []),
@@ -51,7 +53,7 @@ export function renderCard() {
   setHTML(card, `<button class="cardx" type="button" data-card-close aria-label="Close">✕</button><h3>${esc(lane.name)}</h3>
     <div class="sub">${mdInline(lane.title)}</div>${tree}
     <div class="row"><span class="status" style="background:${color}">${esc(label.toUpperCase())}</span>${since(lane, asks) ? `<span class="tag">FOR <span data-since="${since(lane, asks)}">${dur(Date.now() - since(lane, asks))}</span></span>` : ""}${lane.machine ? `<span class="tag">${esc(lane.machine)} ${esc(lane.pane || "")}</span>` : ""}</div>
-    ${asks.map((a) => `<section class="agq"><h4>ITS OPEN QUESTION</h4><b>${mdInline(a.title)}</b>${a.options?.length ? `<div class="agopts">${a.options.map((o) => `<span>${mdInline(o, { links: false })}${o === a.recommended ? ` <i>HQ PICK</i>` : ""}</span>`).join("")}</div>` : ""}<button class="agjump" type="button" data-answer-jump="${esc(lane.name)}">ANSWER IN NEEDS YOU ›</button></section>`).join("")}
+    ${asks.map((a) => `<section class="agq"><h4>ITS OPEN QUESTION</h4><b>${mdInline(a.title)}</b>${a.options?.length ? `<div class="agopts">${a.options.map((o) => `<span>${mdInline(o, { links: false })}${o === a.recommended ? ` <i>${esc(pickWord(a))}</i>` : ""}</span>`).join("")}</div>` : ""}<button class="agjump" type="button" data-answer-jump="${esc(lane.name)}">ANSWER IN NEEDS YOU ›</button></section>`).join("")}
     ${lane.status === "blocked" ? `<div class="prompt"><span class="k">BLOCKED ON A PROMPT · ANSWER IT IN HERDR ON ${esc(String(lane.machine || "?").toUpperCase())}, PANE ${esc(lane.pane || "?")}</span><div class="md">${md(fence(lane.prompt))}</div></div>` : ""}
     ${lane.note ? `<div class="note md">${md(lane.note)}</div>` : ""}
     <section class="agsec"><h4><i class="agdot${live?.terminal?.text != null ? " on" : ""}"></i>NOW · ITS TERMINAL<em>${live?.terminal?.at ? `read ${clock(live.terminal.at)}, every 3 s` : "reading…"}</em></h4>${terminalHTML()}</section>
@@ -123,6 +125,8 @@ $("card").addEventListener("click", (e) => {
   if (!matchMedia("(min-width: 1151px)").matches) select(null);
 });
 $("card").addEventListener("click", (e) => { if (e.target.closest("[data-card-close]")) select(null); });
+// Beside a brief or a page, or alone again (split/): over the left pane only, or the whole office.
+on("split", () => { if (!$("card").hidden) renderCard(); });
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape" || e.defaultPrevented || $("card").hidden) return;
   e.preventDefault(); // the floors' Esc steps out a level only when nothing over the stage is open

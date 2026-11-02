@@ -5,6 +5,7 @@ import { S } from "../core/state.js";
 import { dur, esc, setClass, setHTML, setText } from "../core/format.js";
 import { on } from "../core/bus.js";
 import { officeOf, readingOf } from "../core/floors.js";
+import { bossOf } from "../core/status.js";
 
 // All machines in one small box: one square per machine, and a word. It only speaks up when one is past 90% CPU or
 // memory, or offline. The per-machine numbers are in the tooltip.
@@ -41,7 +42,8 @@ export function renderStats() {
   stallStep = o.stall;
   setClass($("sMove").closest(".strip"), "box strip" + (o.stall ? ` stall${o.stall === 2 ? " late" : ""}` : ""));
   setText($("sMove").previousElementSibling, o.stall ? "NOTHING MOVING" : "WORKING");
-  setText($("sHq"), S.lanes.filter((l) => ["hq_turn", "stale", "gone"].includes(l.status)).length);
+  // ON HQ: lanes whose boss is HQ; one waiting on the lane it reports to is that lane's to move.
+  setText($("sHq"), S.lanes.filter((l) => ["hq_turn", "stale", "gone"].includes(l.status) && !bossOf(l)).length);
   setText($("sBank"), S.score.bank);
   // HQ QUEUE (when on): what waits in every floor's HQ queue, unread plus waiting for HQ's answer; red when unread.
   const q = S.queue?.on ? Object.values(S.queue.floors ?? {}).reduce((n, f) => ({ unread: n.unread + f.unread, waiting: n.waiting + f.waiting }), { unread: 0, waiting: 0 }) : null;

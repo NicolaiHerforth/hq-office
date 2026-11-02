@@ -85,7 +85,7 @@ describe("the lane tree on a server", () => {
   });
 
   test("hud tree prints the tree with level names and status; --json has the fields", async () => {
-    expect(hud("tree").out).toBe(["HQ", "├─ api-deep  Manager · waiting on HQ", "└─ web-pm  Manager · waiting on HQ", "   └─ api-lead  Lead · waiting on HQ", "      └─ api-auth  Engineer · waiting on HQ"].join("\n"));
+    expect(hud("tree").out).toBe(["HQ", "├─ api-deep  Manager · waiting on HQ", "└─ web-pm  Manager · waiting on HQ", "   └─ api-lead  Lead · waiting on web-pm", "      └─ api-auth  Engineer · waiting on api-lead"].join("\n"));
     const json = JSON.parse(hud("tree", "--json").out);
     expect(json.find((l: any) => l.name === "api-auth")).toEqual({ name: "api-auth", parent: "api-lead", depth: 3, level: "Engineer", status: "hq_turn", path: ["web-pm", "api-lead"] });
   });

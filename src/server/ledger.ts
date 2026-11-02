@@ -165,9 +165,9 @@ export function ledgerView() {
 addStatePart("ledger", ledgerView);
 
 // hud ask ... --item T: the question and its checklist in one write.
-export function createAskWithItems(body: any, callerFloor?: string) {
+export function createAskWithItems(body: any, callerFloor?: string, agent?: string | null) {
   const items = (Array.isArray(body.items) ? body.items : []).map((t: unknown) => String(t ?? "").trim()).filter(Boolean);
-  const id = createAsk(body, callerFloor);
+  const id = createAsk(body, callerFloor, agent);
   if (items.length) addItems(id, items);
   return id;
 }

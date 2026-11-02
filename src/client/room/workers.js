@@ -9,6 +9,7 @@ import { deskCount, rebuildBlocked, route } from "./collision.js";
 import { isIdle } from "./breakroom.js";
 import { deskLanes, multi } from "../core/floors.js";
 import { officeFloor } from "../core/scope.js";
+import { bossOf } from "../core/status.js";
 
 export const workers = new Map(); // name -> { x, y, path, dir, step, t, lane, seat, pal, bob }
 // With floors the office is the floor you are in: its lanes only, and none while the building shows (docs/floors.md).
@@ -55,10 +56,20 @@ function assignDesks(lanes) {
   return { desks: desk, aisle };
 }
 
-function targetFor(lane, seat, aisle, counts) {
+// A lane waiting on its boss stands in the free row behind the boss's seat, beside it to the right, facing up; one reporting to HQ goes to
+// HQ. The boss's desk: the one it sits at, or keeps while it is away from it (a still render knows neither: HQ then).
+// The row behind a seat (y + 1) is never a desk: desks sit in front of their seats (collision.js).
+function bossSpot(lane, desks, counts) {
+  const name = bossOf(lane), boss = name && (desks.get(name) ?? workers.get(name)?.seat);
+  if (!boss) return null;
+  const k = (counts.boss[name] = (counts.boss[name] ?? 0) + 1) - 1;
+  return { at: { x: boss.x + 1 + 0.5 * (k % 3), y: boss.y + 1 + 0.25 * Math.floor(k / 3) }, face: "up" };
+}
+
+function targetFor(lane, seat, aisle, counts, desks) {
   const st = lane.status;
   if (st === "needs_you") return { at: slot(QUEUE, counts.queue++), face: "up" };
-  if (st === "hq_turn" || st === "stale") return { at: slot(HQ_SPOT, counts.hq++), face: "left" };
+  if (st === "hq_turn" || st === "stale") return bossSpot(lane, desks, counts) ?? { at: slot(HQ_SPOT, counts.hq++), face: "left" };
   if (st === "waiting") return { at: slot(WAIT_SPOT, counts.wait++), face: "down" };
   if (st === "parked") return { at: slot(COUCH, counts.couch++), face: "down" };
   if (st === "done") return { at: slot(DONE_SPOT, counts.done++), face: "down" };
@@ -75,10 +86,10 @@ export function placeLanes(lanes, open = S.open) {
   // seatIndex numbers the lanes by name for the costumes (a player's number); desks come from assignDesks.
   const seatIndex = new Map([...lanes].sort((a, b) => a.name.localeCompare(b.name)).map((l, i) => [l.name, i]));
   const { desks, aisle } = assignDesks(lanes);
-  const counts = { queue: 0, hq: 0, wait: 0, couch: 0, done: 0 };
+  const counts = { queue: 0, hq: 0, wait: 0, couch: 0, done: 0, boss: {} };
   const places = ordered.map((lane) => {
     const seat = desks.get(lane.name) ?? null;
-    return { lane, seat, ...targetFor(lane, seat, aisle, counts) };
+    return { lane, seat, ...targetFor(lane, seat, aisle, counts, desks) };
   });
   return { places, seatIndex };
 }

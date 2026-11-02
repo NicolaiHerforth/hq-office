@@ -11,6 +11,7 @@ import { clearImages, composer, hasImages, imageKeys } from "../images/images.js
 import { pick, scope, tagged } from "../core/scope.js";
 import { floorById, floorTagHTML, hqShown, readingOf } from "../core/floors.js";
 import { fillFrames, holdFrames, onSmall, onStage, pageSlotHTML, stagedAsk } from "./ask-page.js";
+import { askerOf, forWhom, pickWord } from "./asker.js";
 
 // A question below the fold gets a red pill at the bottom of the list. Click it to go to the next one.
 export function renderBelow() {
@@ -38,6 +39,14 @@ on("attach", (key) => {
 
 const KIND_LABEL = { decision: "QUESTION", action: "TO DO", info: "FYI" };
 
+// FOR PM · Manager: the lane that asked, which the answer goes to (a click opens its card).
+function forHTML(a) {
+  const name = askerOf(a);
+  if (!name) return "";
+  const level = S.lanes.find((l) => l.name === name)?.level;
+  return `<button class="tag for" data-select="${esc(name)}" title="${esc(name)} asked this: your answer goes to ${esc(name)}">FOR ${esc(name.toUpperCase())}${level ? ` · ${esc(level)}` : ""}</button>`;
+}
+
 // Nothing waits on you on this floor. When nothing moves either, that is not "all good": it says so, and whose it is.
 function emptyFloorHTML(f) {
   const r = readingOf(f.counts), hq = hqShown(f) || f.hq;
@@ -48,23 +57,23 @@ function emptyFloorHTML(f) {
 // The +N MORE OUT OF VIEW pill sits at the foot of the list it is about.
 document.querySelector(".qwrap")?.append($("below"));
 
-// The answer row: the options (with HQ's pick), the secrets an ask wants, and the send box. One copy at a time: in the
+// The answer row: the options (with the asker's pick), the secrets an ask wants, and the send box. One copy at a time: in the
 // card, or on the stage while the ask's page is there (renderDock).
 function answerHTML(a) {
   const d = drafts.get(a.id) || {};
   const kind = a.kind;
   const want = a.secrets ?? [];
-  const opts = a.options.map((o) => `<button class="opt ${d.opt === o ? "sel" : ""}" data-opt="${esc(o)}">${esc(o)}${a.recommended === o ? ` <span class="pick">HQ PICK</span>` : ""}</button>`).join("");
+  const opts = a.options.map((o) => `<button class="opt ${d.opt === o ? "sel" : ""}" data-opt="${esc(o)}">${esc(o)}${a.recommended === o ? ` <span class="pick">${esc(pickWord(a))}</span>` : ""}</button>`).join("");
   return `${opts ? `<div class="menu">${opts}</div>` : ""}
       ${want.length ? `<div class="asksec">${want.map((n) => `<label><span class="tag secret">${esc(n)}</span><input class="sin val" type="password" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore placeholder="paste ${esc(n)}" data-secret="${esc(n)}"></label>`).join("")}
         <label><span class="sk">READABLE FOR</span><input class="sin min" type="number" min="1" max="10080" step="1" autocomplete="off" data-secret-min value="${esc(d.minutes ?? 60)}"><span class="sk">MIN</span></label></div>` : ""}
-      ${composer(a.id, `<textarea rows="1" placeholder="${kind === "action" ? "Optional note for HQ" : a.options.length ? "Add detail, or your own answer" : "Your answer"}">${esc(d.text || "")}</textarea>`,
+      ${composer(a.id, `<textarea rows="1" placeholder="${kind === "action" ? `Optional note for ${esc(forWhom(a))}` : a.options.length ? "Add detail, or your own answer" : "Your answer"}">${esc(d.text || "")}</textarea>`,
         `${kind === "action" ? `<button class="notyet" type="button">NOT YET</button>` : ""}<button class="send ${kind !== "decision" ? "go" : ""}" ${canSend(a, d) ? "" : "disabled"}>${kind === "action" ? "DONE" : kind === "info" ? "OK" : "SEND"}</button>`)}`;
 }
 function metaHTML(a, tags, page) {
   const want = a.secrets ?? [];
   return `<div class="meta">
-        ${tags ? floorTagHTML(S, a.floor) : ""}${a.lane ? `<button class="tag lane" data-select="${esc(a.lane)}">${esc(a.lane)}</button>` : ""}
+        ${tags ? floorTagHTML(S, a.floor) : ""}${a.lane ? `<button class="tag lane" data-select="${esc(a.lane)}">${esc(a.lane)}</button>` : ""}${forHTML(a)}
         <span class="tag kind ${esc(a.kind)}">${esc(KIND_LABEL[a.kind] ?? a.kind.toUpperCase())}</span>
         ${want.length ? `<span class="tag secret">SECRETS</span>` : ""}
         ${page ? `<a class="tag pageopen" href="#page/asks/${a.id}" title="Open the page at full width">OPEN PAGE ▶</a>` : ""}
