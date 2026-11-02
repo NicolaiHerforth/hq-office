@@ -12,6 +12,7 @@ import { parsePr } from "./board.ts";
 import { createAsk } from "./asks.ts";
 import type { Ask } from "./types.ts";
 import { underHq } from "../lane-tree.ts";
+import { pageOfFields, setAskPage } from "./ask-pages.ts";
 
 type Item = { ask_id: number; n: number; text: string; pr: string | null; done_at: number | null; done_by: string | null };
 
@@ -34,8 +35,11 @@ const merged = (pr: string | null) => !!pr && board.fact(pr)?.state === "MERGED"
 
 const FIELDS = ["title", "body", "options", "recommended", "link"] as const;
 
-export function updateAsk(id: number, body: any) {
+export function updateAsk(id: number, raw: any) {
   const ask = openAsk(id);
+  // --file (or a body) that is an HTML page replaces the ask's page; markdown stays the body (ask-pages.ts).
+  const { page, body: text } = pageOfFields(raw);
+  const body = { ...raw, body: text };
   const set: string[] = [];
   const values: (string | null)[] = [];
   for (const f of FIELDS) {
@@ -63,8 +67,12 @@ export function updateAsk(id: number, body: any) {
       values.push(floor);
     }
   }
-  if (!set.length) throw new Error("nothing to change: give --title, --body, --opt, --rec, --link or --lane");
-  db.query(`UPDATE asks SET ${set.join(", ")} WHERE id = ?`).run(...values, id);
+  if (!set.length && page === undefined) throw new Error("nothing to change: give --title, --body, --file, --opt, --rec, --link or --lane");
+  if (set.length) db.query(`UPDATE asks SET ${set.join(", ")} WHERE id = ?`).run(...values, id);
+  if (page !== undefined) {
+    setAskPage(id, page);
+    set.push("page = ?");
+  }
   db.query("INSERT INTO ask_edits (ask_id, edited_at) VALUES (?, ?) ON CONFLICT (ask_id) DO UPDATE SET edited_at = excluded.edited_at").run(id, Date.now());
   event("hq", `edited ask #${id} (${set.map((s) => s.split(" ")[0]).filter((f) => f !== "floor").join(", ")}): ${body.title ?? ask.title}`, ask.lane);
   if (moved !== undefined && moved !== (ask.lane ?? null)) event("hq", `moved ask #${id} to ${moved ?? "HQ (no lane)"}`, moved ?? ask.lane);

@@ -53,7 +53,7 @@ test("every page is served with the runtime first in its <head>, its key from it
     const html = await r.text();
     expect(html).toMatch(start);
     expect(html).toContain(`</script><script src="/src/client/page-runtime/runtime.js"></script>`);
-    expect(bootOf(html)).toEqual({ page: key, storage: {} });
+    expect(bootOf(html)).toEqual({ page: key, version: expect.stringMatching(/^[0-9a-f]{16}$/), storage: {} });
   }
   // the runtime itself is served like any client file
   const rt = await fetch(`${server.base}/src/client/page-runtime/runtime.js`);
@@ -165,7 +165,7 @@ test("secret values are masked before they are stored, and never reach hud.db", 
   expect(back.docs["notes/n1"]).toEqual({ text: "the key is [secret RUNTIME_TEST]", nested: { list: ["[secret RUNTIME_TEST]"] } });
   expect(back.storage).toEqual({ draft: "paste [secret RUNTIME_TEST] here" });
   for (const f of readdirSync(DATA).filter((f) => f.startsWith("hud.db"))) expect(readFileSync(join(DATA, f)).includes(SECRET)).toBe(false);
-});
+}, 30_000);
 
 test("hud page data PAGE [PATH]: what a page keeps, a collection or one document", async () => {
   const P = `briefs/${b1}`;
@@ -183,4 +183,60 @@ test("hud page data PAGE [PATH]: what a page keeps, a collection or one document
   expect(list).toContain("rooms/pricing/brief");
   const badPage = hud(["page", "data", "nope"]);
   expect(badPage.exitCode).toBe(1);
+});
+
+// ---- artifact.publish ----
+
+const publish = (page: string, html: string, base: string) => send("/api/page-runtime/publish", { page, html, base });
+const versionOf = async (url: string) => bootOf(await (await fetch(server.base + url)).text()).version as string;
+const NEXT = (n: number) => `<!doctype html><html><head><title>Poll</title></head><body><p>count ${n}</p></body></html>`;
+
+test("publish: a page saves a new version of itself where it lives, the old one kept; a stale version is a conflict", async () => {
+  for (const [page, url] of [[`briefs/${b2}`, `/briefs/${b2}.html`], ["rooms/pricing/brief", "/rooms/pricing/brief.html"], ["rooms/pricing/files/model.html", "/rooms/pricing/files/model.html"]]) {
+    const v1 = await versionOf(url);
+    const before = (await get("/api/state")).pagePublished?.[page];
+    const r = await publish(page, NEXT(1), v1);
+    expect({ page, status: r.status }).toEqual({ page, status: 200 });
+    const served = await (await fetch(server.base + url)).text();
+    expect(served).toContain("<p>count 1</p>");
+    expect(bootOf(served).version).toBe(r.version);
+    expect((await get("/api/state")).pagePublished?.[page]).toBe(r.version);
+    expect(before).not.toBe(r.version);
+    // the view that still holds v1 is told someone was first, and what is live now
+    await Bun.sleep(2100);
+    expect(await publish(page, NEXT(2), v1)).toMatchObject({ status: 400, code: "conflict", live: r.version });
+    expect(await (await fetch(server.base + url)).text()).toContain("<p>count 1</p>");
+  }
+  // the room keeps the replaced ones as versions, as for a lane's upload; the new one is the owner's
+  const file = await get("/api/rooms/pricing/versions?file=model.html");
+  expect(file.versions.map((x: { by: string }) => x.by)).toEqual(["pm"]);
+  expect(file.current.by).toBe("owner");
+  expect((await get("/api/rooms/pricing/versions?brief=1")).versions.length).toBe(1);
+}, 30_000);
+
+test("publish: only an HTML page, at most 5 MB, one every 2 s, never over a page that is not one", async () => {
+  const P = `briefs/${b1}`;
+  const v = await versionOf(`/briefs/${b1}.html`);
+  expect(await publish(P, "<p>a fragment</p>", v)).toMatchObject({ status: 400, code: "invalid_content" });
+  expect(await publish(P, `<!doctype html><p>${"x".repeat(5_000_001)}</p>`, v)).toMatchObject({ status: 400, code: "too_large" });
+  const ok = await publish(P, NEXT(1), v);
+  expect(ok.status).toBe(200);
+  expect(await publish(P, NEXT(2), ok.version)).toMatchObject({ status: 400, code: "rate_limited" });
+  // a brief that is markdown is not a page: nothing to publish over
+  const md = (await send("/api/briefs", { title: "Notes", body: "# just markdown" }, { "x-hud-pane": "w1:p1", "x-hud-machine": "local" })).id;
+  expect(await publish(`briefs/${md}`, NEXT(1), "x")).toMatchObject({ status: 400, code: "not_writer" });
+}, 30_000);
+
+test("publish: secret values are masked before the page is written", async () => {
+  await Bun.sleep(2100);
+  const P = `briefs/${b1}`;
+  const v = await versionOf(`/briefs/${b1}.html`);
+  expect((await publish(P, `<!doctype html><p>key ${SECRET}</p>`, v)).status).toBe(200);
+  expect((await get(`/api/briefs/${b1}`)).status).toBe(200);
+  for (const f of readdirSync(DATA).filter((f) => f.startsWith("hud.db"))) expect(readFileSync(join(DATA, f)).includes(SECRET)).toBe(false);
+}, 30_000);
+
+test("sample is off without HUD_SAMPLE_CMD: not in the state, and refused", async () => {
+  expect((await get("/api/state")).pageSample).toBe(false);
+  expect(await send("/api/page-runtime/sample", { page: `briefs/${b1}`, input: "hi" })).toMatchObject({ status: 400, code: "sampling_disabled" });
 });

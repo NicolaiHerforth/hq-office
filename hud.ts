@@ -4,9 +4,12 @@
 //           [--secret NAME ...]   ask the owner for named secrets, filled in on the question card
 //           [--item TEXT ...]     a checklist; an item naming a PR (#123) ticks itself when it merges, and the
 //                                 question closes itself ("all done") when every item is done
+//           [--file q.html]       an HTML page shown in the card (a whole document or an artifact-style fragment, as a
+//                                 brief); what the owner does in it: hud page data asks/ID. A markdown file is the body.
 // ask ledger: change an open question instead of withdrawing and reposting it
-//   hud update ID [--title T] [--body B] [--opt A --opt B] [--rec A] [--link URL] [--lane L]   only the fields given;
-//                                --lane L moves it to lane L, --lane hq (or "") takes it off every lane
+//   hud update ID [--title T] [--body B] [--file F] [--opt A --opt B] [--rec A] [--link URL] [--lane L]   only the fields
+//                                given; --file q.html replaces its page; --lane L moves it to lane L, --lane hq (or "")
+//                                takes it off every lane
 //   hud comment ID TEXT          a timestamped line under the question; information, not in the inbox
 //   hud item ID N done|undo      tick or untick item N (from 1) by hand
 //   hud item ID add TEXT         add an item to an open question
@@ -47,10 +50,15 @@
 //   hud pause ISSUE REASON...  /  hud resume ISSUE deliberately on hold, so it is not called stalled
 //   hud board [--json]                            blocked on a prompt, then stalled, first; refreshes GitHub if the cache is over a minute old
 //   hud guide            how HQ talks to the owner (through the HUD, never only in its terminal)
-// pages: what the owner entered on an HTML page (a brief or a room's page) through its runtime, read back
-//   hud page data PAGE [PATH]   PAGE is briefs/ID, rooms/SLUG/brief or rooms/SLUG/files/NAME; PATH a db collection
+//   hud ref KIND ID [--json]   the reference to paste into markdown for an HQ thing; on a line of its own it shows as
+//                        a card of the thing, live. KIND: brief, room, lane, ask, floor, file (ID: SLUG/NAME, a file on
+//                        a room's shelf) or roombrief (ID: SLUG). Fails when the thing does not exist. --json: its card
+// pages: what the owner entered on an HTML page (a brief, an ask's or a room's page) through its runtime, read back
+//   hud page data PAGE [PATH]   PAGE is briefs/ID, asks/ID, rooms/SLUG/brief or rooms/SLUG/files/NAME; PATH a db collection
 //                               (votes) or document (votes/owner); without PATH, its storage and every document
 //   hud page data               every page that keeps anything (another floor's briefs with --all only)
+//   hud page room PAGE peers | emit TOPIC [JSON] | listen [--room NAME]   who has the page open now, a moment to them,
+//                               or in the room as yourself while it runs (one JSON line per moment)
 // conference rooms: one per piece of work, where the owner talks straight to the lane that owns it (see roomCmd below)
 //   hud room create|path|brief|artifact|say|read|list|archive ...   `hud room` prints the usage
 // floors: one HQ agent and everything it runs (see floorCmd below). hud tells the server which pane it runs in
@@ -63,6 +71,7 @@ import { GUIDE, LANE_GUIDE } from "./src/hq-guide.ts";
 import { treeText } from "./src/lane-tree.ts";
 import { atText, expiresText } from "./src/client/secrets/expiry.js";
 import { restartTime } from "./src/server/secrets.ts";
+import { parseRef, refFor } from "./src/client/core/refs.js";
 
 const BASE = process.env.HUD_URL ?? "http://127.0.0.1:4747";
 
@@ -134,6 +143,15 @@ const { flags, rest, one } = parse(argv.filter((a) => a !== "--all" && !(cmd ===
 // `hud floor` names its floor as an argument; everywhere else --floor ID picks the floor by hand.
 const FLOOR = ALL ? "all" : cmd === "floor" ? undefined : one("floor");
 
+// --file PATH (hud ask, hud update): the file's text, an HTML page or markdown; the server tells them apart.
+async function fileArg(cmd: string) {
+  const file = one("file");
+  if (file === undefined) return undefined;
+  const f = Bun.file(file);
+  if (!(await f.exists())) { console.error(`hud ${cmd}: no file ${file}`); process.exit(2); }
+  return f.text();
+}
+
 switch (cmd) {
   case "ask": {
     const out = await call("POST", flags.item ? "/api/ledger/asks" : "/api/asks", {
@@ -147,12 +165,14 @@ switch (cmd) {
       due: dueAt(one("due")),
       secrets: flags.secret ?? [],
       items: flags.item,
+      file: await fileArg("ask"),
     });
     console.log(`ask #${out.id}`);
+    if (out.page) console.log(`page ${BASE}/#page/${out.page} (what the owner does in it: hud page data ${out.page})`);
     break;
   }
   case "update":
-    await call("POST", `/api/asks/${rest[0]}/update`, { title: one("title"), body: one("body"), options: flags.opt, recommended: one("rec"), link: one("link"), lane: one("lane") });
+    await call("POST", `/api/asks/${rest[0]}/update`, { title: one("title"), body: one("body"), file: await fileArg("update"), options: flags.opt, recommended: one("rec"), link: one("link"), lane: one("lane") });
     console.log(`ask #${rest[0]} updated`);
     break;
   case "comment":
@@ -298,8 +318,25 @@ switch (cmd) {
   case "guide":
     console.log(rest[0] === "lane" ? LANE_GUIDE : GUIDE);
     break;
+  case "ref": {
+    // hud ref brief 12, hud ref file SLUG/NAME (or SLUG NAME), or a reference as it is: hud ref '#brief/12'
+    const [kind, ...ids] = rest;
+    const ref = ids.length ? refFor(kind === "room-brief" ? "roombrief" : kind, ids.join("/")) : parseRef(kind ?? "") ? `#${parseRef(kind)!.ref}` : null;
+    if (!ref) {
+      console.error("usage: hud ref KIND ID [--json]   KIND: brief, room, lane, ask, floor, file (ID: SLUG/NAME) or roombrief (ID: SLUG)");
+      process.exit(2);
+    }
+    const card = (await call("GET", `/api/refs?r=${encodeURIComponent(ref)}`)).cards[ref];
+    if (!card) {
+      console.error(`hud: nothing at ${ref}: no such ${kind === "file" ? "file on that room's shelf" : kind === "roombrief" || kind === "room-brief" ? "room brief" : parseRef(ref)!.kind}`);
+      process.exit(1);
+    }
+    console.log("json" in flags ? JSON.stringify(card, null, 2) : ref);
+    break;
+  }
   case "page":
     if (rest[0] === "data") await pageData(rest[1], rest[2]);
+    else if (rest[0] === "room") await pageRoom(rest[1], rest[2], rest.slice(3), one("room") ?? "");
     else await commentCmd("page", argv);
     break;
   case "room":
@@ -309,7 +346,7 @@ switch (cmd) {
     await floorCmd();
     break;
   default:
-    console.log("usage: hud ask|update|comment|item|lane|rm-lane|tree|withdraw|event|tell|say|brief|request|req|inbox|ack|wait|state|sync|secret|track|done|pause|resume|board|room|page|floor|guide");
+    console.log("usage: hud ask|update|comment|item|lane|rm-lane|tree|withdraw|event|tell|say|brief|request|req|inbox|ack|wait|state|sync|secret|track|done|pause|resume|board|room|page|floor|guide|ref");
     console.log("HQ: run `hud guide` for how to reach the owner (through the HUD, never only in your terminal).");
 }
 
@@ -577,6 +614,46 @@ async function pageData(page?: string, path?: string) {
   console.log(JSON.stringify(await call("GET", `/api/page-runtime/data?${new URLSearchParams({ page, ...(path ? { path } : {}) })}`), null, 2));
 }
 
+// ---- a page's room: who has it open, and moments to them (hud page room) ----
+async function pageRoom(page: string | undefined, verb: string | undefined, args: string[], room: string) {
+  if (!page || !["peers", "emit", "listen"].includes(verb ?? "")) {
+    console.error("usage: hud page room KEY peers | emit TOPIC [JSON] | listen   [--room NAME]   (KEY: briefs/ID, rooms/SLUG/brief or rooms/SLUG/files/NAME)");
+    process.exit(2);
+  }
+  const q = new URLSearchParams({ page, room });
+  if (verb === "peers") {
+    const { peers } = await call("GET", `/api/page-runtime/room/peers?${q}`);
+    if (!peers.length) console.log("nobody has it open");
+    for (const p of peers) console.log(`${p.kind === "agent" ? p.by : "the owner"} (${p.kind}, ${p.peer})${Object.keys(p.presence).length ? ` ${JSON.stringify(p.presence)}` : ""}`);
+    return;
+  }
+  if (verb === "emit") {
+    let data: unknown;
+    if (args[1] !== undefined) {
+      try { data = JSON.parse(args[1]); } catch { data = args[1]; }
+    }
+    const { heard } = await call("POST", "/api/page-runtime/room/say", { page, room, topic: args[0], data });
+    console.log(`heard by ${heard}`);
+    return;
+  }
+  // listen: in the room as an agent while this runs; one JSON line per moment or change of who is there
+  const res = await fetch(`${BASE}/api/page-runtime/room/listen?${q}`, { headers: who() }).catch(unreachable);
+  if (!res.ok || !res.body) {
+    console.error((await res.json().catch(() => ({}))).error ?? res.statusText);
+    process.exit(1);
+  }
+  let buf = "";
+  for await (const chunk of res.body.pipeThrough(new TextDecoderStream())) {
+    buf += chunk;
+    let i;
+    while ((i = buf.indexOf("\n\n")) >= 0) {
+      const ev = buf.slice(0, i);
+      buf = buf.slice(i + 2);
+      if (ev.startsWith("data: ")) console.log(ev.slice(6));
+    }
+  }
+}
+
 // ---- comments on a brief or a room's page (hud brief comments|reply, hud page comments|reply) ----
 
 async function commentCmd(kind: "brief" | "page", args: string[]) {
@@ -584,7 +661,7 @@ async function commentCmd(kind: "brief" | "page", args: string[]) {
   const { rest: r, one: o } = parse(args.filter((a) => a !== "--json" && a !== "--all"));
   const [verb, id, ...words] = r;
   const usage = () => {
-    console.error(kind === "brief" ? "usage: hud brief comments ID [--json] [--all] | hud brief reply ID TEXT [--reply N] [--as AGENT] [--all]" : "usage: hud page comments KEY [--json] | hud page reply KEY TEXT [--reply N] [--as AGENT] | hud page data [KEY [PATH]]   (KEY: rooms/SLUG/brief or rooms/SLUG/files/NAME.html; data also takes briefs/ID)");
+    console.error(kind === "brief" ? "usage: hud brief comments ID [--json] [--all] | hud brief reply ID TEXT [--reply N] [--as AGENT] [--all]" : "usage: hud page comments KEY [--json] | hud page reply KEY TEXT [--reply N] [--as AGENT] | hud page data [KEY [PATH]]   (KEY: rooms/SLUG/brief or rooms/SLUG/files/NAME.html; data also takes briefs/ID and asks/ID)");
     process.exit(2);
   };
   if (!id || !["comments", "reply"].includes(verb)) usage();

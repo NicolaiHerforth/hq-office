@@ -1,9 +1,10 @@
 // Routes for the ask ledger: edit an open question, comment on it, and its checklist. See src/server/ledger.ts.
 import { addItems, commentAsk, createAskWithItems, tickItem, updateAsk } from "../ledger.ts";
 import type { Route } from "../router.ts";
+import { withPage } from "./asks.ts";
 
 const routes: Route[] = [
-  { method: "POST", path: "/api/ledger/asks", handle: ({ body, caller }) => ({ id: createAskWithItems(body, caller().floor) }) },
+  { method: "POST", path: "/api/ledger/asks", handle: ({ body, caller }) => withPage(createAskWithItems(body, caller().floor)) },
   { method: "POST", pattern: /^\/api\/asks\/(\d+)\/update$/, handle: ({ body, m }) => updateAsk(Number(m[1]), body) },
   { method: "POST", pattern: /^\/api\/asks\/(\d+)\/comment$/, handle: ({ body, m }) => commentAsk(Number(m[1]), body.text) },
   { method: "POST", pattern: /^\/api\/asks\/(\d+)\/items$/, handle: ({ body, m }) => ({ n: addItems(Number(m[1]), [body.text]) }) },

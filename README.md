@@ -121,6 +121,40 @@ hud page reply rooms/SLUG/brief "Answer" [--reply N]
 
 An answer shows in the thread, marks the brief **REPLY** in BRIEFS until you open it, and puts one line in MESSAGES.
 
+## Cards of HQ things
+
+Anything in the HUD has an address, and HQ or a lane can point you at it by that address in any text it writes: a message, a question, a brief, a room's brief or thread, a comment. A line that is only an address, bare or as a markdown link, shows as a card of that thing:
+
+```md
+Here is where the auth work stands:
+
+#room/ope-12
+
+[The rollout plan](#page/rooms/ope-12/files/plan.html)
+```
+
+| Address | The card |
+| --- | --- |
+| `#brief/ID` (or `#page/briefs/ID`) | a brief: its title, NEW until you open it, REPLY for an answer in its comments, PAGE for an HTML brief, and its first line |
+| `#room/SLUG` | a room: its title, unread messages, its owner, ARCHIVED, and its last message |
+| `#lane/NAME` | a lane: its status (WORKING, WAITING ON YOU and so on), its level, and its title |
+| `#ask/ID` | a question or TO DO: OPEN, ANSWERED (with your answer) or WITHDRAWN, and its lane |
+| `#floor/ID` | a floor: what waits on you there and how many lanes are working, and its HQ |
+| `#page/rooms/SLUG/files/NAME` | a file on a room's shelf: PAGE, IMAGE (with the picture) or FILE, and V2, V3 when it has versions |
+| `#page/rooms/SLUG/brief` | a room's brief |
+
+A card is live: when the lane starts working, the question is answered or a room gets a message, the card changes where it is, without opening anything again. A card for something on another floor than the one you are in has that floor's colour down its edge and its name. A click opens the thing where it opens anyway: a brief, a room or a page on the stage, a lane's drawer, a question in NEEDS YOU (or your answer in MESSAGES), a floor's office, a file that is not a page in a new tab. A lane, a question or a floor opens without leaving the brief or room you are reading. An address that names nothing (deleted, or never there) is a muted **NOT FOUND** card. Inside a sentence an address is a plain link.
+
+`hud ref KIND ID` prints the address to paste, and fails when the thing does not exist, so an agent never posts a broken card:
+
+```sh
+hud ref brief 12                  # #brief/12
+hud ref file ope-12/plan.html     # #page/rooms/ope-12/files/plan.html
+hud ref ask 31 --json             # what its card says
+```
+
+The page draws a card from the state it already has. What the state does not hold (a shelf file, a room's brief, an older brief or question) it reads from `GET /api/refs?r=brief/12&r=room/ope-12`: a summary only (title, status, one line), with secret values masked, read-only, behind the same origin rules as the rest of the API.
+
 ## HQ queue
 
 **HQ QUEUE** in SETTINGS is off by default, and off is the HUD as it always was: lanes and your notes are typed straight into HQ's pane. Turned on, what reaches HQ waits in a queue HQ reads at its own pace, instead of interrupting it mid-turn:
@@ -331,9 +365,21 @@ The HUD gives every page the runtime a Claude artifact gets, so a page written f
 | `"db"` | A database for this page, in the artifact db's shape: `db.doc("votes/owner")` and `db.collection("votes")`, with `get`, `set`, `update`, `delete`, `where`, `orderBy`, `limit`, `add` and `onSnapshot`, which hears every write live, from any view of the page. A document is a JSON object up to 256 KB; a page keeps up to 5000 documents and 10 MB. |
 | `"user"` | Who is viewing: always the owner (`id()` is `"owner"`, `me().name` is `HUD_OWNER`, `isOwner()` and `canEdit()` are true). |
 | `"downloads"` | `save({ filename, data })`: the HUD asks you (SAVE or NO) and saves the file. Programs and scripts (`.exe`, `.sh`, `.js` and the like) are refused. |
-| `"artifact"`, `"room"`, `"comments"`, `"sample"`, anything else | `null`, for now. |
+| `"artifact"` | `publish(html)`: the page saves a new version of itself, a whole HTML document (`<!doctype html>` first, up to 5 MB), the way an artifact that is its own record (a poll, a checklist) does. It goes where the page lives: a room's file is replaced and a room's brief changes, the earlier one kept under the page's **VERSIONS** as a lane's upload is; a floor brief keeps its earlier versions too (the newest 20). Every open view of the page, this one too, reloads to the new version. A view that still shows an older version gets `conflict` and reloads to the newer one instead. One publish every 2 seconds. `edit` and `sync` are not there. |
+| `"room"` | Whoever has the page open right now: `emit(topic, data)` and `on(topic, fn)` for moments, `presence(patch)` and `onPeers(fn)` for each one's small shared state (a cursor, the slide they are on), `join(name)` for a room of its own (a game, a group). Every view of the page in the HUD is a peer (`kind: "viewer"`; every viewer is the owner, so `isMe` is true for all of them and `sameTab` tells this tab's apart), and so is a lane or HQ that listens (`kind: "agent"`). Nothing is kept: it lives in the server while people are there. Moments and presence are up to 4 KB of JSON each, 20 moments a second per peer, 64 peers a room. `sendToClaudeSession` is not there (comments reach the page's author). |
+| `"sample"` | Asks a model, as an artifact does: `sample(input, { onText, signal, modelTier })` resolves `{ text, truncated }`, `sample.json(input)` a parsed JSON answer, `sample.limits()` what it takes. `null` unless the owner set `HUD_SAMPLE_CMD` (below). The first call in each view asks you (ALLOW or NO); a NO holds while the page is open. Two calls at once on this machine, ten a minute for a page, prompts up to 200 KB, answers up to 100 KB. No images or tools. |
+| `"comments"` | The page's comment thread is the HUD's (beside the page, or under COMMENTS on a phone), so a page opens it rather than writing comments itself: `openComposer({ element })` or `openComposer({ range })` opens the thread with that element's text or the selected passage quoted, and resolves `{ opened: false }` where the view shows no thread. `anchorFor(element)` gives the element's place. The writing verbs (`create`, `reply`, `resolve`, `delete`, `sendToClaude`) are refused with `not_granted`; you write the comment in the HUD, and it goes to the page's author. Selecting text in any page shows **COMMENT**, which does the same. |
+| anything else | `null`. |
 
 `localStorage` works too, synchronously: the page's stored keys come in the page itself and every change is sent back, up to 1 MB. `sessionStorage` lasts while the page is open. A page with `.mermaid` diagrams that does not load Mermaid itself gets them drawn (Mermaid 11.4.1 from jsdelivr).
+
+**Letting pages ask a model.** `sample` is off until you set `HUD_SAMPLE_CMD` in `config.env` to a command that reads a prompt on stdin and prints the answer. For Claude Code, this is the line:
+
+```sh
+HUD_SAMPLE_CMD=claude -p --tools "" --strict-mcp-config --setting-sources "" --no-session-persistence --disable-slash-commands
+```
+
+`-p` answers once (the prompt on stdin, the text on stdout) and exits; `--tools ""` gives it no tools; `--strict-mcp-config` with no `--mcp-config` loads no MCP servers; `--setting-sources ""` loads no user, project or local settings, which also leaves out your CLAUDE.md files, hooks and plugins; `--no-session-persistence` keeps no session; `--disable-slash-commands` loads no skills. It still signs in as you do in Claude Code. Add `--model NAME` to pick a model. Write the line without quotes around the whole value. If the HUD runs as a service whose PATH does not find `claude`, use its full path (`which claude`). The HUD runs it once per call, with no memory between calls and never in a lane's or HQ's session, in an empty folder of its own, with `HUD_SAMPLE_TIER` (`default`, `quick` or `complex`, what the page asked for) and `HUD_SAMPLE_PAGE` (which page asks) in its environment, so a small script of your own can pick a model by tier. Secret values are blanked out of the prompt before the command gets it, and out of the answer. Give it a command that only answers: the prompt is whatever the page sends. Restart the HUD after setting it.
 
 What a page keeps is kept **per page** (`briefs/ID`, `rooms/SLUG/brief`, `rooms/SLUG/files/NAME`) on this machine, and is **shared by everyone who opens the HUD**: there is no per-viewer data, since every viewer is the owner. Secret values are blanked out before anything is kept. HQ and lanes read it back:
 
@@ -342,7 +388,22 @@ hud page data                        # every page that keeps anything
 hud page data briefs/8               # its stored keys and every document
 hud page data briefs/8 votes         # one collection
 hud page data briefs/8 votes/owner   # one document
+hud page room briefs/8 peers         # who has it open right now
+hud page room briefs/8 emit nudge '{"text":"see slide 3"}'   # a moment to everyone there, from you (kind agent)
+hud page room briefs/8 listen        # in the room as yourself while it runs; one JSON line per moment or change
 ```
+
+#### A page in a question
+
+A question or a to-do can carry a page too, for what is easier shown than told: a chart, a diff, rows to pick from. Give it with `--file` (a whole document or a fragment, by the same rule as a brief; a markdown `--file` is the question's text), and replace it in place with `hud update ID --file`:
+
+```sh
+hud ask --title "Which rows go?" --opt "Delete the picked rows" --opt "Keep them all" --file rows.html
+hud update 42 --file rows.html             # the page again, changed
+hud page data asks/42 picks                # after the answer: what the owner picked in the page
+```
+
+The NEEDS YOU card shows the page between the question and its answer row, in a sandboxed frame no taller than the page and never over a cap (about 280 px on a wide screen, less on a laptop's, so the options and SEND stay in view). **OPEN PAGE** takes it to the stage at `#page/asks/ID`, at full width, with the question's answer row under it. On a phone the card shows a strip with **OPEN** instead. Answering is always the HUD's own buttons: the page cannot answer, click them or reach the HUD. The page has the runtime under the key `asks/ID`, so what the owner does in it is kept and read back with `hud page data asks/ID`; the answer typed into HQ says so, and `hud inbox` gives such an answer a `page` field. The page is served at `/asks/ID.html`, also once answered.
 
 The page never talks to the server. It talks to the HUD page that shows it, which decides which page it is from the frame it sits in, never from what the page says, and answers only the page's own frame. `bun scripts/parity-lab/harness.ts` measures what a page can do next to a Claude artifact, clicking the checks that need a click (copy, fullscreen, saving a file) for real; `--expect N` fails when fewer than N checks pass.
 
@@ -353,7 +414,7 @@ Pages run in a sandbox: the server sends each with `Content-Security-Policy: san
 HQ keeps one question per thing by changing it instead of withdrawing and reposting it:
 
 ```sh
-hud update ID [--title T] [--body B] [--opt A --opt B] [--rec A] [--link URL]   # only the fields given; the card shows EDITED hh:mm
+hud update ID [--title T] [--body B] [--file F] [--opt A --opt B] [--rec A] [--link URL]   # only the fields given; the card shows EDITED hh:mm
 hud comment ID TEXT                          # a timestamped line under the question (latest 5 shown, MORE for older)
 hud ask --title T --item "Land #1234" --item "Write the notes"                  # a question with a checklist
 hud item ID N done|undo                      # tick item N (from 1) by hand
@@ -399,6 +460,7 @@ Set these in `config.env`. An empty value means the default.
 | `HUD_MACHINES` | this machine | Comma-separated herdr machine labels to poll for agents, sample for CPU and memory, and read subscription usage from (SUBS). Remote machines need SSH access. |
 | `HERDR_BIN` | `herdr` on PATH | Path to the herdr binary. |
 | `HUD_GH_BIN` | `gh` on PATH | Path to the GitHub CLI, used by the work board. |
+| `HUD_SAMPLE_CMD` | empty | A command that reads a prompt on stdin and prints an answer: lets HTML pages ask a model (`claude.use("sample")`). Pages has the line for Claude Code. Empty: pages cannot. |
 | `HUD_DATA_DIR` | plugin state dir | Where the database, uploads and settings live. The plugin sets it; leave it empty. |
 
 ## Running without the herdr plugin

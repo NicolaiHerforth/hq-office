@@ -1,7 +1,9 @@
 // The one renderer for text that HQ or a lane wrote: md() for blocks, mdInline() for one-line places, mdClip() for
 // long text with MORE/LESS, and COPY on code boxes. Everything is escaped first; the only tags are the ones made
 // here, and a link goes only to http(s), mailto, this HUD's own /uploads/, /room-files/ and /rooms/ paths, or a place
-// on this page (#brief/ID, #room/SLUG).
+// on this page: an HQ thing's reference (core/refs.js: #brief/ID, #room/SLUG, #lane/NAME, #ask/ID, #floor/ID, a page).
+// A bare reference is a link too, and a paragraph that is only one (bare or [label](#ref)) comes out as
+// <p class="hudref">, which embeds/ draws as a card of that thing.
 //
 // Blocks: paragraphs (a line break shows), headings, bullet, numbered and task lists (nested by indent), quotes,
 // rules, tables and ``` fences (a code box with COPY, verbatim). Inline: `code`, **bold**, *italic*, ~~struck~~,
@@ -9,6 +11,7 @@
 // [image: PATH] as a thumbnail of an attached image, [file: PATH] as a link named after an attached file.
 import { esc } from "./format.js";
 import { CONFIG } from "./state.js";
+import { REF_SOURCE } from "./refs.js";
 
 const unesc = (t) => t.replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, "&");
 // An attached image's address on this HUD: from a room's folder (rooms/SLUG/files/NAME), an old shelf file
@@ -30,8 +33,12 @@ function fileRef(escaped) {
   return { name, url: room ? `/rooms/${room[1]}/files/${encodeURIComponent(name)}` : `/uploads/${encodeURIComponent(name)}` };
 }
 // A link's target, as escaped text: http(s), mailto, a path on this HUD that does not climb out of it, or a place on
-// this page (#brief/ID, #room/SLUG), which opens here rather than in a new tab.
-const IN_PAGE = /^#(?:brief\/\d{1,9}|room\/[a-z0-9][a-z0-9-]{0,47}|page\/(?:rooms\/[a-z0-9][a-z0-9-]{0,47}\/(?:files\/[^\s/?#)]+\.html?|brief)|briefs\/\d{1,9}))$/i;
+// this page (an HQ thing's reference), which opens here rather than in a new tab.
+const IN_PAGE = new RegExp(`^#${REF_SOURCE}$`, "i");
+// A bare reference in running text; the sentence keeps its trailing punctuation.
+const BARE_REF = new RegExp(`(^|[\\s(])(#${REF_SOURCE})`, "g");
+// A paragraph that is only a reference: bare, or [label](#ref).
+const REF_LINE = new RegExp(`^(?:#${REF_SOURCE}|\\[[^\\]\\n]+\\]\\(#${REF_SOURCE}\\))$`);
 const safeUrl = (u) => /^(?:https?:\/\/[^\s/]|mailto:[^\s/])/i.test(u) || (/^\/(?:uploads|room-files|rooms)\//.test(u) && !/\.\.|\\/.test(u)) || IN_PAGE.test(u);
 const anchor = (href, label) => (IN_PAGE.test(href) ? `<a href="${href}">${label}</a>` : `<a href="${href}" target="_blank" rel="noopener noreferrer">${label}</a>`);
 const shorten = (u) => { const t = unesc(u); return esc(t.length > 60 ? t.slice(0, 57) + "…" : t); };
@@ -74,6 +81,10 @@ function inline(raw, o = {}) {
       u = u.slice(0, -1);
     }
     return p + keep(links ? anchor(u, shorten(u)) : u) + tail;
+  });
+  t = t.replace(BARE_REF, (m, p, r) => {
+    const ref = r.replace(/[.,;:!?]+$/, "");
+    return p + keep(links ? anchor(ref, ref) : ref) + r.slice(ref.length);
   });
   if (CONFIG.githubRepo) t = t.replace(/(^|[\s(])#(\d{4,5})\b/g, (m, p, n) => p + keep(links ? anchor(`https://github.com/${esc(CONFIG.githubRepo)}/pull/${n}`, `#${n}`) : `#${n}`));
   t = emphasis(t);
@@ -139,7 +150,10 @@ function list(lines, i) {
 function blocks(lines) {
   const out = [];
   let para = [];
-  const flush = () => { if (para.length) { out.push(`<p>${para.map((l) => inline(l)).join("<br>")}</p>`); para = []; } };
+  const flush = () => {
+    if (para.length) out.push(`<p${para.length === 1 && REF_LINE.test(para[0]) ? ` class="hudref"` : ""}>${para.map((l) => inline(l)).join("<br>")}</p>`);
+    para = [];
+  };
   for (let i = 0; i < lines.length;) {
     const l = lines[i];
     const open = fenceOpen(l);

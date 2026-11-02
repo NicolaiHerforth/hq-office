@@ -7,7 +7,7 @@
 // Opened on its own (OPEN IN NEW TAB) the page reads its stored keys and use() gives null. Needs Chrome; skipped
 // without it. The Mermaid check also needs the network (jsdelivr) and is skipped without it.
 import { afterAll, beforeAll, expect, test } from "bun:test";
-import { existsSync, mkdtempSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { findChrome, newSession, spawnServer, startChrome } from "../../scripts/room-hash.ts";
@@ -37,8 +37,8 @@ addEventListener("load", () => { const t = setInterval(() => { if (document.quer
   const db = await claude.use("db"), user = await claude.use("user");
   if (!db || !user) return; // opened outside the HUD
   out.memo = claude.use("db") === claude.use("db");
-  out.sample = await claude.use("sample");
-  out.artifact = await claude.use("artifact");
+  out.sample = typeof (await claude.use("sample"));
+  out.artifact = typeof (await claude.use("artifact"))?.publish;
   out.frozen = Object.isFrozen(db);
   const id = await user.id();
   out.me = await user.me();
@@ -95,6 +95,74 @@ const FLOOD = `<!doctype html><html><head></head><body><script>
 })();
 </script></body></html>`;
 
+// A page that is its own record: at 0 it publishes itself at 1 (a test page may do it on load; a real one waits for
+// the viewer), and every view reloads to the new version.
+const POLL = `<!doctype html><html><head><title>Poll</title></head><body><p id="n">0</p><script>
+const SRC = document.currentScript.textContent;
+const n = Number(document.getElementById("n").textContent);
+parent.postMessage({ probe: { t0: performance.timeOrigin, n } }, "*");
+if (n === 0) claude.use("artifact").then((a) => a.publish('<!doctype html><html><head><title>Poll</title></head><body><p id="n">' + (n + 1) + '</p><script>' + SRC + '<\\/script></body></html>'))
+  .then((r) => parent.postMessage({ probe: { t0: performance.timeOrigin, n, published: r.version } }, "*"), (e) => parent.postMessage({ probe: { t0: performance.timeOrigin, n, refused: e.code } }, "*"));
+</script></body></html>`;
+
+// A page for everyone who has it open: it says who is there, and pings once when someone else is.
+const ROOM = `<!doctype html><html><head></head><body><script>
+const out = { t0: performance.timeOrigin, heard: [], others: 0 };
+const report = () => parent.postMessage({ probe: JSON.parse(JSON.stringify(out)) }, "*");
+(async () => {
+  const room = await claude.use("room");
+  let pinged = false;
+  room.on("ping", (m) => { out.heard.push([m.data, m.kind, m.by, m.sameTab]); report(); });
+  room.onPeers((c) => {
+    out.others = c.peers.length - 1;
+    out.presence = c.peers.map((p) => p.presence.here).filter(Boolean).length;
+    report();
+    if (out.others > 0 && !pinged) { pinged = true; room.emit("ping", "hello"); }
+  });
+  await room.presence({ here: true });
+  out.connected = room.connected();
+  const g = await room.join("game");
+  out.game = g.name;
+  report();
+})();
+</script></body></html>`;
+
+// A page that asks a model twice: the owner is asked once, and the answers stream back.
+const ASK = `<!doctype html><html><head></head><body><script>
+const out = { t0: performance.timeOrigin, texts: [] };
+const report = () => parent.postMessage({ probe: JSON.parse(JSON.stringify(out)) }, "*");
+(async () => {
+  const sample = await claude.use("sample");
+  try { out.first = (await sample("hello", { onText: ({ text }) => out.texts.push(text) })).text; } catch (e) { out.first = e.code; }
+  try { out.json = await sample.json("JSON please"); } catch (e) { out.json = e.code; }
+  report();
+})();
+</script></body></html>`;
+// A page that quotes itself into the HUD's comment thread: an element on load; a range, or a selection, when asked.
+const QUOTE = `<!doctype html><html><head></head><body><h1 id="t">Pricing</h1><p id="p">Tier two costs forty a month.</p><script>
+const out = { t0: performance.timeOrigin };
+const report = () => parent.postMessage({ probe: JSON.parse(JSON.stringify(out)) }, "*");
+(async () => {
+  const comments = await claude.use("comments");
+  out.anchor = await comments.anchorFor(document.getElementById("p"));
+  out.element = await comments.openComposer({ element: document.getElementById("p") });
+  try { await comments.create({ anchor: out.anchor, text: "x" }); } catch (e) { out.create = e.code; }
+  out.canSend = await comments.canSendToClaude();
+  report();
+  addEventListener("message", async (e) => {
+    if (e.data === "range") { const r = document.createRange(); r.selectNodeContents(document.getElementById("t")); out.range = await comments.openComposer({ range: r }); report(); }
+    if (e.data === "select") { getSelection().selectAllChildren(document.getElementById("p")); setTimeout(() => { const h = document.querySelector("hud-comment-pick"); out.pick = !!h && h.style.display !== "none"; report(); }, 400); }
+  });
+})();
+</script></body></html>`;
+// A stand-in for HUD_SAMPLE_CMD: it answers slowly, and in JSON when asked.
+const MODEL = join(dir, "model.sh");
+writeFileSync(MODEL, `#!/bin/sh
+p=$(cat)
+case "$p" in *JSON*) printf '\\x60\\x60\\x60json\\n{"ok":true}\\n\\x60\\x60\\x60'; exit 0;; esac
+printf 'answer '; sleep 0.3; printf 'to: %s' "$p"
+`);
+
 let chrome: Awaited<ReturnType<typeof startChrome>>;
 let server: Awaited<ReturnType<typeof spawnServer>>;
 let page: Awaited<ReturnType<typeof newSession>>;
@@ -122,12 +190,12 @@ async function reloadFrame(ready = "window.__probe?.sizes?.length") {
   await until(`!!(${ready})`, 25_000); // a page in a cold browser on a loaded machine can take a while
   return ev(`window.__probe`);
 }
-let brief = 0;
+let brief = 0, pollBrief = 0;
 
 beforeAll(async () => {
   if (!chromeFound) return;
   online = await fetch("https://cdn.jsdelivr.net/npm/mermaid@11.4.1/package.json", { signal: AbortSignal.timeout(4000) }).then((r) => r.ok, () => false);
-  server = await spawnServer({ cwd: ROOT, env: { ...process.env, HUD_HOST: "127.0.0.1", HUD_DATA_DIR: dir, HERDR_BIN: herdr.bin, HUD_MACHINES: "local", HUD_LOCAL_MACHINE: "local", HUD_HQ_AGENT: "hq", HUD_HQ_RENAME: "0", HUD_HQ_HINT: "0", HUD_GH_BIN: "false", HUD_OWNER: "Tester" } });
+  server = await spawnServer({ cwd: ROOT, env: { ...process.env, HUD_HOST: "127.0.0.1", HUD_DATA_DIR: dir, HERDR_BIN: herdr.bin, HUD_MACHINES: "local", HUD_LOCAL_MACHINE: "local", HUD_HQ_AGENT: "hq", HUD_HQ_RENAME: "0", HUD_HQ_HINT: "0", HUD_GH_BIN: "false", HUD_OWNER: "Tester", HUD_SAMPLE_CMD: `sh ${MODEL}` } });
   await post("/api/lanes", { name: "pm", parent: "hq", machine: "local" });
   await post("/api/sync");
   await post("/api/rooms", { slug: "pricing", title: "Pricing", owner: "pm" });
@@ -135,7 +203,12 @@ beforeAll(async () => {
   await upload("forge.html", FORGE);
   await upload("save.html", SAVE);
   await upload("flood.html", FLOOD);
+  await upload("poll.html", POLL);
+  await upload("room.html", ROOM);
+  await upload("ask.html", ASK);
+  await upload("quote.html", QUOTE);
   brief = (await post("/api/briefs", { title: "Votes", body: APP }, { "x-hud-pane": "w1:p1", "x-hud-machine": "local" })).id;
+  pollBrief = (await post("/api/briefs", { title: "Poll", body: POLL }, { "x-hud-pane": "w1:p1", "x-hud-machine": "local" })).id;
   chrome = await startChrome();
   page = await newSession(chrome.cdp, errors);
   await chrome.cdp.send("Browser.setDownloadBehavior", { behavior: "allow", downloadPath: dir });
@@ -153,7 +226,7 @@ const artifactPage = async (key: string) => {
   expect(p).toMatchObject({
     hud: "function", claude: "function", same: true, session: "1",
     parentDoc: false, fetchState: false, postData: false,
-    memo: true, sample: null, artifact: null, frozen: true,
+    memo: true, sample: "function", artifact: "function", frozen: true,
     me: { id: "owner", name: "Tester", avatarUrl: "", color: "#4a7bd0", email: null, isOwner: true, canEdit: true }, owner: true,
     got: { picks: ["db"], at: 1 }, badPath: "TypeError", updateMissing: "invalid_argument",
     sizes: [1], changes: ["added:owner"],
@@ -212,6 +285,75 @@ test.skipIf(!chromeFound)("a page that floods the HUD with calls is held to 60 a
   await load("#page/rooms/pricing/files/flood.html");
   await until(`${frame}?.getAttribute("src")?.split("?")[0] === "/rooms/pricing/files/flood.html"`);
   expect(await reloadFrame(`window.__probe?.limited !== undefined`)).toMatchObject({ ok: 60, limited: 40 });
+}, 30_000);
+
+test.skipIf(!chromeFound)("artifact.publish: the page saves itself as a new version and the view reloads to it, as a room's page and as a brief", async () => {
+  for (const [hash, src, file] of [["#page/rooms/pricing/files/poll.html", "/rooms/pricing/files/poll.html", join(dir, "rooms", "pricing", "files", "poll.html")], [`#brief/${pollBrief}`, `/briefs/${pollBrief}.html`, null]]) {
+    await load(hash!);
+    await until(`${frame}?.getAttribute("src")?.split("?")[0] === "${src}"`);
+    await until(`window.__probe?.n === 1`, 15_000);
+    expect(await ev(`window.__probe`)).toMatchObject({ n: 1 });
+    if (file) expect(readFileSync(file, "utf8")).toContain('<p id="n">1</p>');
+    else expect(await (await fetch(`${server.base}${src}`)).text()).toContain('<p id="n">1</p>');
+  }
+}, 60_000);
+
+test.skipIf(!chromeFound)("room: two HUD tabs on one page see each other, hear each other's moments, and hear a lane", async () => {
+  const other = await newSession(chrome.cdp, errors);
+  const listen = `window.__probe = null; addEventListener("message", (e) => { if (e.data?.probe) window.__probe = e.data.probe; }), true`;
+  await load("#page/rooms/pricing/files/room.html");
+  await other.s("Emulation.setDeviceMetricsOverride", { width: 1200, height: 900, deviceScaleFactor: 1, mobile: false });
+  await other.s("Page.navigate", { url: `${server.base}/` });
+  for (let i = 0; i < 100 && !(await other.evaluate(`!!document.getElementById("lastNote")?.innerHTML`).catch(() => false)); i++) await Bun.sleep(50);
+  await other.evaluate(listen);
+  await other.evaluate(`location.hash = "#page/rooms/pricing/files/room.html"; true`);
+  const both = async (expr: string) => {
+    await until(expr, 10_000);
+    for (let i = 0; i < 200 && !(await other.evaluate(expr).catch(() => false)); i++) await Bun.sleep(50);
+    expect(await other.evaluate(expr)).toBe(true);
+  };
+  await both(`window.__probe?.others === 1 && window.__probe?.presence === 2 && window.__probe?.game === "game"`);
+  await both(`window.__probe?.heard.some((h) => h[0] === "hello" && h[1] === "viewer" && h[3] === false)`);
+  expect(await ev(`window.__probe.connected`)).toBe(true);
+  const said = Bun.spawnSync([process.execPath, join(ROOT, "hud.ts"), "page", "room", "rooms/pricing/files/room.html", "emit", "ping", '"from pm"'], { env: { ...process.env, HUD_URL: server.base, HERDR_PANE_ID: "w1:p2", HUD_LOCAL_MACHINE: "local" }, stdout: "pipe" });
+  expect(said.stdout.toString()).toContain("heard by 2");
+  await both(`window.__probe?.heard.some((h) => h[0] === "from pm" && h[1] === "agent" && h[2] === "pm")`);
+  // the other tab leaves: this one sees it go
+  await other.s("Page.navigate", { url: "about:blank" });
+  await until(`window.__probe?.others === 0`, 10_000);
+}, 60_000);
+
+test.skipIf(!chromeFound)("sample: the owner allows the page once, and the answers stream back; a view the owner refuses gets not_granted", async () => {
+  await load("#page/rooms/pricing/files/ask.html");
+  await until(`document.querySelector(".pr-save")?.textContent.includes("ask a model")`, 10_000);
+  await ev(`document.querySelector(".pr-save .pr-yes").click()`);
+  await until(`!!window.__probe?.json`, 15_000);
+  const p = await ev(`window.__probe`);
+  expect(p).toMatchObject({ first: "answer to: hello", json: { ok: true } });
+  expect(p.texts.at(-1)).toBe("answer to: hello");
+  expect(p.texts.length).toBeGreaterThan(0);
+  expect(await ev(`!!document.querySelector(".pr-save")`)).toBe(false); // asked once for the view
+  // a new view of the page asks again; NO holds for both calls
+  await ev(`(() => { window.__probe = null; window.__since = Date.now(); const f = ${frame}; f.src = f.getAttribute("src"); return true; })()`);
+  await until(`!!document.querySelector(".pr-save")`, 10_000);
+  await ev(`document.querySelector(".pr-save .pr-no").click()`);
+  await until(`!!window.__probe?.json`, 10_000);
+  expect(await ev(`window.__probe`)).toMatchObject({ first: "not_granted", json: "not_granted" });
+}, 60_000);
+
+test.skipIf(!chromeFound)("comments: the page opens its thread in the HUD with a quote (an element, a range); a selection shows COMMENT", async () => {
+  const key = "rooms/pricing/files/quote.html";
+  const thread = `document.querySelector('aside.cmount[data-comments="${key}"]')`;
+  await load(`#page/${key}`);
+  await until(`!!window.__probe?.element`, 10_000);
+  expect(await ev(`window.__probe`)).toMatchObject({ element: { opened: true }, anchor: { path: "#p", x: 0, y: 0 }, create: "not_granted", canSend: "off" });
+  await until(`${thread}?.textContent.includes("Tier two costs forty a month.")`);
+  await ev(`${frame}.contentWindow.postMessage("range", "*"), true`);
+  await until(`window.__probe?.range?.opened === true`);
+  await until(`${thread}?.textContent.includes("Pricing")`);
+  await ev(`${frame}.contentWindow.postMessage("select", "*"), true`);
+  await until(`window.__probe?.pick !== undefined`);
+  expect(await ev(`window.__probe.pick`)).toBe(true);
 }, 30_000);
 
 test.skipIf(!chromeFound)("opened on its own (OPEN IN NEW TAB): its stored keys are there, use() gives null", async () => {
