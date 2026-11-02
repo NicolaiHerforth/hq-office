@@ -106,3 +106,53 @@ test("hud ref KIND ID prints the reference to paste, and fails when the thing do
   expect(out("room", "Not A Slug").code).toBe(2);
   expect(out().code).toBe(2);
 });
+
+// ---- <hud-card ref> in a page: only the references its author wrote ----
+
+const pageCards = async (page: string, ...rs: string[]) => {
+  const r = await fetch(`${server.base}/api/refs?page=${encodeURIComponent(page)}&${rs.map((x) => `r=${encodeURIComponent(x)}`).join("&")}`);
+  return { status: r.status, cards: (await r.json()).cards };
+};
+const version = (html: string) => new Bun.CryptoHasher("sha256").update(html).digest("hex").slice(0, 16);
+
+test("a page resolves the references in its <hud-card> elements and nothing else", async () => {
+  const html = `<!doctype html><title>Status</title><hud-card ref="room/ope-12"></hud-card><p>and</p><hud-card class="x" ref='#lane/api-auth'></hud-card><hud-card ref=floor/crm></hud-card>`;
+  const id = (await post("/api/briefs", { title: "Status page", body: html }, { "x-hud-pane": "w1:p1", "x-hud-machine": "local" })).id;
+  const { cards } = await pageCards(`briefs/${id}`, "room/ope-12", "#lane/api-auth", "lane/api-auth", "floor/crm", `ask/${open}`, `brief/${brief}`, "brief/99999");
+  expect(cards["room/ope-12"]).toMatchObject({ kind: "room", title: "Auth rotation" });
+  expect(cards["#lane/api-auth"]).toMatchObject({ kind: "lane", title: "api-auth" });
+  expect(cards["lane/api-auth"]).toMatchObject({ kind: "lane" });
+  expect(cards["floor/crm"]).toMatchObject({ kind: "floor", title: "CRM" });
+  // Not in the page: the same answer as a thing that is gone.
+  expect([cards[`ask/${open}`], cards[`brief/${brief}`], cards["brief/99999"]]).toEqual([null, null, null]);
+  // A markdown brief is not a page: none of its references resolve this way.
+  expect((await pageCards(`briefs/${brief}`, "room/ope-12")).cards["room/ope-12"]).toBe(null);
+});
+
+test("a page that publishes itself cannot add references; one its author wrote stays until the page drops it", async () => {
+  const html = `<!doctype html><title>Poll</title><hud-card ref="room/ope-12"></hud-card><hud-card ref="lane/api-auth"></hud-card>`;
+  const page = `briefs/${(await post("/api/briefs", { title: "A poll", body: html }, { "x-hud-pane": "w1:p1", "x-hud-machine": "local" })).id}`;
+  const grabbed = `<!doctype html><title>Poll</title><hud-card ref="room/ope-12"></hud-card><hud-card ref="ask/${open}"></hud-card><hud-card ref="brief/${brief}"></hud-card>`;
+  await post("/api/page-runtime/publish", { page, html: grabbed, base: version(html) });
+  const { cards } = await pageCards(page, "room/ope-12", `ask/${open}`, `brief/${brief}`, "lane/api-auth");
+  expect(cards["room/ope-12"]).toMatchObject({ kind: "room" }); // the author's, still in the page
+  expect([cards[`ask/${open}`], cards[`brief/${brief}`]]).toEqual([null, null]); // added by the page itself
+  expect(cards["lane/api-auth"]).toBe(null); // the author's, but the page dropped it
+});
+
+test("an ask's page and a room's page resolve their author's references; a room page the owner's publish rewrote keeps the lane's", async () => {
+  const ask = (await post("/api/asks", { title: "Pick a plan", body: `<!doctype html><title>Plans</title><hud-card ref="room/ope-12"></hud-card>` })).id;
+  expect((await pageCards(`asks/${ask}`, "room/ope-12", "lane/api-auth")).cards).toMatchObject({ "room/ope-12": { kind: "room" }, "lane/api-auth": null });
+  const v1 = `<!doctype html><title>Board</title><hud-card ref="lane/api-auth"></hud-card>`;
+  await upload("ope-12", "board.html", v1);
+  expect((await pageCards("rooms/ope-12/files/board.html", "lane/api-auth")).cards["lane/api-auth"]).toMatchObject({ kind: "lane" });
+  await post("/api/page-runtime/publish", { page: "rooms/ope-12/files/board.html", html: `${v1}<hud-card ref="floor/crm"></hud-card>`, base: version(v1) });
+  const after = (await pageCards("rooms/ope-12/files/board.html", "lane/api-auth", "floor/crm")).cards;
+  expect(after["lane/api-auth"]).toMatchObject({ kind: "lane" });
+  expect(after["floor/crm"]).toBe(null);
+});
+
+test("a page key that is not a page is refused; a sandboxed page's own origin gets nothing", async () => {
+  expect((await pageCards("../hud.db", "room/ope-12")).status).toBe(400);
+  expect((await fetch(`${server.base}/api/refs?page=asks/1&r=room/ope-12`, { headers: { origin: "null" } })).status).toBe(403);
+});

@@ -155,6 +155,20 @@ hud ref ask 31 --json             # what its card says
 
 The page draws a card from the state it already has. What the state does not hold (a shelf file, a room's brief, an older brief or question) it reads from `GET /api/refs?r=brief/12&r=room/ope-12`: a summary only (title, status, one line), with secret values masked, read-only, behind the same origin rules as the rest of the API.
 
+### Cards in a page
+
+An HTML page (a brief, an ask's page, a room's brief or a file on its shelf) shows the same cards with an element of its own, which the page runtime provides:
+
+```html
+<p>Where the rollout stands:</p>
+<hud-card ref="room/ope-12"></hud-card>
+<hud-card ref="lane/api-auth"></hud-card>
+```
+
+The card is drawn inside the page, in the HUD's light or dark look, and is live while the page is open. A click opens the thing in the HUD, as a card there does (a file that is not a page opens in a tab of its own); opened on its own, outside the HUD, the page shows each card as a note to open it in the HUD.
+
+A page resolves only the references its author wrote into it: the ones in its stored HTML that are also in the newest version a lane or HQ wrote. A card the page's own script adds, or one it added by publishing a new version of itself, is **NOT FOUND**, the same as something that is gone, so a page cannot look through the HUD by guessing addresses. What it gets is a summary in words and colours, never markup, with secret values masked. The HUD asks `GET /api/refs?page=KEY&r=...` for it, with the page's key taken from the frame it sits in.
+
 ## HQ queue
 
 **HQ QUEUE** in SETTINGS is off by default, and off is the HUD as it always was: lanes and your notes are typed straight into HQ's pane. Turned on, what reaches HQ waits in a queue HQ reads at its own pace, instead of interrupting it mid-turn:

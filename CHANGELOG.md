@@ -3,6 +3,14 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.34.0] - 2026-11-02
+### Added
+
+- **Cards in pages.** An HTML page (a brief, an ask's page, a room's brief or page) shows a live card of an HQ thing
+  with `<hud-card ref="room/ope-12"></hud-card>`, drawn in the HUD's light or dark look; a click opens the thing in the
+  HUD, out of full screen. A page resolves only the references its author wrote into it: a card its script adds, or
+  one it added by publishing itself, is NOT FOUND. Opened outside the HUD, each card says to open the page there.
+
 ## [0.33.0] - 2026-11-02
 ### Added
 

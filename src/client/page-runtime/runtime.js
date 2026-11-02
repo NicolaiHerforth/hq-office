@@ -9,6 +9,8 @@
 //   localStorage and sessionStorage, synchronous: localStorage starts with the stored keys and writes go back through
 //     the HUD, so it is kept per page and shared by everyone who opens the HUD; sessionStorage lasts while the page is open.
 //   Mermaid: a page with .mermaid diagrams and no mermaid of its own gets them drawn, as an artifact does.
+//   <hud-card ref="brief/12">: a card of an HQ thing (its kind, title, status, one line), live while the page is open,
+//     that opens it in the HUD on a click; only references the page's author wrote resolve (src/server/refs.ts).
 // It talks only to the HUD page that frames it, through a MessageChannel handed over in a hello; the HUD
 // (src/client/page-runtime/index.js) decides which page this is from the frame, never from what this script says.
 (() => {
@@ -61,6 +63,7 @@
     if (d.roomEv !== undefined) { rooms.get(d.roomEv)?.hear(d); return; }
     if (d.stream !== undefined) { streams.get(d.stream)?.(d.text); return; }
     if (d.mount !== undefined) { threadHere = !!d.mount; if (!threadHere) pickHide(); return; }
+    if (d.cards !== undefined && d.re === undefined) { cardsCame(d.cards); return; }
     const w = waiting.get(d.re);
     if (!w) return;
     waiting.delete(d.re);
@@ -477,6 +480,91 @@
     });
   });
   addEventListener("scroll", pickHide, { passive: true, capture: true });
+
+  // ---- <hud-card ref="..."> ----
+  // In a closed shadow root, in the HUD's light and dark colours (core/base.css --field, --ink, --muted, --edge, --edge-2,
+  // --blue-text, --red, --green), built from text only: what the HUD sends is words and colours (embeds/pages.js), never
+  // markup.
+  const cardData = new Map(), cardEls = new Set();
+  let cardAsk = null;
+  function cardsCame(cards) {
+    for (const [ref, c] of Object.entries(cards || {})) cardData.set(ref, c);
+    for (const el of cardEls) el.draw();
+  }
+  function wantCard(ref) {
+    if (!framed || cardData.has(ref)) return;
+    if (!cardAsk) {
+      cardAsk = new Set();
+      queueMicrotask(() => {
+        const refs = [...cardAsk];
+        cardAsk = null;
+        call("cards", { refs }).then(cardsCame, () => cardsCame(Object.fromEntries(refs.map((r) => [r, null]))));
+      });
+    }
+    cardAsk.add(ref);
+  }
+  const CARD_CSS = `:host{display:block;max-width:560px;margin:8px 0}
+.c{display:flex;gap:10px;padding:8px 10px;border:2px solid var(--e2);border-radius:8px;background:var(--f);color:var(--i);text-decoration:none;font:14px/1.35 system-ui,-apple-system,sans-serif;overflow-wrap:anywhere;--f:#fff;--i:#23233a;--m:#6a6a82;--e:#3c3c5a;--e2:#a8a8c8;--b:#3c6fd6;--r:#d63c3c;--g:#2f9e57;--o:#fff}
+.c.dark{--f:#191b2b;--i:#ecebf4;--m:#a6a6c2;--e:#b4b4d4;--e2:#50547c;--b:#8fb0ff}
+a.c{cursor:pointer}a.c:hover{border-color:var(--e)}a.c:focus-visible{outline:3px solid var(--b);outline-offset:1px}
+.c.other{border-left:6px solid var(--fc)}.c.gone,.c.wait{border-style:dashed}
+.t{display:grid;gap:2px;min-width:0;flex:1}.h{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px}
+.w{font:700 9px/1.6 ui-monospace,Menlo,monospace;letter-spacing:.06em;color:var(--m)}
+.p{padding:0 6px;border-radius:4px;border:1px solid var(--e2);font-size:11px;font-weight:800;line-height:1.5}
+.p.new{border-color:var(--b);color:var(--b)}.p.hot{background:var(--r);border-color:var(--r);color:var(--o)}.p.ok{background:var(--g);border-color:var(--g);color:var(--o)}.p.muted{color:var(--m)}.p.st{border-color:transparent;color:var(--o)}
+.fl{padding:0 6px;border-radius:4px;font-size:11px;font-weight:800}
+b{font-weight:800}.l{color:var(--m);font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.gone b{color:var(--m)}
+.im{flex:0 0 64px;height:48px;border-radius:4px;overflow:hidden;border:1px solid var(--e2);background:#fff}.im img{width:100%;height:100%;object-fit:cover;display:block}`;
+  const dark = () => { const t = document.documentElement.dataset.theme; return t ? t === "dark" : matchMedia("(prefers-color-scheme: dark)").matches; };
+  const span = (cls, text) => Object.assign(document.createElement("span"), { className: cls, textContent: text });
+  class HudCard extends HTMLElement {
+    static get observedAttributes() { return ["ref"]; }
+    #root = this.attachShadow({ mode: "closed" });
+    connectedCallback() { cardEls.add(this); this.draw(); }
+    disconnectedCallback() { cardEls.delete(this); }
+    attributeChangedCallback() { if (this.isConnected) this.draw(); }
+    draw() {
+      const ref = String(this.getAttribute("ref") || "").trim().replace(/^#/, "");
+      wantCard(ref);
+      const c = cardData.get(ref);
+      const known = framed && c !== undefined;
+      const box = document.createElement(known && c ? "a" : "div");
+      box.className = `c${dark() ? " dark" : ""}${!framed || !known ? " wait" : c ? (c.floor ? " other" : "") : " gone"}`;
+      const body = span("t", ""), head = span("h", "");
+      body.append(head);
+      if (!framed) {
+        head.append(span("w", "HQ"));
+        body.append(Object.assign(document.createElement("b"), { textContent: ref }), span("l", "Open this page in the HUD to see this card."));
+      } else if (!known) {
+        head.append(span("w", "…"));
+        body.append(Object.assign(document.createElement("b"), { textContent: ref }));
+      } else if (!c) {
+        head.append(span("w", "NOT FOUND"));
+        body.append(Object.assign(document.createElement("b"), { textContent: ref }), span("l", "Gone, or not in this page as its author wrote it."));
+      } else {
+        head.append(span("w", c.word));
+        if (c.floor) {
+          box.style.setProperty("--fc", c.floor.color);
+          if (c.floor.name) { const f = span("fl", c.floor.name); f.style.background = c.floor.color; f.style.color = c.floor.ink; head.append(f); }
+        }
+        for (const x of c.chips || []) { const p = span(`p ${x.c}`, x.t); if (x.color) p.style.background = x.color; head.append(p); }
+        body.append(Object.assign(document.createElement("b"), { textContent: c.title }));
+        if (c.preview) body.append(span("l", c.preview));
+        if (c.thumb) { const im = span("im", ""); im.append(Object.assign(document.createElement("img"), { src: c.thumb, alt: "" })); box.append(im); }
+        if (c.href) Object.assign(box, { href: c.href, target: "_blank", rel: "noopener" });
+        else {
+          box.href = `#${ref}`;
+          box.addEventListener("click", (e) => { e.preventDefault(); send({ op: "open", ref }); });
+        }
+      }
+      box.append(body);
+      this.#root.replaceChildren(Object.assign(document.createElement("style"), { textContent: CARD_CSS }), box);
+    }
+  }
+  if (!customElements.get("hud-card")) customElements.define("hud-card", HudCard);
+  const redrawCards = () => { for (const el of cardEls) el.draw(); };
+  new MutationObserver(redrawCards).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+  matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", redrawCards);
 
   // ---- use() ----
   const MADE = { db: () => dbNs, user: userNs, downloads: () => downloadsNs, artifact: () => artifactNs, self: () => artifactNs, room: () => (lobby ??= makeRoom("")), sample: () => sampleNs, comments: () => commentsNs };
