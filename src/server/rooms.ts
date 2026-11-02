@@ -4,14 +4,15 @@
 // one for a lane that is away is kept and typed in when herdr sees the lane again. Nothing in a thread is ever lost.
 import { CONFIG, OWNER } from "./config.ts";
 import { db } from "./db.ts";
-import { bump, listeners } from "./push.ts";
+import { bump, listeners, secrets } from "./push.ts";
 import { event } from "./events.ts";
 import { addStatePart } from "./state.ts";
 import { parsePr } from "./board.ts";
 import { promptAgent } from "./herdr.ts";
 import { notifyHq } from "./hq-link.ts";
 import { floorOr, hqOf, laneFloor } from "./floors.ts";
-import { ensureFolder, reconcileRoom, removeItem, roomDir, saveFile, startFolders, unwatchRoom, watchRoom, writeBrief, writeShelf } from "./room-folder.ts";
+import { briefVersionsDir, ensureFolder, fileVersionsDir, keepVersion, reconcileRoom, removeItem, roomDir, saveFile, servedFile, startFolders, unwatchRoom, version, versions, watchRoom, writeBrief, writeShelf } from "./room-folder.ts";
+import { readFileSync } from "node:fs";
 import { refusal, safeName } from "./attachments.ts";
 import { isHtmlDoc } from "./pages.ts";
 
@@ -120,6 +121,8 @@ export function setBrief(slugRaw: unknown, body: any) {
   if (!text.trim() && body.clear !== true) throw new Error("the brief is empty: send clear: true to clear it (hud room brief SLUG --clear)");
   if (text.length > (isHtmlDoc(text) ? 5_000_000 : 100_000)) throw new Error(isHtmlDoc(text) ? "the brief page is over 5 MB" : "the brief is over 100,000 characters");
   const by = str(body.as) || r.owner;
+  // The brief it replaces is kept as a version (room-folder.ts), page or markdown; the same brief again is not a new one.
+  if (r.brief && r.brief !== text) keepVersion(briefVersionsDir(r.slug), { text: r.brief }, r.brief_at ?? Date.now(), r.brief_by, isHtmlDoc(r.brief) ? ".html" : ".md");
   db.query("UPDATE rooms SET brief = ?, brief_at = ?, brief_by = ? WHERE slug = ?").run(text || null, Date.now(), by, r.slug);
   touch(r.slug);
   writeBrief(r.slug);
@@ -168,8 +171,10 @@ export async function addFile(slugRaw: unknown, req: Request, url: URL) {
   const why = url.searchParams.get("attach") ? refusal(safeName(given), bytes.byteLength) : "";
   if (why) throw new Error(why);
   const kind = str(url.searchParams.get("kind")) ? kindOf("", url.searchParams.get("kind")) : undefined;
-  const out = await saveFile(r.slug, given, bytes, { title: str(url.searchParams.get("title")), kind, by: str(url.searchParams.get("as")) || r.owner });
-  return { id: out.id, url: out.url, path: out.path, name: out.name, kind: out.kind };
+  // A lane's upload under a name already there is a new version of that file; the owner's, from the page, is a new file.
+  const by = str(url.searchParams.get("as")) || r.owner;
+  const out = await saveFile(r.slug, given, bytes, { title: str(url.searchParams.get("title")), kind, by, replace: by !== "owner" && !url.searchParams.get("attach") });
+  return { id: out.id, url: out.url, path: out.path, name: out.name, kind: out.kind, replaced: out.replaced, versions: out.replaced ? versions(fileVersionsDir(r.slug, out.name)).length : 0 };
 }
 
 export function removeArtifact(slugRaw: unknown, id: number) {
@@ -362,10 +367,42 @@ export function roomView(slugRaw: unknown) {
     briefHtml: isHtmlDoc(r.brief), // a whole HTML page: the page opens it at /rooms/SLUG/brief.html
     briefBy: r.brief_by,
     folder: roomDir(r.slug),
-    artifactList: db.query("SELECT id, at, by, kind, title, url, path FROM room_artifacts WHERE slug = ? ORDER BY id").all(r.slug),
+    briefVersions: versions(briefVersionsDir(r.slug)).length,
+    // A file's earlier versions (room-folder.ts): how many, so its card and its page can offer them.
+    artifactList: (db.query("SELECT id, at, by, kind, title, url, path FROM room_artifacts WHERE slug = ? ORDER BY id").all(r.slug) as { path: string | null }[]).map((a) => {
+      const name = a.path?.split("/").pop();
+      return { ...a, versions: name ? versions(fileVersionsDir(r.slug, name)).length : 0 };
+    }),
     messages: msgs.map(message),
     earlier: Math.max(0, (db.query("SELECT COUNT(*) AS n FROM room_messages WHERE slug = ?").get(r.slug) as { n: number }).n - msgs.length),
   };
+}
+
+// The versions of a file on the shelf (file: its name in files/) or of the brief (brief: true), newest first: the
+// current one, then the earlier ones kept in the room's folder. With v, that version's own text when it is a markdown
+// brief (a page or a file is fetched from its address, ?v=V). hud room versions, and the page's VERSIONS.
+export function roomVersions(slugRaw: unknown, q: { file?: string | null; brief?: boolean; v?: string | null }) {
+  const r = mustRoom(slugRaw);
+  if (q.brief) {
+    const dir = briefVersionsDir(r.slug);
+    const list = versions(dir).map((x) => ({ v: x.v, at: x.at, by: x.by, html: x.path.endsWith(".html") }));
+    const one = q.v ? version(dir, q.v) : null;
+    if (q.v && !one) throw new Error(`no version ${q.v} of the brief of ${r.slug}`);
+    return {
+      slug: r.slug,
+      brief: true,
+      current: r.brief ? { at: r.brief_at, by: r.brief_by, html: isHtmlDoc(r.brief) } : null,
+      versions: list,
+      ...(one ? { version: { v: one.v, at: one.at, by: one.by, html: one.path.endsWith(".html"), body: one.path.endsWith(".html") ? null : secrets.mask(readFileSync(one.path, "utf8")) } } : {}),
+    };
+  }
+  const name = str(q.file);
+  if (!name) throw new Error("which file? ?file=NAME, or ?brief=1 for the brief");
+  const f = servedFile(r.slug, encodeURIComponent(name));
+  const row = f && (db.query("SELECT at, by, title FROM room_artifacts WHERE slug = ? AND path = ? ORDER BY id DESC LIMIT 1").get(r.slug, f.path) as { at: number; by: string; title: string } | null);
+  const list = versions(fileVersionsDir(r.slug, name)).map((x) => ({ v: x.v, at: x.at, by: x.by }));
+  if (!f && !list.length) throw new Error(`no file ${name} in room ${r.slug}`);
+  return { slug: r.slug, file: name, title: row?.title ?? name, current: f ? { at: row?.at ?? null, by: row?.by ?? null } : null, versions: list };
 }
 
 // The owner's messages after `since` (hud room read). With wait and no since, only the ones that come after now.

@@ -1,4 +1,5 @@
-// A room on disk: DATA/rooms/SLUG/ holds files/ (everything shared in the room), shelf.json and brief.md. The
+// A room on disk: DATA/rooms/SLUG/ holds files/ (everything shared in the room), shelf.json, brief.md and versions/
+// (the earlier versions of a replaced file and of the brief, see "versions" below). The
 // database stays the source of truth; the two mirrors are rewritten when the shelf or the brief changes, never on a
 // timer. A file a lane saves into an open room's files/ joins the shelf (fs.watch, one watcher per open room, idle
 // until something changes there); a file deleted from it drops off the shelf. Files are served sandboxed by
@@ -37,6 +38,41 @@ export const filesDir = (slug: string) => inside(roomDir(slug), "files");
 export const fileUrl = (slug: string, name: string) => `/rooms/${slug}/files/${encodeURIComponent(name)}`;
 
 export { safeName };
+// ---- versions ----
+
+// A lane's upload under a name already in files/ replaces the file; the one it replaces moves to
+// versions/files/NAME/, and a brief replaced moves to versions/brief/. Each version is one file named AT.BY.EXT (when it
+// was written, and by whom), so the folder is its own record: no table. The newest MAX_VERSIONS of each are kept.
+export const MAX_VERSIONS = 20;
+const VERSION = /^(\d{1,15})\.([a-z0-9-]{1,48})(\.[A-Za-z0-9]{1,8})?$/;
+export type Version = { v: string; at: number; by: string; path: string };
+const versionsDir = (slug: string) => inside(roomDir(slug), "versions");
+export const fileVersionsDir = (slug: string, name: string) => inside(versionsDir(slug), "files", safeName(name));
+export const briefVersionsDir = (slug: string) => inside(versionsDir(slug), "brief");
+const extOf = (name: string) => name.match(/\.[A-Za-z0-9]{1,8}$/)?.[0] ?? "";
+// A version's author as a file name allows: a lane's name, owner or folder.
+const byPart = (by: string | null | undefined) => String(by ?? "").toLowerCase().replace(/[^a-z0-9-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 48) || "unknown";
+// The versions in a folder, newest first.
+export function versions(dir: string): Version[] {
+  let names: string[] = [];
+  try { names = readdirSync(dir); } catch { return []; }
+  return names.flatMap((n) => {
+    const m = n.match(VERSION);
+    return m ? [{ v: m[1], at: Number(m[1]), by: m[2], path: join(dir, n) }] : [];
+  }).sort((a, b) => b.at - a.at);
+}
+export const version = (dir: string, v: string) => versions(dir).find((x) => x.v === v) ?? null;
+// Keeps a copy of what is about to be replaced (a file's path, or a brief's text) as the version written at AT by BY.
+export function keepVersion(dir: string, from: { path: string } | { text: string }, at: number, by: string | null, ext: string) {
+  mkdirSync(dir, { recursive: true });
+  const taken = new Set(versions(dir).map((x) => x.at));
+  while (taken.has(at)) at++;
+  const dest = inside(dir, `${at}.${byPart(by)}${ext}`);
+  if ("path" in from) copyFileSync(from.path, dest);
+  else writeFileSync(dest, from.text);
+  for (const old of versions(dir).slice(MAX_VERSIONS)) { try { unlinkSync(old.path); } catch {} }
+}
+
 // A name in files/ for a new file: the name itself, or name-2.ext, name-3.ext... when it is taken.
 function freeName(dir: string, name: string) {
   const dot = name.lastIndexOf(".");
@@ -96,26 +132,48 @@ function touch(slug: string) {
 }
 const kindByName = (name: string) => (RASTER.test(name) ? "image" : "file");
 
-// Bytes into the room's files/ under their own name (de-duplicated), and onto the shelf. The bytes land in a hidden
-// file beside files/ first, so the watcher only ever sees the finished file, already on the shelf.
-export async function saveFile(slug: string, given: string, bytes: ArrayBuffer, a: { title?: string; kind?: string; by: string }) {
+// Bytes into the room's files/ under their own name, and onto the shelf. The bytes land in a hidden file beside files/
+// first, so the watcher only ever sees the finished file, already on the shelf. With replace (a lane's upload), a file
+// of the same name is replaced and kept as a version; its shelf card stays and shows the new one. Without (the
+// owner's from the page, where two pasted pictures are both image.png), the new file gets a free name, name-2.ext.
+export async function saveFile(slug: string, given: string, bytes: ArrayBuffer, a: { title?: string; kind?: string; by: string; replace?: boolean }) {
   ensureFolder(slug);
   const tmp = inside(roomDir(slug), `.incoming-${process.pid}-${Math.random().toString(36).slice(2)}`);
   await Bun.write(tmp, bytes);
   const dir = filesDir(slug);
-  const name = freeName(dir, safeName(given));
+  const wanted = safeName(given);
+  let old: { st: ReturnType<typeof lstatSync>; row: Row | null } | null = null;
+  if (a.replace) {
+    try {
+      const st = lstatSync(inside(dir, wanted));
+      if (st.isFile()) old = { st, row: db.query("SELECT * FROM room_artifacts WHERE slug = ? AND path = ? ORDER BY id DESC LIMIT 1").get(slug, inside(dir, wanted)) as Row | null };
+    } catch {}
+  }
+  const name = old ? wanted : freeName(dir, wanted);
   const path = inside(dir, name);
   const url = fileUrl(slug, name);
   const kind = a.kind || kindByName(name);
-  const res = db.query("INSERT INTO room_artifacts (slug, at, by, kind, title, url, path) VALUES (?, ?, ?, ?, ?, ?, ?)").run(slug, Date.now(), a.by, kind, a.title || name, url, path);
+  // The file it replaces is copied out first; the rename then swaps the new one in at once, so the watcher never
+  // finds the name missing.
+  if (old) {
+    try { keepVersion(fileVersionsDir(slug, name), { path }, old.row?.at ?? Math.round(old.st.mtimeMs), old.row?.by ?? "folder", extOf(name)); } catch (e) {
+      try { unlinkSync(tmp); } catch {}
+      throw e;
+    }
+  }
+  const set = (r: Row, at: number, by: string | null, kind: string, title: string) => db.query("UPDATE room_artifacts SET at = ?, by = ?, kind = ?, title = ? WHERE id = ?").run(at, by, kind, title, r.id);
+  const was = old?.row;
+  if (was) set(was, Date.now(), a.by, kind, a.title || was.title);
+  const id = was ? was.id : Number(db.query("INSERT INTO room_artifacts (slug, at, by, kind, title, url, path) VALUES (?, ?, ?, ?, ?, ?, ?)").run(slug, Date.now(), a.by, kind, a.title || name, url, path).lastInsertRowid);
   try { renameSync(tmp, path); } catch (e) {
-    db.query("DELETE FROM room_artifacts WHERE id = ?").run(res.lastInsertRowid);
+    if (was) set(was, was.at, was.by, was.kind, was.title);
+    else db.query("DELETE FROM room_artifacts WHERE id = ?").run(id);
     try { unlinkSync(tmp); } catch {}
     throw e;
   }
   touch(slug);
   writeShelf(slug);
-  return { id: Number(res.lastInsertRowid), name, url, path, kind };
+  return { id, name, url, path, kind, replaced: !!old };
 }
 
 // A shelf item taken off by the owner (an image removed from the send box before sending): its file goes too.

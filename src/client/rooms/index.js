@@ -218,10 +218,43 @@ pix.addEventListener("mousemove", (e) => {
 function renderTop(r) {
   setHTML(part("rtop"), `<div class="k"><span>LANES</span></div><div class="people">${laneChip(r.owner, "OWNER")}${r.members.map((m) => laneChip(m)).join("")}</div>${r.issues.length || r.prs.length ? `<div class="k"><span>WORK</span></div><div class="works">${workHtml(r, true)}</div>` : ""}`);
 }
+// The brief's earlier versions (src/server/room-folder.ts): VERSIONS lists them; an earlier page opens on the stage
+// (#page/rooms/SLUG/brief?v=V), an earlier markdown brief shows here in place of the current one, read-only.
+let briefVers = { slug: null, open: false, list: null, key: "", shown: null };
+async function loadBriefVersions(d) {
+  const key = `${d.slug}@${d.briefAt}:${d.briefVersions}`;
+  if (briefVers.key === key) return;
+  briefVers.key = key;
+  try {
+    const r = await fetch(`/api/rooms/${encodeURIComponent(d.slug)}/versions?brief=1`, { cache: "no-store" });
+    if (r.ok && briefVers.slug === d.slug) { briefVers.list = (await r.json()).versions; renderBrief(detail); }
+  } catch {}
+}
+async function showBriefVersion(slug, v) {
+  try {
+    const r = await fetch(`/api/rooms/${encodeURIComponent(slug)}/versions?brief=1&v=${encodeURIComponent(v)}`, { cache: "no-store" });
+    const data = await r.json();
+    if (!r.ok) throw new Error(data.error || "that version is gone");
+    if (briefVers.slug === slug) { briefVers.shown = data.version; briefVers.open = false; renderBrief(detail); }
+  } catch (err) { toast(err.message); }
+}
 function renderBrief(d) {
-  const head = `<div class="k"><span>BRIEF</span>${d?.briefAt ? `<span class="by">${esc(d.briefBy || "")} · ${ago(d.briefAt)}</span>` : ""}</div>`;
-  const body = !d ? "" : d.briefHtml ? `<div class="md"><p>This brief is a page.</p><p><a class="btn-s" href="#page/rooms/${esc(d.slug)}/brief">OPEN THE BRIEF</a></p></div>` : d.brief ? `<div class="md">${md(d.brief)}</div>` : `<div class="md none">No brief yet. The owning lane pins one with hud room brief ${esc(d.slug)}.</div>`;
-  setHTML(part("rbrief"), head + body);
+  if (briefVers.slug !== d?.slug) briefVers = { slug: d?.slug ?? null, open: false, list: null, key: "", shown: null };
+  const n = d?.briefVersions ?? 0;
+  if (n && briefVers.open) loadBriefVersions(d);
+  const head = `<div class="k"><span>BRIEF</span>${d?.briefAt ? `<span class="by">${esc(d.briefBy || "")} · ${ago(d.briefAt)}</span>` : ""}${n ? `<button class="btn-s vbtn" type="button" data-brief-versions aria-expanded="${briefVers.open}">VERSIONS (${n + 1})</button>` : ""}</div>`;
+  const list = briefVers.open && briefVers.list ? `<div class="bvers">${[{ v: null, by: d.briefBy, at: d.briefAt, html: d.briefHtml }, ...briefVers.list].map((x, i, all) => {
+    const label = x.v ? `V${all.length - i}` : "LATEST", sub = `${esc(x.by === "owner" ? "you" : x.by || "")}${x.at ? ` · ${ago(x.at)}` : ""}${x.html ? " · PAGE" : ""}`;
+    const here = x.v ? briefVers.shown?.v === x.v : !briefVers.shown;
+    return x.v && x.html
+      ? `<a class="bver" href="#page/rooms/${esc(d.slug)}/brief?v=${esc(x.v)}"><b>${label}</b><span>${sub}</span></a>`
+      : `<button class="bver${here ? " here" : ""}" type="button" data-brief-version="${esc(x.v ?? "")}"><b>${label}</b><span>${sub}</span></button>`;
+  }).join("")}</div>` : "";
+  const old = briefVers.shown, i = old && briefVers.list ? briefVers.list.findIndex((x) => x.v === old.v) : -1;
+  const body = !d ? ""
+    : old ? `<div class="bold"><span><b>OLDER VERSION${i >= 0 ? ` V${briefVers.list.length - i}` : ""}</b>read-only · ${esc(old.by)} · ${ago(old.at)}</span><button class="btn-s" type="button" data-brief-version="">SHOW LATEST</button></div><div class="md">${md(old.body ?? "")}</div>`
+    : d.briefHtml ? `<div class="md"><p>This brief is a page.</p><p><a class="btn-s" href="#page/rooms/${esc(d.slug)}/brief">OPEN THE BRIEF</a></p></div>` : d.brief ? `<div class="md">${md(d.brief)}</div>` : `<div class="md none">No brief yet. The owning lane pins one with hud room brief ${esc(d.slug)}.</div>`;
+  setHTML(part("rbrief"), head + list + body);
 }
 
 // Pixel icons for the shelf's cards.
@@ -244,7 +277,9 @@ function cardHtml(a) {
   // An HTML page on the shelf opens rendered in the HUD (pages/), sandboxed, like an artifact would.
   const page = a.kind === "file" && /^\/rooms\/[a-z0-9-]+\/files\/[^/]+\.html?$/i.test(a.url);
   const open = page ? `<a class="btn-s open" href="#page${esc(a.url)}">OPEN</a>` : `<a class="btn-s open" href="${esc(a.url)}" target="_blank" rel="noopener">OPEN</a>`;
-  return `<div class="art ${esc(a.kind)}${page ? " page" : ""}"><div class="ak">${ICON[a.kind] ?? ICON.link}<span>${esc(page ? "PAGE" : label)}</span></div><div class="at" title="${esc(a.title)}">${mdInline(a.title)}</div><div class="af">${meta}${open}</div></div>`;
+  // A file a lane replaced: the card is the newest; its earlier versions open from the page's VERSIONS.
+  const vers = a.versions ? `<span class="av" title="${a.versions + 1} versions${page ? ": OPEN, then VERSIONS" : ""}">V${a.versions + 1}</span>` : "";
+  return `<div class="art ${esc(a.kind)}${page ? " page" : ""}"><div class="ak">${ICON[a.kind] ?? ICON.link}<span>${esc(page ? "PAGE" : label)}</span>${vers}</div><div class="at" title="${esc(a.title)}">${mdInline(a.title)}</div><div class="af">${meta}${open}</div></div>`;
 }
 // The shelf: its head (with ADD), the ADD form, the cards and where the folder is. The form is built once per room
 // and never redrawn, so what you type in it survives every update.
@@ -564,6 +599,13 @@ view.addEventListener("click", (e) => {
     post(`/api/rooms/${encodeURIComponent(slug)}/archive`, { by: "owner" })
       .then(() => { closeAsk = null; toast("ROOM CLOSED. IT IS UNDER ARCHIVED IN ROOMS."); })
       .catch((err) => { yes.disabled = false; toast(err.message); });
+    return;
+  }
+  if (t.closest("[data-brief-versions]")) { briefVers.open = !briefVers.open; renderBrief(detail); return; }
+  const bv = t.closest("[data-brief-version]");
+  if (bv) {
+    if (bv.dataset.briefVersion) showBriefVersion(openSlug, bv.dataset.briefVersion);
+    else { briefVers.shown = null; briefVers.open = false; renderBrief(detail); }
     return;
   }
   if (t.closest("[data-shelf-add]")) {

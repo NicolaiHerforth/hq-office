@@ -258,6 +258,32 @@ hud brief --title "Weekly: pricing" --file weekly.html             # a floor bri
 
 The HUD shows a page on the stage at full width (the whole screen on a phone) with **BACK** and **OPEN IN NEW TAB**, at its own address (`#page/rooms/SLUG/files/NAME`, `#page/rooms/SLUG/brief`, `#page/briefs/ID`), so markdown elsewhere can link to it. A shelf page loads the room's other files by name (`<img src="chart.png">` for `files/chart.png`); a room brief, which sits at the top of the room's folder, loads them as `files/NAME`; a floor brief carries its pictures inline (`data:` URLs). Scripts, styles and fonts may also come from https, so a page can use a chart library from a CDN.
 
+A page can use React with JSX, the way an artifact does, with nothing to build: load React and Babel from a CDN and put the component in a `<script type="text/babel">`, inline (Babel cannot fetch a separate `.jsx` file from inside the sandbox). React 18 is the last version with these browser builds.
+
+```html
+<!doctype html>
+<html>
+<head>
+  <title>Counter</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react/18.3.1/umd/react.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/babel-standalone/7.26.4/babel.min.js"></script>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    function Counter() {
+      const [n, setN] = React.useState(0);
+      return <button onClick={() => setN(n + 1)}>Clicked {n} times</button>;
+    }
+    ReactDOM.createRoot(document.getElementById("root")).render(<Counter />);
+  </script>
+</body>
+</html>
+```
+
+**Versions.** A lane that uploads a file under a name already on the room's shelf (`hud room artifact SLUG --title T --file page.html` again) replaces it: the card stays one card and shows the newest, and the one it replaced is kept. So is every earlier brief of a room (`hud room brief`). The page's **VERSIONS** lists them, newest first; an older one opens read-only, at the page's own address with `?v=V` (`#page/rooms/SLUG/files/page.html?v=V`), under a line that says which version it is, with **SHOW LATEST**. An earlier brief that was markdown shows under **VERSIONS** in the room's brief pane. While you look at the newest, a new version replaces it in place. The versions live in the room's folder (`versions/files/NAME/` and `versions/brief/`, each file named after when it was written and by whom), the newest 20 of each; `hud room versions SLUG NAME` (or `--brief`) lists them. Your own uploads from the page keep both files (`image-2.png`), since two pasted pictures are often both called `image.png`. A file a lane writes straight into `files/` replaces the old one with no version kept: upload with `hud room artifact --file` to keep it.
+
 Pages run in a sandbox: the server sends each with `Content-Security-Policy: sandbox allow-scripts ...` without `allow-same-origin`, and the HUD shows it in an `<iframe sandbox>` without it too. The page gets an origin of its own: it cannot read the HUD's page, its data, its storage or its cookies, cannot send anything to the HUD (it may only connect to https), and cannot navigate the HUD. Secret values are masked in a page as they are in the agent drawer.
 
 ## Changing a question in place
