@@ -72,6 +72,10 @@ async function readPane(machine: string, pane: string, blocked: boolean): Promis
   return { bg, prompt: promptIn(out, blocked) ?? (blocked ? UNREAD : null) };
 }
 
+// Each named agent's machine and the folder it works in (herdr's cwd), from the last sync: the sweep names a done
+// lane's worktree with it.
+export let agentFolders = new Map<string, { machine: string; cwd: string }>();
+
 export async function syncHerdr() {
   const errors: string[] = [];
   const seen = new Map<string, { machine: string; agent: any }>();
@@ -155,6 +159,7 @@ export async function syncHerdr() {
   untracked = [...seen.entries()]
     .filter(([name]) => !known.has(name))
     .map(([name, { machine, agent }]) => ({ name, machine, status: agent.agent_status }));
+  if (!errors.length) agentFolders = new Map([...seen.entries()].filter(([, v]) => typeof (v.agent.cwd || v.agent.foreground_cwd) === "string").map(([name, v]) => [name, { machine: v.machine, cwd: v.agent.cwd || v.agent.foreground_cwd }]));
   live = [...seen.entries()].map(([name, { machine, agent }]) => ({ name, machine, status: agent.agent_status, kind: agent.agent ?? null, lane: known.has(name) }));
   lastSync = { at: now, errors };
   // HQ is typed into on this machine: check it there even when this machine's lanes are not tracked.
