@@ -80,7 +80,7 @@ test.skipIf(!chromeFound)("the shelf's card shows the newest, marked V2; VERSION
   expect(await ev(`[...document.querySelectorAll(".pvv b")].map((b) => b.textContent)`)).toEqual(["LATEST", "V1"]);
   await ev(`window.__ver = null; document.querySelectorAll(".pvv")[1].click()`);
   await until(`/^#page\\/rooms\\/plans\\/files\\/model\\.html\\?v=\\d+$/.test(location.hash) && window.__ver === 1`);
-  expect(await ev(`document.querySelector(".pageview iframe").getAttribute("src")`)).toMatch(/^\/rooms\/plans\/files\/model\.html\?v=\d+$/);
+  expect(await ev(`document.querySelector(".pageview iframe").getAttribute("src")`)).toMatch(/^\/rooms\/plans\/files\/model\.html\?v=\d+&theme=(light|dark)$/);
   await until(`!document.querySelector(".pvold").hidden && document.querySelector(".pvold").textContent.includes("OLDER VERSION V1read-only")`);
   await ev(`window.__ver = null; [...document.querySelectorAll(".pvold a")].find((a) => a.textContent === "SHOW LATEST").click()`);
   await until(`location.hash === "#page/rooms/plans/files/model.html" && window.__ver === 2`);

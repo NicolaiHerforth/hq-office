@@ -46,6 +46,10 @@
 //   hud pause ISSUE REASON...  /  hud resume ISSUE deliberately on hold, so it is not called stalled
 //   hud board [--json]                            blocked on a prompt, then stalled, first; refreshes GitHub if the cache is over a minute old
 //   hud guide            how HQ talks to the owner (through the HUD, never only in its terminal)
+// pages: what the owner entered on an HTML page (a brief or a room's page) through its runtime, read back
+//   hud page data PAGE [PATH]   PAGE is briefs/ID, rooms/SLUG/brief or rooms/SLUG/files/NAME; PATH a db collection
+//                               (votes) or document (votes/owner); without PATH, its storage and every document
+//   hud page data               every page that keeps anything
 // conference rooms: one per piece of work, where the owner talks straight to the lane that owns it (see roomCmd below)
 //   hud room create|path|brief|artifact|say|read|list|archive ...   `hud room` prints the usage
 // floors: one HQ agent and everything it runs (see floorCmd below). hud tells the server which pane it runs in
@@ -294,7 +298,8 @@ switch (cmd) {
     console.log(rest[0] === "lane" ? LANE_GUIDE : GUIDE);
     break;
   case "page":
-    await commentCmd("page", argv);
+    if (rest[0] === "data") await pageData(rest[1], rest[2]);
+    else await commentCmd("page", argv);
     break;
   case "room":
     await roomCmd(argv);
@@ -560,6 +565,17 @@ async function roomCmd(args: string[]) {
   }
 }
 
+// ---- what a page keeps through its runtime (hud page data) ----
+async function pageData(page?: string, path?: string) {
+  if (!page) {
+    const { pages } = await call("GET", "/api/page-runtime/data");
+    if (!pages.length) console.log("no page keeps anything yet");
+    for (const p of pages) console.log(`${p.page}  ${p.docs} document${p.docs === 1 ? "" : "s"}, ${p.keys} stored key${p.keys === 1 ? "" : "s"}`);
+    return;
+  }
+  console.log(JSON.stringify(await call("GET", `/api/page-runtime/data?${new URLSearchParams({ page, ...(path ? { path } : {}) })}`), null, 2));
+}
+
 // ---- comments on a brief or a room's page (hud brief comments|reply, hud page comments|reply) ----
 
 async function commentCmd(kind: "brief" | "page", args: string[]) {
@@ -567,7 +583,7 @@ async function commentCmd(kind: "brief" | "page", args: string[]) {
   const { rest: r, one: o } = parse(args.filter((a) => a !== "--json"));
   const [verb, id, ...words] = r;
   const usage = () => {
-    console.error(kind === "brief" ? "usage: hud brief comments ID [--json] | hud brief reply ID TEXT [--reply N] [--as AGENT]" : "usage: hud page comments KEY [--json] | hud page reply KEY TEXT [--reply N] [--as AGENT]   (KEY: rooms/SLUG/brief or rooms/SLUG/files/NAME.html)");
+    console.error(kind === "brief" ? "usage: hud brief comments ID [--json] | hud brief reply ID TEXT [--reply N] [--as AGENT]" : "usage: hud page comments KEY [--json] | hud page reply KEY TEXT [--reply N] [--as AGENT] | hud page data [KEY [PATH]]   (KEY: rooms/SLUG/brief or rooms/SLUG/files/NAME.html; data also takes briefs/ID)");
     process.exit(2);
   };
   if (!id || !["comments", "reply"].includes(verb)) usage();

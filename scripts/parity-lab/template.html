@@ -1,0 +1,357 @@
+<title>Parity Lab</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+/* Layout: a test bench. Pixel office strip on top, the scoreboard, then the checks as a ledger, then the gap board. */
+:root {
+  --bg: #eef1f6; --panel: #ffffff; --fg: #18202e; --muted: #5a6478; --line: #d7dde8;
+  --accent: #c9631b; --accent-soft: #fbe9dc; --pass: #1f8a5b; --fail: #c23b3b; --wait: #8a6d1f; --info: #3d63b8;
+  --sky1: #9fb7dd; --sky2: #dfe8f6; --floor: #c8d2e3; --wall: #e4e9f2; --desk: #8a5a3a; --screen: #ffd28a;
+  --display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", sans-serif;
+  --body: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #10151f; --panel: #171e2b; --fg: #e7ebf3; --muted: #9aa5ba; --line: #2a3446;
+  --accent: #f0974d; --accent-soft: #3a2616; --pass: #4cc38a; --fail: #f07070; --wait: #e2c15a; --info: #86a8f0;
+  --sky1: #0b1222; --sky2: #1b2840; --floor: #232c3d; --wall: #1a2232; --desk: #6b452c; --screen: #ffbf5e; color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #10151f; --panel: #171e2b; --fg: #e7ebf3; --muted: #9aa5ba; --line: #2a3446;
+  --accent: #f0974d; --accent-soft: #3a2616; --pass: #4cc38a; --fail: #f07070; --wait: #e2c15a; --info: #86a8f0;
+  --sky1: #0b1222; --sky2: #1b2840; --floor: #232c3d; --wall: #1a2232; --desk: #6b452c; --screen: #ffbf5e; color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.55 var(--body); }
+.wrap { max-width: 1080px; margin: 0 auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); padding-block: 20px 48px; display: grid; gap: 22px; }
+h1, h2 { font-family: var(--display); text-wrap: balance; margin: 0; }
+h1 { font-size: clamp(30px, 5vw, 46px); font-weight: 800; letter-spacing: -0.02em; line-height: 1.05; }
+h2 { font-size: 22px; font-weight: 800; letter-spacing: -0.01em; }
+.eyebrow { font: 600 11px/1 var(--mono); letter-spacing: .14em; text-transform: uppercase; color: var(--accent); }
+.muted { color: var(--muted); }
+.hero { display: grid; gap: 14px; }
+.office { width: 100%; max-width: 100%; aspect-ratio: 16 / 4; image-rendering: pixelated; border-radius: 12px; border: 1px solid var(--line); background: var(--sky2); display: block; }
+.where { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.chip { font: 600 12px/1 var(--mono); padding: 6px 10px; border-radius: 99px; border: 1px solid var(--line); background: var(--panel); }
+.chip.on { background: var(--accent-soft); border-color: var(--accent); color: var(--fg); }
+.score { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 18px; align-items: center; background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+.big { font: 800 52px/1 var(--display); font-variant-numeric: tabular-nums; }
+.big small { font-size: 20px; color: var(--muted); font-weight: 500; }
+.bars { display: grid; gap: 8px; min-width: 0; }
+.bar { display: grid; grid-template-columns: 96px minmax(0, 1fr) 48px; gap: 10px; align-items: center; font-size: 13px; }
+.track { height: 10px; border-radius: 99px; background: var(--line); overflow: hidden; display: flex; }
+.track i { display: block; height: 100%; }
+.track .p { background: var(--pass); } .track .f { background: var(--fail); } .track .w { background: var(--wait); }
+.num { font: 600 12px var(--mono); text-align: right; font-variant-numeric: tabular-nums; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 22px; }
+.panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 18px; min-width: 0; display: grid; gap: 12px; align-content: start; }
+.ledger { display: grid; gap: 0; }
+.group { font: 600 11px/1 var(--mono); letter-spacing: .12em; text-transform: uppercase; color: var(--muted); padding: 16px 0 6px; border-bottom: 1px solid var(--line); }
+.row { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; gap: 10px; align-items: start; padding: 10px 0; border-bottom: 1px solid var(--line); }
+.row b { font-weight: 600; } .row .d { color: var(--muted); font-size: 13px; overflow-wrap: anywhere; }
+.dot { width: 14px; height: 14px; border-radius: 4px; margin-top: 4px; background: var(--wait); }
+.dot.pass { background: var(--pass); } .dot.fail { background: var(--fail); } .dot.info { background: var(--info); }
+.state { font: 600 12px var(--mono); text-transform: uppercase; letter-spacing: .06em; }
+.state.pass { color: var(--pass); } .state.fail { color: var(--fail); } .state.wait { color: var(--wait); } .state.info { color: var(--info); }
+button, .btn { font: 600 13px var(--body); color: var(--fg); background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button:focus-visible, textarea:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.chart { position: relative; height: 220px; }
+.gap { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.gap input { width: 18px; height: 18px; accent-color: var(--accent); }
+.gap .n { font: 600 13px var(--mono); font-variant-numeric: tabular-nums; color: var(--muted); }
+textarea { width: 100%; min-height: 72px; font: 14px var(--body); color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px; resize: vertical; }
+.answer { white-space: pre-wrap; font-size: 14px; min-height: 1.5em; }
+.mermaid-box { overflow-x: auto; }
+pre.mermaid { margin: 0; font: 12px var(--mono); color: var(--muted); }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.note { font-size: 13px; color: var(--muted); }
+code { font: 13px var(--mono); }
+@media (max-width: 560px) { .score { grid-template-columns: 1fr; } .bar { grid-template-columns: 80px minmax(0, 1fr) 40px; } }
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="eyebrow">HQ Office · page runtime test</div>
+    <h1>Parity Lab</h1>
+    <p class="muted" style="margin:0;max-width:65ch">This one page measures, where it runs, what a page can do: render, interact, keep state, reach its host, stay isolated. Open it as a Claude artifact and as an HQ Office brief, and compare.</p>
+    <canvas class="office" id="office" width="320" height="80" aria-label="A pixel office at night: workers at desks, screens glowing"></canvas>
+    <div class="where" id="where"></div>
+  </header>
+
+  <section class="score" aria-label="Score">
+    <div><div class="big" id="big">0<small> / 0</small></div><div class="note" id="bigNote">checks passing</div></div>
+    <div class="bars" id="bars"></div>
+  </section>
+
+  <div class="grid2">
+    <section class="panel"><h2>Checks</h2><div class="ledger" id="ledger"></div>
+      <div class="actions">
+        <button id="tCopy" type="button">Test copy</button>
+        <button id="tFull" type="button">Test fullscreen</button>
+        <button id="tSave" type="button">Test file save</button>
+        <button id="tRerun" type="button">Run again</button>
+      </div>
+      <p class="note">Copy, fullscreen and file saving need a click, as in any browser.</p>
+    </section>
+    <div style="display:grid;gap:22px;align-content:start;min-width:0">
+      <section class="panel"><h2>Release pace</h2><div class="chart"><canvas id="pace" aria-label="Releases per day"></canvas></div>
+        <p class="note">HQ Office releases per day, from its changelog: <span id="paceSum"></span>. Drawn with Chart.js from a CDN.</p></section>
+      <section class="panel"><h2>How a page is shown</h2><div class="mermaid-box">
+<pre class="mermaid">flowchart LR
+  A[Agent] -->|writes| P[HTML page]
+  P --> C{Where}
+  C -->|claude.ai| R[Artifact viewer]
+  C -->|HQ Office| H[Sandboxed brief]
+  R --> X[Same checks]
+  H --> X</pre></div>
+        <p class="note" id="mermaidNote">Artifacts render Mermaid natively; nothing is loaded for it here.</p></section>
+    </div>
+  </div>
+
+  <div class="grid2">
+    <section class="panel"><h2>Which gaps matter?</h2>
+      <p class="note" id="voteNote">Pick up to three. Votes are shared when this page can keep shared data.</p>
+      <div id="gaps"></div></section>
+    <section class="panel"><h2>Ask about these results</h2>
+      <textarea id="ask" aria-label="Your question">Which failing checks matter most for agents writing reports, and why?</textarea>
+      <div class="actions"><button class="primary" id="askBtn" type="button">Ask</button></div>
+      <div class="answer" id="answer"></div>
+      <p class="note" id="askNote"></p></section>
+  </div>
+
+  <section class="panel"><h2>Results</h2>
+    <div class="actions"><button id="copyJson" type="button">Copy results</button><button id="saveJson" type="button">Save results</button></div>
+    <pre id="json" style="margin:0;overflow-x:auto;font:12px var(--mono);color:var(--muted);max-height:180px"></pre></section>
+</div>
+
+<script>
+const PACE = __PACE__;
+const GAPS = [
+  { id: "storage", t: "Per-viewer storage (remembered tabs, drafts)" },
+  { id: "db", t: "Shared data that lanes and HQ can read back" },
+  { id: "ask", t: "Ask an agent from the page" },
+  { id: "mermaid", t: "Mermaid diagrams without loading a library" },
+  { id: "files", t: "Pictures and files next to the page" },
+  { id: "versions", t: "Version history of a page" },
+  { id: "save", t: "Saving a generated file" },
+  { id: "live", t: "Seeing who else has it open" },
+];
+const $ = (id) => document.getElementById(id);
+const host = { kind: "browser", claude: typeof window.claude?.use === "function", hud: typeof window.hud?.use === "function" };
+host.kind = host.hud ? "HQ Office brief" : host.claude ? "Claude artifact" : (window.parent !== window ? "a sandboxed frame" : "a plain browser tab");
+const use = async (name) => {
+  const api = window.hud?.use ? window.hud : window.claude?.use ? window.claude : null;
+  if (!api) return null;
+  try { return await Promise.race([api.use(name), new Promise((r) => setTimeout(() => r(null), 10000))]); } catch { return null; }
+};
+
+// ---- the checks ----
+const GROUPS = ["Rendering", "Interaction", "Runtime", "Isolation"];
+const checks = [];
+const add = (group, id, title, run, opts = {}) => checks.push({ group, id, title, run, state: "wait", detail: opts.wait || "running…", manual: !!opts.manual });
+const set = (c, state, detail) => { c.state = state; c.detail = detail; render(); };
+
+add("Rendering", "script", "Scripts run", async () => ["pass", "inline script ran"]);
+add("Rendering", "fonts", "Web fonts from Google Fonts", async () => {
+  await Promise.race([document.fonts.ready, new Promise((r) => setTimeout(r, 4000))]);
+  const ok = document.fonts.check('800 20px "Bricolage Grotesque"') && [...document.fonts].some((f) => f.family.includes("Bricolage") && f.status === "loaded");
+  return ok ? ["pass", "Bricolage Grotesque and IBM Plex loaded"] : ["fail", "fell back to system fonts"];
+});
+add("Rendering", "cdn", "Chart library from a CDN", async () => (window.Chart ? ["pass", `Chart.js ${Chart.version}`] : ["fail", "cdnjs script did not load"]));
+add("Rendering", "mermaid", "Mermaid diagrams, no library loaded", async () => {
+  for (let i = 0; i < 30; i++) { if (document.querySelector(".mermaid-box svg")) return ["pass", "the host rendered the diagram"]; await new Promise((r) => setTimeout(r, 200)); }
+  return ["fail", "shown as text"];
+});
+add("Rendering", "theme", "Follows light and dark", async () => {
+  const dark = matchMedia("(prefers-color-scheme: dark)").matches, attr = document.documentElement.dataset.theme;
+  return ["pass", `${attr ? `host set data-theme="${attr}"` : "system setting"}, ${dark ? "dark" : "light"}`];
+});
+add("Rendering", "canvas", "Canvas and WebGL", async () => {
+  const gl = document.createElement("canvas").getContext("webgl");
+  return gl ? ["pass", "2D canvas and WebGL"] : ["fail", "no WebGL"];
+});
+add("Interaction", "storage", "Remembers things per viewer", async () => {
+  try { localStorage.setItem("parity-lab", String(Date.now())); return localStorage.getItem("parity-lab") ? ["pass", "localStorage works"] : ["fail", "localStorage empty"]; }
+  catch (e) { return ["fail", `localStorage blocked (${e.name})`]; }
+});
+add("Interaction", "worker", "Background worker", async () => {
+  try {
+    const w = new Worker(URL.createObjectURL(new Blob(["onmessage=(e)=>postMessage(e.data*2)"], { type: "text/javascript" })));
+    const v = await Promise.race([new Promise((r) => { w.onmessage = (e) => r(e.data); }), new Promise((r) => setTimeout(() => r(null), 2000)), (w.postMessage(21), null)].filter(Boolean));
+    w.terminate();
+    return v === 42 ? ["pass", "a blob worker answered"] : ["fail", "no answer"];
+  } catch (e) { return ["fail", e.name]; }
+});
+add("Interaction", "copy", "Copy to clipboard", null, { manual: true, wait: "click Test copy" });
+add("Interaction", "full", "Fullscreen", null, { manual: true, wait: "click Test fullscreen" });
+add("Interaction", "save", "Save a generated file", null, { manual: true, wait: "click Test file save" });
+for (const [id, title, how] of [["db", "Shared data (db)", "db"], ["user", "Who is viewing (user)", "user"], ["sample", "Ask the model (sample)", "sample"], ["downloads", "File saving through the host", "downloads"], ["artifact", "Page republishes itself", "artifact"], ["room", "Live presence (room)", "room"], ["comments", "Comments on the page", "comments"]]) {
+  add("Runtime", id, title, async () => {
+    if (!host.claude && !host.hud) return ["fail", "no page runtime here"];
+    const ns = await use(how);
+    if (!ns) return ["fail", `use("${how}") gave nothing`];
+    if (how === "db") return await dbCheck(ns);
+    if (how === "user") { try { const me = await ns.me?.(); return ["pass", me?.name ? `viewer: ${me.name}` : "viewer known"]; } catch { return ["pass", "available"]; } }
+    if (how === "room") { let n = 0; try { ns.onPeers?.((p) => { n = (p?.length ?? 0); }); } catch {} return ["pass", "connected"]; }
+    return ["pass", "available"];
+  });
+}
+add("Isolation", "hostdoc", "Cannot read the host page", async () => {
+  if (window.parent === window) return ["info", "not in a frame"];
+  try { void window.parent.document.body; return ["fail", "the page can read its host"]; } catch { return ["pass", "host page out of reach"]; }
+});
+add("Isolation", "hostdata", "Cannot fetch the host's data", async () => {
+  try { const r = await fetch("/api/state", { cache: "no-store" }); const t = await r.text(); return /"lanes"\s*:/.test(t) ? ["fail", "read the HUD's state"] : ["pass", `got HTTP ${r.status}, no host data`]; }
+  catch { return ["pass", "request refused"]; }
+});
+add("Isolation", "cookies", "No host cookies", async () => { try { return document.cookie ? ["fail", "cookies visible"] : ["pass", "none visible"]; } catch { return ["pass", "cookie access refused"]; } });
+
+let dbRef = null, me = null;
+async function dbCheck(db) {
+  try {
+    const user = await use("user");
+    me = (await user?.id?.()) || null;
+    if (!me) return ["pass", "available (signed out: read only)"];
+    dbRef = db;
+    await db.doc(`runs/${me}`).set({ where: host.kind, at: new Date().toISOString(), results: Object.fromEntries(checks.map((c) => [c.id, c.state])) });
+    return ["pass", "wrote this run's results"];
+  } catch (e) { return ["fail", `write refused (${e?.code || e?.name || "error"})`]; }
+}
+
+// manual checks
+const byId = (id) => checks.find((c) => c.id === id);
+$("tCopy").onclick = async () => {
+  try { await navigator.clipboard.writeText("Parity Lab copy test"); set(byId("copy"), "pass", "copied"); }
+  catch (e) { set(byId("copy"), "fail", `refused (${e.name})`); }
+  report();
+};
+$("tFull").onclick = async () => {
+  try { await document.documentElement.requestFullscreen(); set(byId("full"), "pass", "entered fullscreen"); setTimeout(() => document.exitFullscreen?.().catch(() => {}), 800); }
+  catch (e) { set(byId("full"), "fail", `refused (${e.name})`); }
+  report();
+};
+async function saveFile(name, text) {
+  const dl = await use("downloads");
+  if (dl) { await dl.save({ filename: name, data: text }); return "saved through the host"; }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type: "application/json" })); a.download = name; document.body.append(a); a.click(); a.remove();
+  return "download started (browser)";
+}
+$("tSave").onclick = async () => { try { set(byId("save"), "pass", await saveFile("parity-test.txt", "Parity Lab file save test\n")); } catch (e) { set(byId("save"), "fail", e?.code || e?.name || "refused"); } report(); };
+
+// ---- render ----
+function render() {
+  $("where").innerHTML = `<span class="chip on">Running in: ${host.kind}</span><span class="chip">${matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light"} theme</span><span class="chip">${innerWidth}px wide</span>`;
+  const done = checks.filter((c) => c.state !== "wait" && c.state !== "info"), pass = done.filter((c) => c.state === "pass").length;
+  $("big").innerHTML = `${pass}<small> / ${checks.filter((c) => c.state !== "info").length}</small>`;
+  $("bars").innerHTML = GROUPS.map((g) => {
+    const cs = checks.filter((c) => c.group === g && c.state !== "info"), n = cs.length || 1;
+    const k = (s) => cs.filter((c) => c.state === s).length;
+    return `<div class="bar"><span>${g}</span><span class="track"><i class="p" style="width:${k("pass") / n * 100}%"></i><i class="f" style="width:${k("fail") / n * 100}%"></i><i class="w" style="width:${k("wait") / n * 100}%"></i></span><span class="num">${k("pass")}/${cs.length}</span></div>`;
+  }).join("");
+  $("ledger").innerHTML = GROUPS.map((g) => `<div class="group">${g}</div>` + checks.filter((c) => c.group === g).map((c) =>
+    `<div class="row"><span class="dot ${c.state}"></span><span><b>${c.title}</b><div class="d">${esc(c.detail)}</div></span><span class="state ${c.state}">${c.state === "wait" ? (c.manual ? "click" : "…") : c.state}</span></div>`).join("")).join("");
+  $("json").textContent = JSON.stringify(results(), null, 1);
+}
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" })[c]);
+const results = () => ({ where: host.kind, at: new Date().toISOString(), checks: Object.fromEntries(checks.map((c) => [c.id, { state: c.state, detail: c.detail }])) });
+function report() {
+  const r = results();
+  try { if (window.parent !== window) window.parent.postMessage({ parityLab: r }, "*"); } catch {}
+  if (dbRef && me) dbRef.doc(`runs/${me}`).set({ where: r.where, at: r.at, results: Object.fromEntries(Object.entries(r.checks).map(([k, v]) => [k, v.state])) }).catch(() => {});
+}
+async function runAll() {
+  for (const c of checks) if (!c.manual) { c.state = "wait"; c.detail = "running…"; }
+  render();
+  await Promise.all(checks.filter((c) => !c.manual).map(async (c) => { try { const [s, d] = await c.run(); set(c, s, d); } catch (e) { set(c, "fail", e?.message || "error"); } }));
+  render(); report();
+}
+$("tRerun").onclick = runAll;
+$("copyJson").onclick = async () => { const t = JSON.stringify(results(), null, 1); try { await navigator.clipboard.writeText(t); $("copyJson").textContent = "Copied"; } catch { const r = document.createRange(); r.selectNodeContents($("json")); getSelection().removeAllRanges(); getSelection().addRange(r); $("copyJson").textContent = "Selected: press copy"; } setTimeout(() => ($("copyJson").textContent = "Copy results"), 1600); };
+$("saveJson").onclick = async () => { try { $("saveJson").textContent = await saveFile("parity-results.json", JSON.stringify(results(), null, 1)); } catch { $("saveJson").textContent = "Saving was refused"; } setTimeout(() => ($("saveJson").textContent = "Save results"), 2000); };
+
+// ---- chart ----
+function drawChart() {
+  if (!window.Chart) { $("paceSum").textContent = "the chart library did not load"; return; }
+  const css = getComputedStyle(document.documentElement), c = (n) => css.getPropertyValue(n).trim();
+  const total = PACE.counts.reduce((a, b) => a + b, 0);
+  $("paceSum").textContent = `${total} releases over ${PACE.days.length} days`;
+  new Chart($("pace"), { type: "bar", data: { labels: PACE.days.map((d) => d.slice(5)), datasets: [{ data: PACE.counts, backgroundColor: c("--accent"), borderRadius: 4, maxBarThickness: 28 }] },
+    options: { maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { x: { ticks: { color: c("--muted"), font: { family: "IBM Plex Mono" } }, grid: { display: false } }, y: { beginAtZero: true, ticks: { precision: 0, color: c("--muted") }, grid: { color: c("--line") } } } } });
+}
+
+// ---- gap board ----
+let votes = {}, mine = [];
+function drawGaps() {
+  const tally = {}; for (const v of Object.values(votes)) for (const id of v) tally[id] = (tally[id] || 0) + 1;
+  $("gaps").innerHTML = GAPS.map((g) => `<label class="gap"><input type="checkbox" data-gap="${g.id}" ${mine.includes(g.id) ? "checked" : ""} ${!mine.includes(g.id) && mine.length >= 3 ? "disabled" : ""}><span>${g.t}</span><span class="n">${tally[g.id] || 0}</span></label>`).join("");
+}
+$("gaps").addEventListener("change", async (e) => {
+  const id = e.target.dataset.gap; if (!id) return;
+  mine = e.target.checked ? [...mine, id].slice(0, 3) : mine.filter((x) => x !== id);
+  if (dbRef && me) { votes[me] = mine; try { await dbRef.doc(`votes/${me}`).set({ picks: mine }); } catch { $("voteNote").textContent = "Your vote could not be saved here."; } }
+  else { votes.local = mine; try { localStorage.setItem("parity-votes", JSON.stringify(mine)); } catch {} }
+  drawGaps();
+});
+async function initVotes() {
+  try { mine = JSON.parse(localStorage.getItem("parity-votes") || "[]"); votes.local = mine; } catch {}
+  drawGaps();
+  const db = await use("db"), user = await use("user"); const id = await user?.id?.().catch(() => null);
+  if (!db || !id) { $("voteNote").textContent = "This view keeps no shared data, so only you see your picks."; return; }
+  dbRef = db; me = id; delete votes.local;
+  $("voteNote").textContent = "Pick up to three. Everyone who opens this page sees the totals.";
+  db.collection("votes").onSnapshot((snap) => { votes = {}; snap.docs.forEach((d) => { votes[d.id] = d.data()?.picks || []; }); mine = votes[me] || []; drawGaps(); }, () => {});
+}
+
+// ---- ask ----
+$("askBtn").onclick = async () => {
+  const sample = await use("sample");
+  if (!sample) { $("answer").textContent = ""; $("askNote").textContent = "This view cannot ask a model."; return; }
+  $("askNote").textContent = ""; $("answer").textContent = "Thinking…";
+  const failing = checks.filter((c) => c.state === "fail").map((c) => `${c.title}: ${c.detail}`).join("\n") || "none";
+  try {
+    const r = await sample(`You are reviewing a page runtime test. Running in: ${host.kind}. Failing checks:\n${failing}\n\nQuestion: ${$("ask").value}\nAnswer in under 120 words, plain sentences.`, { onText: ({ text }) => { $("answer").textContent = text; } });
+    $("answer").textContent = r.text;
+  } catch (e) { $("askNote").textContent = e?.code === "rate_limited" ? "Too many questions just now. Try again in a minute." : "The question was refused."; $("answer").textContent = e?.text || ""; }
+};
+
+// ---- the office strip ----
+function office() {
+  const cv = $("office"), g = cv.getContext("2d"), css = () => getComputedStyle(document.documentElement);
+  const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const workers = [[34, 0], [98, 1], [162, 2], [226, 3]];
+  let t = 0;
+  function frame() {
+    const s = css(), c = (n) => s.getPropertyValue(n).trim();
+    g.fillStyle = c("--wall"); g.fillRect(0, 0, 320, 80);
+    // windows with a night or day sky
+    for (let x = 12; x < 320; x += 60) { g.fillStyle = c("--sky1"); g.fillRect(x, 8, 44, 22); g.fillStyle = c("--sky2"); g.fillRect(x, 20, 44, 10); g.fillStyle = c("--line"); g.fillRect(x + 21, 8, 2, 22); }
+    g.fillStyle = c("--floor"); g.fillRect(0, 56, 320, 24);
+    for (let x = 0; x < 320; x += 16) { g.fillStyle = c("--line"); g.fillRect(x, 56, 1, 24); }
+    workers.forEach(([x, k]) => {
+      const typing = !still && ((t >> 3) + k) % 4 < 2;
+      // desk, screen glow
+      g.fillStyle = c("--desk"); g.fillRect(x - 4, 50, 34, 4); g.fillRect(x - 2, 54, 2, 8); g.fillRect(x + 26, 54, 2, 8);
+      g.fillStyle = "#2b3245"; g.fillRect(x + 12, 38, 14, 11);
+      g.fillStyle = c("--screen"); g.fillRect(x + 13, 39, 12, 8);
+      if (typing) { g.fillStyle = "#2b3245"; g.fillRect(x + 15, 41 + ((t >> 2) % 3) * 2, 6, 1); }
+      // worker: hair, face, shirt, arms
+      const hair = ["#3b2a20", "#c58b3a", "#1d1d24", "#8a3b2a"][k], shirt = ["#3d63b8", "#1f8a5b", "#9b4fc2", "#c9631b"][k];
+      g.fillStyle = hair; g.fillRect(x, 30, 8, 3);
+      g.fillStyle = "#f0c9a0"; g.fillRect(x, 33, 8, 6);
+      g.fillStyle = shirt; g.fillRect(x - 1, 39, 10, 11);
+      g.fillStyle = "#f0c9a0"; g.fillRect(x + 9, typing && (t >> 1) % 2 ? 44 : 45, 4, 2);
+    });
+    t++; if (!still) requestAnimationFrame(frame);
+  }
+  frame();
+}
+
+// ---- go ----
+matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", render);
+office(); drawChart(); render(); runAll(); initVotes();
+if (!host.claude) $("mermaidNote").textContent = "Artifacts render Mermaid natively. Here it stays text unless the host renders it.";
+</script>

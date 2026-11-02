@@ -1,0 +1,5 @@
+/* THE PAGE RUNTIME: the bar that asks the owner before the HUD saves a file a page offers (downloads.save). */
+.pr-save { position: fixed; left: 50%; bottom: max(16px, env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 60; display: flex; align-items: center; gap: 8px; max-width: calc(100vw - 32px); box-sizing: border-box; padding: 10px 12px; font: 600 14px/1.35 var(--text); color: var(--ink); background: var(--box); border: 2px solid var(--edge); border-radius: 8px; box-shadow: 0 6px 24px rgba(0, 0, 0, 0.35); }
+.pr-save .pr-what { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.pr-save .btn-s { flex: none; min-height: 36px; }
+@media (max-width: 600px) { .pr-save { flex-wrap: wrap; } .pr-save .pr-what { flex-basis: 100%; } .pr-save .btn-s { min-height: 44px; flex: 1; } }

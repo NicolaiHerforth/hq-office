@@ -6,10 +6,11 @@
 //
 // A room's page keeps its earlier versions (src/server/room-folder.ts): VERSIONS lists them, and ?v=V on the address
 // (#page/rooms/SLUG/files/NAME?v=V) shows one, read-only, under a line that says so. While the newest is shown, a new
-// version from the lane replaces it in place.
+// version from the lane replaces it in place. A page shows in the HUD's theme (theme.js).
 import { setHTML, esc } from "../core/format.js";
 import { S } from "../core/state.js";
 import { emit, on } from "../core/bus.js";
+import { themedSrc } from "./theme.js";
 
 export const SANDBOX = "allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms allow-modals allow-downloads";
 const stage = document.querySelector(".stage");
@@ -38,8 +39,11 @@ export function pageOf(hash) {
   if (v) return null; // a floor's brief has no versions: each one is a brief of its own
   return { src: `/briefs/${m[5]}.html`, title: `Brief #${m[5]}`, key: `briefs/${m[5]}` };
 }
-// The same frame, for a page shown inside another view (a floor's brief).
-export const frameHTML = (src, label) => `<iframe class="pageframe" src="${esc(src)}" sandbox="${SANDBOX}" referrerpolicy="no-referrer" title="${esc(label)}"></iframe>`;
+// What a page may ask for from a click, as an artifact may: copying to the clipboard, and going full screen.
+export const ALLOW = "clipboard-write; fullscreen";
+// The same frame, for a page shown inside another view (a floor's brief). It shows in the HUD's theme (theme.js),
+// which keeps it in step through data-src.
+export const frameHTML = (src, label) => `<iframe class="pageframe" src="${esc(themedSrc(src))}" data-src="${esc(src)}" sandbox="${SANDBOX}" allow="${ALLOW}" allowfullscreen referrerpolicy="no-referrer" title="${esc(label)}"></iframe>`;
 
 export const when = (t) => new Date(t).toLocaleString([], { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 const byName = (by) => (by === "owner" ? "you" : by || "?");

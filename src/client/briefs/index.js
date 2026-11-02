@@ -2,7 +2,7 @@
 // lists the floor's briefs newest first, with the date, who posted it and its first lines; NEW marks one you have not
 // opened. Opening one (from the list, or the line MESSAGES gets, #brief/ID) takes the right column at full width, the
 // way a room does, with the whole brief in markdown (headings, tables, lists, code), BACK, NEWER and OLDER. On a
-// narrow screen the brief fills the screen. Inside a floor, that floor's briefs (docs/floors.md).
+// narrow screen the brief fills the screen. It reads in the HUD's theme (the tokens of core/base.css). Inside a floor, that floor's briefs (docs/floors.md).
 import { $, toast } from "../core/dom.js";
 import { S } from "../core/state.js";
 import { esc, setHTML } from "../core/format.js";

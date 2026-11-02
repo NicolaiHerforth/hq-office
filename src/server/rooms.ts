@@ -14,7 +14,7 @@ import { floorOr, hqOf, laneFloor } from "./floors.ts";
 import { briefVersionsDir, ensureFolder, fileVersionsDir, keepVersion, reconcileRoom, removeItem, roomDir, saveFile, servedFile, startFolders, unwatchRoom, version, versions, watchRoom, writeBrief, writeShelf } from "./room-folder.ts";
 import { readFileSync } from "node:fs";
 import { refusal, safeName } from "./attachments.ts";
-import { isHtmlDoc } from "./pages.ts";
+import { isPage } from "./pages.ts";
 
 export const MAX_ROOM_FILE = 25 * 1024 * 1024;
 const KINDS = ["claude-artifact", "link", "image", "file"];
@@ -119,14 +119,14 @@ export function setBrief(slugRaw: unknown, body: any) {
   const text = String(body.body ?? "").replace(/\s+$/, "");
   // An empty brief clears the room's brief, so it has to be asked for: a client that sends nothing never wipes it.
   if (!text.trim() && body.clear !== true) throw new Error("the brief is empty: send clear: true to clear it (hud room brief SLUG --clear)");
-  if (text.length > (isHtmlDoc(text) ? 5_000_000 : 100_000)) throw new Error(isHtmlDoc(text) ? "the brief page is over 5 MB" : "the brief is over 100,000 characters");
+  if (text.length > (isPage(text) ? 5_000_000 : 100_000)) throw new Error(isPage(text) ? "the brief page is over 5 MB" : "the brief is over 100,000 characters");
   const by = str(body.as) || r.owner;
   // The brief it replaces is kept as a version (room-folder.ts), page or markdown; the same brief again is not a new one.
-  if (r.brief && r.brief !== text) keepVersion(briefVersionsDir(r.slug), { text: r.brief }, r.brief_at ?? Date.now(), r.brief_by, isHtmlDoc(r.brief) ? ".html" : ".md");
+  if (r.brief && r.brief !== text) keepVersion(briefVersionsDir(r.slug), { text: r.brief }, r.brief_at ?? Date.now(), r.brief_by, isPage(r.brief) ? ".html" : ".md");
   db.query("UPDATE rooms SET brief = ?, brief_at = ?, brief_by = ? WHERE slug = ?").run(text || null, Date.now(), by, r.slug);
   touch(r.slug);
   writeBrief(r.slug);
-  return { html: isHtmlDoc(text) };
+  return { html: isPage(text) };
 }
 
 export function kindOf(url: string, kind?: unknown) {
@@ -364,7 +364,7 @@ export function roomView(slugRaw: unknown) {
   return {
     ...summary(r),
     brief: r.brief,
-    briefHtml: isHtmlDoc(r.brief), // a whole HTML page: the page opens it at /rooms/SLUG/brief.html
+    briefHtml: isPage(r.brief), // a page (a whole HTML document or a fragment): the page opens it at /rooms/SLUG/brief.html
     briefBy: r.brief_by,
     folder: roomDir(r.slug),
     briefVersions: versions(briefVersionsDir(r.slug)).length,
@@ -391,7 +391,7 @@ export function roomVersions(slugRaw: unknown, q: { file?: string | null; brief?
     return {
       slug: r.slug,
       brief: true,
-      current: r.brief ? { at: r.brief_at, by: r.brief_by, html: isHtmlDoc(r.brief) } : null,
+      current: r.brief ? { at: r.brief_at, by: r.brief_by, html: isPage(r.brief) } : null,
       versions: list,
       ...(one ? { version: { v: one.v, at: one.at, by: one.by, html: one.path.endsWith(".html"), body: one.path.endsWith(".html") ? null : secrets.mask(readFileSync(one.path, "utf8")) } } : {}),
     };
