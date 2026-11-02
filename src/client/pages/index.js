@@ -66,6 +66,8 @@ function route() {
 }
 function close() {
   if (view.hidden) return;
+  // Leaving while full screen: leave full screen first, or the browser keeps showing a hidden element (a blank screen).
+  if (document.fullscreenElement && view.contains(document.fullscreenElement)) document.exitFullscreen?.().catch(() => {});
   shown = null;
   view.hidden = true;
   stage.classList.remove("inpage");

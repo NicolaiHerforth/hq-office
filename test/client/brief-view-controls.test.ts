@@ -112,6 +112,24 @@ test.skipIf(!chromeFound)("FULL SCREEN shows the brief alone, and the button lea
   await until(`!document.fullscreenElement`);
 }, 60_000);
 
+test.skipIf(!chromeFound)("leaving a brief or a page while it is full screen leaves full screen too: BACK, the browser's back, Esc", async () => {
+  for (const [hash, view, back] of [[`#brief/${md}`, ".briefview", "[data-brief-back]"], ["#page/rooms/pricing/files/model.html", ".pageview", "[data-page-back]"]] as const) {
+    for (const how of ["button", "history", "esc"]) {
+      await load("");
+      await ev(`location.hash = ${JSON.stringify(hash)}; true`);
+      await until(onScreen(`${view} [data-view-full]`));
+      await realClick(`${view} [data-view-full]`);
+      await until(`document.fullscreenElement === document.querySelector(${JSON.stringify(view)})`);
+      if (how === "button") await realClick(back);
+      else if (how === "history") await ev(`history.back(); true`);
+      else await page.s("Input.dispatchKeyEvent", { type: "keyDown", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
+      // never a hidden element left full screen (a blank, frozen-looking screen)
+      await until(`!document.fullscreenElement`);
+      await until(`!(${onScreen(view)})`);
+    }
+  }
+}, 90_000);
+
 test.skipIf(!chromeFound)("on a phone COMMENTS opens the thread's sheet; FULL SCREEN and NEW WINDOW are not offered", async () => {
   await load(`#brief/${pg}`, 390, 844, true);
   await until(onScreen(".briefview [data-comments-toggle]"));
