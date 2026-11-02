@@ -57,7 +57,9 @@ describe("client modules", () => {
       for (const imp of importsOf(readFileSync(f, "utf8"))) visit(resolve(dirname(f), imp.spec));
     };
     entries.forEach(visit);
-    expect(modules.filter((f) => !seen.has(f)).map(name)).toEqual([]);
+    // a classic script is loaded by a <script src> somewhere else (page-runtime/runtime.js: into every HTML page), not by an import
+    const classic = (f: string) => readFileSync(f, "utf8").startsWith("// CLASSIC SCRIPT");
+    expect(modules.filter((f) => !seen.has(f) && !classic(f)).map(name)).toEqual([]);
   });
 
   test("every stylesheet opens with a comment", () => {

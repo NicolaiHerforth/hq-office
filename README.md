@@ -284,7 +284,7 @@ What you write is typed into that lane's terminal through herdr, naming the room
 
 ### Pages
 
-A lane can show the owner a whole HTML page, the way a Claude artifact does, without anyone logging in to a Claude account. A page is any brief or `.html` file that starts with `<!doctype html>` or `<html>`, with its own styles, scripts, pictures, diagrams and interactive parts, up to 5 MB:
+A lane can show the owner a whole HTML page, the way a Claude artifact does, without anyone logging in to a Claude account. A page is any `.html` file on a room's shelf, and any brief that starts with `<!doctype html>` or `<html>`, with its own styles, scripts, pictures, diagrams and interactive parts, up to 5 MB. Like a Claude artifact, a page may also be a fragment, with no `<!doctype>`, `<html>` or `<body>`: a brief that starts with `<title>`, `<meta>`, `<link>`, `<style>` or `<script>` is one, and so is any `.html` file. The HUD serves a fragment wrapped in a small skeleton (charset, a viewport with `viewport-fit=cover`, `color-scheme: light` on `:root`, no body margin), as claude.ai does for an artifact: a fragment that has a dark look of its own gets dark with the HUD, any other stays light. A brief that starts any other way is markdown, even when it has HTML in it.
 
 ```sh
 hud room artifact SLUG --title "Pricing model" --file model.html   # on the room's shelf; OPEN shows it in the HUD
@@ -318,9 +318,35 @@ A page can use React with JSX, the way an artifact does, with nothing to build: 
 </html>
 ```
 
+**Theme.** A page shows in the HUD's theme, light or dark (the HUD's own, or your screen's while it has none), the way an artifact does on claude.ai: the frame asks for `?theme=light` or `?theme=dark`, and the page's `<html>` gets `data-theme="light"` or `data-theme="dark"`, so a page styled with `:root[data-theme="dark"]` follows it, and follows a change at once. A page that has a dark look of its own (a `color-scheme` naming dark, a `prefers-color-scheme` query or a `data-theme` selector) also gets the matching `color-scheme`; one without keeps its own, so its text stays readable on the background it set.
+
 **Versions.** A lane that uploads a file under a name already on the room's shelf (`hud room artifact SLUG --title T --file page.html` again) replaces it: the card stays one card and shows the newest, and the one it replaced is kept. So is every earlier brief of a room (`hud room brief`). The page's **VERSIONS** lists them, newest first; an older one opens read-only, at the page's own address with `?v=V` (`#page/rooms/SLUG/files/page.html?v=V`), under a line that says which version it is, with **SHOW LATEST**. An earlier brief that was markdown shows under **VERSIONS** in the room's brief pane. While you look at the newest, a new version replaces it in place. The versions live in the room's folder (`versions/files/NAME/` and `versions/brief/`, each file named after when it was written and by whom), the newest 20 of each; `hud room versions SLUG NAME` (or `--brief`) lists them. Your own uploads from the page keep both files (`image-2.png`), since two pasted pictures are often both called `image.png`. A file a lane writes straight into `files/` replaces the old one with no version kept: upload with `hud room artifact --file` to keep it.
 
-Pages run in a sandbox: the server sends each with `Content-Security-Policy: sandbox allow-scripts ...` without `allow-same-origin`, and the HUD shows it in an `<iframe sandbox>` without it too. The page gets an origin of its own: it cannot read the HUD's page, its data, its storage or its cookies, cannot send anything to the HUD (it may only connect to https), and cannot navigate the HUD. Secret values are masked in a page as they are in the agent drawer.
+#### What a page can keep: the page runtime
+
+The HUD gives every page the runtime a Claude artifact gets, so a page written for an artifact runs unchanged. It goes in first, before the page's own scripts, as `window.hud` and, unless the page already has one, `window.claude`, each with one function: `use(name)` resolves a capability, or `null` where the page cannot use it (opened on its own in a tab, for example).
+
+| `use(...)` | What the page gets |
+| --- | --- |
+| `"db"` | A database for this page, in the artifact db's shape: `db.doc("votes/owner")` and `db.collection("votes")`, with `get`, `set`, `update`, `delete`, `where`, `orderBy`, `limit`, `add` and `onSnapshot`, which hears every write live, from any view of the page. A document is a JSON object up to 256 KB; a page keeps up to 5000 documents and 10 MB. |
+| `"user"` | Who is viewing: always the owner (`id()` is `"owner"`, `me().name` is `HUD_OWNER`, `isOwner()` and `canEdit()` are true). |
+| `"downloads"` | `save({ filename, data })`: the HUD asks you (SAVE or NO) and saves the file. Programs and scripts (`.exe`, `.sh`, `.js` and the like) are refused. |
+| `"artifact"`, `"room"`, `"comments"`, `"sample"`, anything else | `null`, for now. |
+
+`localStorage` works too, synchronously: the page's stored keys come in the page itself and every change is sent back, up to 1 MB. `sessionStorage` lasts while the page is open. A page with `.mermaid` diagrams that does not load Mermaid itself gets them drawn (Mermaid 11.4.1 from jsdelivr).
+
+What a page keeps is kept **per page** (`briefs/ID`, `rooms/SLUG/brief`, `rooms/SLUG/files/NAME`) on this machine, and is **shared by everyone who opens the HUD**: there is no per-viewer data, since every viewer is the owner. Secret values are blanked out before anything is kept. HQ and lanes read it back:
+
+```sh
+hud page data                        # every page that keeps anything
+hud page data briefs/8               # its stored keys and every document
+hud page data briefs/8 votes         # one collection
+hud page data briefs/8 votes/owner   # one document
+```
+
+The page never talks to the server. It talks to the HUD page that shows it, which decides which page it is from the frame it sits in, never from what the page says, and answers only the page's own frame. `bun scripts/parity-lab/harness.ts` measures what a page can do next to a Claude artifact.
+
+Pages run in a sandbox: the server sends each with `Content-Security-Policy: sandbox allow-scripts ...` without `allow-same-origin`, and the HUD shows it in an `<iframe sandbox>` without it too. The page gets an origin of its own: it cannot read the HUD's page, its data, its storage or its cookies, cannot send anything to the HUD's server (it may only connect to https; what it keeps goes through the runtime above), and cannot navigate the HUD. Secret values are masked in a page as they are in the agent drawer. As in an artifact, a click in a page may copy to the clipboard (`navigator.clipboard.writeText`) and take the page full screen (`requestFullscreen`): the frame allows `clipboard-write` and `fullscreen`, and nothing else.
 
 ## Changing a question in place
 

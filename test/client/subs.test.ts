@@ -81,10 +81,15 @@ test.skipIf(!chromeFound)("stacked on a narrow screen, it opens under the questi
   await size(800, 900);
   await page.evaluate(`scrollTo(0, 0); document.getElementById("subsBtn").click()`);
   expect(await page.evaluate(OPEN)).toBe(true);
-  expect(await page.evaluate(APART)).toBe(true);
+  await until(APART, 3000); // placed once the narrow layout applies
+  // a question that arrives while it is open makes the panel taller: the dropdown moves down with it
+  const before = await page.evaluate(`document.querySelectorAll("#hud .ask").length`);
+  await fetch(`${server.base}/api/asks`, { method: "POST", headers: { "content-type": "application/json", "x-hud": "1" }, body: JSON.stringify({ kind: "decision", title: "A question that arrives while SUBS is open", body: "Long enough to make the question panel taller.\n\nSecond paragraph.", options: ["Yes", "No"] }) });
+  await until(`document.querySelectorAll("#hud .ask").length > ${before}`);
+  await until(APART, 3000);
   await page.s("Input.dispatchKeyEvent", { type: "keyDown", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
   await size(1440, 900);
-});
+}, 20_000);
 
 test.skipIf(!chromeFound)("when the sources go away, the box goes too, with no error on the page", async () => {
   rmSync(join(home, ".local"), { recursive: true, force: true });

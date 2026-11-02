@@ -5,7 +5,7 @@ import { addFile, addLink, archive, createRoom, ownerPost, readOwner, removeArti
 import { briefVersionsDir, fileVersionsDir, LEGACY_FILES, movedTo, servedFile, version } from "../room-folder.ts";
 import { SAFE, fileResponse as serve, notFound } from "../attachments.ts";
 import type { Route } from "../router.ts";
-import { HTML_EXT, isHtmlDoc, pageResponse } from "../pages.ts";
+import { HTML_EXT, isPage, servePage } from "../pages.ts";
 import { readFileSync } from "node:fs";
 
 const S = "([a-z0-9][a-z0-9-]{0,47})";
@@ -43,21 +43,21 @@ const routes: Route[] = [
   { method: "POST", pattern: at("/seen"), handle: ({ m }) => seen(m[1]) },
   { method: "POST", pattern: at("/archive"), handle: ({ body, m }) => archive(m[1], body.by) },
   // A file in a room's folder: /rooms/SLUG/files/NAME. ?v=V is an earlier version of it, at the same address so that
-  // a page's relative links still find the room's files.
+  // a page's relative links still find the room's files; a page takes ?theme= too.
   { method: "GET", prefix: "/rooms/", handle: ({ path, url }) => {
-    const v = url.searchParams.get("v");
+    const v = url.searchParams.get("v"), theme = url.searchParams.get("theme"); // ?theme=light|dark: the reader's (pages.ts)
     if (v != null && !/^\d{1,15}$/.test(v)) return notFound();
-    // A room's brief that is a whole HTML page, rendered sandboxed (pages.ts).
+    // A room's brief that is a page (a whole HTML document or a fragment), rendered sandboxed (pages.ts).
     const b = path.match(/^\/rooms\/([a-z0-9][a-z0-9-]{0,47})\/brief\.html$/);
     if (b) {
       if (v) {
         let old = null;
         try { old = version(briefVersionsDir(b[1]), v); } catch {}
-        return old?.path.endsWith(".html") ? pageResponse(readFileSync(old.path, "utf8"), "brief.html") : notFound();
+        return old?.path.endsWith(".html") ? servePage(readFileSync(old.path, "utf8"), "brief.html", theme) : notFound();
       }
       let brief: string | null = null;
       try { brief = roomView(b[1]).brief; } catch {}
-      return isHtmlDoc(brief) ? pageResponse(brief!, "brief.html") : notFound();
+      return isPage(brief) ? servePage(brief!, "brief.html", theme, `rooms/${b[1]}/brief`) : notFound();
     }
     const m = path.match(/^\/rooms\/([a-z0-9][a-z0-9-]{0,47})\/files\/([^/]+)$/);
     if (m && v) {
@@ -67,10 +67,10 @@ const routes: Route[] = [
       let old = null;
       try { old = version(fileVersionsDir(m[1], name), v); } catch {}
       if (!old) return notFound();
-      return HTML_EXT.test(name) ? pageResponse(readFileSync(old.path, "utf8"), name) : fileResponse(old.path, name);
+      return HTML_EXT.test(name) ? servePage(readFileSync(old.path, "utf8"), name, theme) : fileResponse(old.path, name);
     }
     const f = m && servedFile(m[1], m[2]);
-    if (f && HTML_EXT.test(f.name)) return pageResponse(readFileSync(f.path, "utf8"), f.name);
+    if (f && HTML_EXT.test(f.name)) return servePage(readFileSync(f.path, "utf8"), f.name, theme, `rooms/${m[1]}/files/${f.name}`);
     return f ? fileResponse(f.path, f.name) : notFound();
   } },
   // A link from before rooms had folders: to where its file moved, or the file itself if it never moved.

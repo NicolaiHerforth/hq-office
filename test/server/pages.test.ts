@@ -7,7 +7,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnServer } from "../../scripts/room-hash.ts";
 import { fakeHerdr } from "../fake-herdr.ts";
-import { isHtmlDoc, PAGE_CSP } from "../../src/server/pages.ts";
+import { asDocument, isFragment, isHtmlDoc, isPage, PAGE_CSP, SKELETON, themed } from "../../src/server/pages.ts";
 
 const ROOT = join(import.meta.dir, "..", "..");
 const DATA = mkdtempSync(join(tmpdir(), "hq-pages-"));
@@ -40,6 +40,9 @@ const sandboxed = (r: Response) => {
   expect(r.headers.get("content-type")).toBe("text/html; charset=utf-8");
   expect(r.headers.get("x-content-type-options")).toBe("nosniff");
 };
+
+// The page runtime puts its tag first in <head> (src/server/page-runtime-tag.ts): compare the page without it.
+const bare = (h: string) => h.replace(/<script type="application\/json" data-hud-page>[\s\S]*?<\/script><script src="\/src\/client\/page-runtime\/runtime\.js"><\/script>/, "");
 
 test("what counts as a page: a whole HTML document, not markdown with a tag in it", () => {
   expect(isHtmlDoc(PAGE)).toBe(true);
@@ -123,4 +126,121 @@ test("a page may be large; a markdown brief keeps its limit", async () => {
   const big = PAGE.replace("<h1>", `<img src="data:image/png;base64,${"A".repeat(1_000_000)}"><h1>`);
   expect((await post("/api/rooms/pricing/brief", { body: big, as: "pm" })).status).toBe(200);
   expect((await post("/api/rooms/pricing/brief", { body: "x".repeat(200_000), as: "pm" })).status).toBe(400);
+});
+
+// ---- fragments: a page as a Claude artifact may be one, with no doctype, <html> or <body> ----
+
+const FRAGMENT = `<title>Pricing</title>\n<style>h1 { color: rgb(1, 2, 3) }</style>\n<h1>Pricing</h1>\n<script>document.title += "!"</script>`;
+// Markdown that only looks like it might be a page: each stays markdown.
+const MARKDOWN = [
+  "# Plan\n\n<style>h1{}</style>",
+  "<b>bold</b> first",
+  "<details><summary>More</summary>x</details>",
+  "<titled> is not a tag we know",
+  "<metadata>x</metadata>",
+  "<scripted> words",
+  "<linkage>",
+  "```html\n<style>h1{}</style>\n```",
+  "Text, then <script>x</script>",
+  "> <title>quoted</title>",
+  "- <meta> in a list",
+];
+
+test("what counts as a fragment: it starts with <title>, <meta>, <link>, <style> or <script>; markdown stays markdown", () => {
+  for (const f of [FRAGMENT, "<style>body{}</style><p>x", "  \n<script src=\"https://cdn.example/x.js\"></script>", "<META charset=utf-8>", "<link rel=stylesheet href=x.css>", "<!-- by a lane -->\n<title>x</title>", "<meta/>"]) {
+    expect([f, isFragment(f), isPage(f)]).toEqual([f, true, true]);
+  }
+  for (const md of MARKDOWN) expect([md, isPage(md)]).toEqual([md, false]);
+  expect(isPage(PAGE)).toBe(true);
+  expect(isFragment(PAGE)).toBe(false);
+  expect(isPage(null)).toBe(false);
+});
+
+test("a fragment is served in a skeleton (charset, viewport-fit=cover, color-scheme light on :root, body margin 0); a whole document as it is", () => {
+  const doc = asDocument(FRAGMENT);
+  expect(doc.startsWith(SKELETON)).toBe(true);
+  expect(doc).toContain('<meta charset="utf-8">');
+  expect(doc).toContain("viewport-fit=cover");
+  expect(doc).toContain(":root { color-scheme: light; }");
+  expect(doc).not.toContain("light dark");
+  expect(doc).toContain("body { margin: 0; }");
+  expect(doc.endsWith(FRAGMENT)).toBe(true);
+  expect(isHtmlDoc(doc)).toBe(true);
+  expect(asDocument(PAGE)).toBe(PAGE);
+});
+
+test("a .html file on the shelf that is a fragment, or any markup, is a page, wrapped", async () => {
+  for (const [name, body] of [["frag.html", FRAGMENT], ["bare.html", "<div>just markup</div>"]]) {
+    const file = join(DATA, name);
+    writeFileSync(file, body);
+    expect(hud(["room", "artifact", "pricing", "--title", name, "--file", file, "--as", "pm"], "w1:p2").exitCode).toBe(0);
+    const r = await fetch(`${server.base}/rooms/pricing/files/${name}`);
+    sandboxed(r);
+    const html = await r.text();
+    expect(bare(html).startsWith(SKELETON)).toBe(true);
+    expect(html.endsWith(body)).toBe(true);
+  }
+  // a whole document is not wrapped twice
+  const whole = await (await fetch(`${server.base}/rooms/pricing/files/model.html`)).text();
+  expect(bare(whole).startsWith("<!doctype html><html><head><title>Pricing model</title>")).toBe(true);
+});
+
+test("a room brief or a floor brief that is a fragment is a page; a markdown brief that looks like one is not", async () => {
+  expect((await post("/api/rooms/pricing/brief", { body: FRAGMENT, as: "pm" })).html).toBe(true);
+  expect((await get("/api/rooms/pricing")).briefHtml).toBe(true);
+  const r = await fetch(`${server.base}/rooms/pricing/brief.html`);
+  sandboxed(r);
+  expect(bare(await r.text()).startsWith(SKELETON)).toBe(true);
+  for (const md of MARKDOWN) {
+    expect((await post("/api/rooms/pricing/brief", { body: md, as: "pm" })).html).toBe(false);
+    expect((await fetch(`${server.base}/rooms/pricing/brief.html`)).status).toBe(404);
+  }
+  const p = hud(["brief", "--title", "A fragment brief"], "w1:p1", FRAGMENT);
+  expect(p.stderr.toString()).toBe("");
+  const b = (await get("/api/state")).briefs.find((x: any) => x.title === "A fragment brief");
+  expect(b).toMatchObject({ html: true });
+  expect(b.lead).toBe("Pricing");
+  expect((await get(`/api/briefs/${b.id}`)).body).toBe(null);
+  expect(bare(await (await fetch(`${server.base}/briefs/${b.id}.html`)).text()).startsWith(SKELETON)).toBe(true);
+  expect(hud(["brief", "--title", "Looks like one", "--body", MARKDOWN[0]], "w1:p1").exitCode).toBe(0);
+  const md = (await get("/api/state")).briefs.find((x: any) => x.title === "Looks like one");
+  expect(md.html).toBe(false);
+  expect((await get(`/api/briefs/${md.id}`)).body).toBe(MARKDOWN[0]);
+});
+
+// ---- the reader's theme: ?theme=light|dark puts data-theme and a matching color-scheme on the page's <html> ----
+
+// A page with a dark look of its own, as artifacts are written: dark under :root[data-theme=dark].
+const DARKABLE = PAGE.replace("<style>", `<style>:root[data-theme="dark"] body { background: #111; color: #eee }`);
+test("themed: data-theme and color-scheme on <html>; nothing for system; the page's own data-theme replaced, its style kept", () => {
+  expect(themed(DARKABLE, null)).toBe(DARKABLE);
+  expect(themed(DARKABLE, "system")).toBe(DARKABLE);
+  expect(themed(DARKABLE, "blue")).toBe(DARKABLE);
+  expect(themed(DARKABLE, "dark")).toStartWith(`<!doctype html><html data-theme="dark" style="color-scheme: dark"><head>`);
+  expect(themed(`<!doctype html><html lang="en" data-theme="light" style="font-size:20px">x`, "dark")).toBe(`<!doctype html><html data-theme="dark" lang="en" style="color-scheme: dark; font-size:20px">x`);
+  expect(themed(`<!DOCTYPE html>\n<head><title>x</title>`, "light")).toBe(`<!DOCTYPE html><html data-theme="light" style="color-scheme: light">\n<head><title>x</title>`);
+  const frag = themed(asDocument(`<style>@media (prefers-color-scheme: dark) { body { color: #eee } }</style><p>x`), "dark");
+  expect(frag).toContain(`<html data-theme="dark" style="color-scheme: dark">`);
+  expect(frag.match(/<html/g)).toHaveLength(1);
+});
+
+test("a page with no dark look of its own gets data-theme but keeps its color-scheme, so its text stays readable", () => {
+  expect(themed(PAGE, "dark")).toStartWith(`<!doctype html><html data-theme="dark"><head>`);
+  expect(themed(PAGE, "light")).toStartWith(`<!doctype html><html data-theme="light" style="color-scheme: light"><head>`);
+  // the skeleton's own color-scheme does not count as the fragment's
+  expect(themed(asDocument(FRAGMENT), "dark")).toContain(`<html data-theme="dark">`);
+  expect(themed(`<!doctype html><html style="margin:0"><style>body { color-scheme: light dark }</style>`, "dark")).toContain(`<html data-theme="dark" style="color-scheme: dark; margin:0">`);
+});
+
+test("every page address takes ?theme=: a shelf page, an older version, a room brief, a floor brief", async () => {
+  await post("/api/rooms/pricing/brief", { body: PAGE, as: "pm" });
+  const b = (await get("/api/state")).briefs.find((x: any) => x.title === "Pricing update");
+  for (const p of ["/rooms/pricing/files/model.html", "/rooms/pricing/files/frag.html", "/rooms/pricing/brief.html", `/briefs/${b.id}.html`]) {
+    const dark = await fetch(`${server.base}${p}?theme=dark`);
+    sandboxed(dark);
+    expect([p, (await dark.text()).includes(`data-theme="dark"`)]).toEqual([p, true]);
+    expect([p, (await (await fetch(`${server.base}${p}`)).text()).includes("data-theme")]).toEqual([p, false]);
+  }
+  const v = (await get("/api/rooms/pricing/versions?brief=1")).versions.find((x: any) => x.html);
+  expect(await (await fetch(`${server.base}/rooms/pricing/brief.html?v=${v.v}&theme=light`)).text()).toContain(`data-theme="light"`);
 });

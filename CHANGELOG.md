@@ -3,6 +3,32 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.31.0] - 2026-11-02
+### Added
+
+- **Pages keep things, as artifacts do.** An HTML page (a brief, a room brief or a room's page) now runs with a page
+  runtime, so a page written for a Claude artifact works unchanged: `claude.use("db")` (or `hud.use`) gives it a
+  database of its own (documents and collections, get, set, update, delete, where, orderBy, limit and live
+  `onSnapshot`), `claude.use("user")` says the viewer is the owner, and `claude.use("downloads")` saves a file it
+  makes after the owner says SAVE. `localStorage` works too. What a page keeps is kept per page and shared by everyone
+  who opens the HUD, and HQ and lanes read it back with `hud page data PAGE [PATH]`, so what the owner enters on a
+  page reaches the agents. Secret values are blanked out before anything is kept. Pages stay sandboxed: they still
+  cannot read the HUD or its data.
+- **Mermaid diagrams in pages.** A page with `.mermaid` diagrams that does not load Mermaid itself gets them drawn.
+- **Parity Lab** (`scripts/parity-lab/`): one page that measures what a page can do in the HUD next to a Claude
+  artifact. `bun scripts/parity-lab/harness.ts [PAGE] [--ref REF]` runs it as a brief on a throwaway server and prints
+  every check.
+- **A page may be a fragment**, as a Claude artifact may: no `<!doctype>`, `<html>` or `<body>`, just `<title>`,
+  `<style>`, markup and scripts. Any `.html` file on a shelf is a page, and so is a brief that starts with `<title>`,
+  `<meta>`, `<link>`, `<style>` or `<script>`. The HUD wraps it in a small skeleton (charset, viewport, a light color
+  scheme the fragment may opt out of for dark, no body margin), as claude.ai does. Any other brief stays markdown.
+- **A page may copy and go full screen**, as an artifact may: from a click, `navigator.clipboard.writeText` and
+  `requestFullscreen` work in a page's frame.
+- **Pages in the HUD's theme.** A page shows light or dark with the HUD (or your screen while the HUD has no theme of
+  its own), and follows a change at once. Its `<html>` gets `data-theme="dark"` or `"light"`, as an artifact does on
+  claude.ai, so pages written for artifacts follow it. A page with no dark look of its own stays readable as it is.
+  The brief view and the page view are drawn in the HUD's colours, so they follow its theme too.
+
 ## [0.30.0] - 2026-11-02
 ### Added
 
