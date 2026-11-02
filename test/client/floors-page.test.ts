@@ -288,6 +288,24 @@ test.skipIf(!chromeFound)("inside a floor: the office's border in its colour, on
   await until(`document.querySelector(".stage").dataset.floors === "building"`);
 });
 
+test.skipIf(!chromeFound)("with every floor showing, a card's floor swatch sits beside its title, never over it (ROOMS, MESSAGES)", async () => {
+  await post("/api/rooms", { slug: "swatch-room", title: "Swatch room", owner: "golf" });
+  await post("/api/updates", { title: "A note on the first floor", lane: "golf" });
+  await post("/api/sync", {});
+  // clear of each other: the swatch ends before the text after it starts
+  const clear = (sel: string, next: string) => ev(`[...document.querySelectorAll("${sel}")].map((m) => { const s = m.querySelector(":scope > .fswatch"), t = m.querySelector(":scope > ${next}"); return !!s && !!t && s.getBoundingClientRect().right <= t.getBoundingClientRect().left + 0.5; })`);
+  await click('[data-qtab="rooms"]');
+  await until(`!!document.querySelector("#rooms .meta > .fswatch")`);
+  expect(await clear("#rooms .meta", ".rt")).toContain(true);
+  expect((await clear("#rooms .meta", ".rt")).every(Boolean)).toBe(true);
+  await click('[data-qtab="messages"]');
+  await until(`!!document.querySelector("#msgs .meta > .fswatch")`);
+  expect((await clear("#msgs .meta", ".who")).every(Boolean)).toBe(true);
+  // beside a lane tag it still sits inside the tag
+  await click('[data-qtab="questions"]');
+  expect(await ev(`!!document.querySelector("#hud .ask .meta > .fswatch + .tag.lane")`)).toBe(true);
+});
+
 test.skipIf(!chromeFound)("TELL HQ: to: the floor you are in, left of SEND; another floor for one note; the toast names it", async () => {
   await click('.ftile[data-floor="backend"] .tgo');
   await until(`document.querySelector(".stage").dataset.floors === "floor"`);

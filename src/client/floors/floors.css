@@ -195,7 +195,9 @@
 /* a card's floor, in a list that shows every floor: a stripe down its left edge, a swatch in its lane tag */
 :has(> .meta > .fstripe) { position: relative; }
 .fstripe { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; border-radius: 6px 0 0 6px; }
-.meta > .fswatch { position: relative; z-index: 1; flex: none; width: 8px; height: 8px; margin-right: -18px; margin-left: 6px; border-radius: 2px; box-shadow: 0 0 0 1px #fff; }
+.meta > .fswatch { position: relative; z-index: 1; flex: none; align-self: center; width: 8px; height: 8px; margin: 0 2px 0 4px; border-radius: 2px; box-shadow: 0 0 0 1px #fff; }
+/* followed by a lane tag, the swatch sits inside it; before anything else (a room's title, who wrote), beside it */
+.meta > .fswatch:has(+ .tag.lane) { margin: 0 -18px 0 6px; }
 .meta > .fswatch + .tag.lane { padding-left: 18px; }
 /* the timer stays on the right: the tags shorten first */
 .ask .meta:has(> .fstripe) { flex-wrap: nowrap; }

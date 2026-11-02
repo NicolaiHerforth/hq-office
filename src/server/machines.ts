@@ -25,9 +25,15 @@ async function sshTarget(machine: string): Promise<string> {
 // One ssh connection per machine, kept open between samples (it closes 3 minutes after the last one), instead of
 // a new handshake every minute on both ends. The socket path must stay short, so it lives in /tmp.
 const SSH_REUSE = ["-o", "ControlMaster=auto", "-o", `ControlPath=/tmp/hq-office-${process.getuid?.() ?? 0}-%C`, "-o", "ControlPersist=180"];
+// The ssh command for a herdr machine, sharing that one connection; sub-usage.ts reads over it too. forgetTarget after
+// a failure, so the next sample asks herdr again.
+export async function sshTo(machine: string): Promise<string[]> {
+  return ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5", ...SSH_REUSE, await sshTarget(machine)];
+}
+export const forgetTarget = (machine: string) => targets.delete(machine);
 async function readStats(machine: string): Promise<Record<string, string>> {
   const local = machine === LOCAL;
-  const args = local ? ["sh", STATS_SCRIPT] : ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5", ...SSH_REUSE, await sshTarget(machine), "sh", "-s"];
+  const args = local ? ["sh", STATS_SCRIPT] : [...(await sshTo(machine)), "sh", "-s"];
   const proc = Bun.spawn(args, { stdin: local ? "ignore" : Bun.file(STATS_SCRIPT), stdout: "pipe", stderr: "pipe" });
   const timer = setTimeout(() => proc.kill(), 15_000);
   const out = await new Response(proc.stdout).text();
