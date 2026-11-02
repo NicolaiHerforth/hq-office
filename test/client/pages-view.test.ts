@@ -29,6 +29,33 @@ Promise.all([fetch("/api/state").then(() => true, () => false), fetch(location.o
 });
 </script></body></html>`;
 
+// What Babel standalone needs to run JSX in the page (an artifact's way to use React): eval, and a script it adds inline.
+const MECH = `<!doctype html><html><body><script>
+const out = {};
+try { out.eval = eval("1 + 1") === 2; } catch { out.eval = false; }
+try { out.fn = new Function("return 3")() === 3; } catch { out.fn = false; }
+const s = document.createElement("script"); s.textContent = "window.__added = 1"; document.head.append(s);
+out.added = window.__added === 1;
+parent.postMessage({ mech: out }, "*");
+</script></body></html>`;
+// React with JSX from a CDN, as the README shows it. The counter clicks itself once and reports what it shows.
+const CDN = "https://cdnjs.cloudflare.com/ajax/libs";
+const REACT = `<!doctype html><html><head><title>Counter</title>
+<script src="${CDN}/react/18.3.1/umd/react.production.min.js"></script>
+<script src="${CDN}/react-dom/18.3.1/umd/react-dom.production.min.js"></script>
+<script src="${CDN}/babel-standalone/7.26.4/babel.min.js"></script>
+</head><body><div id="root"></div><script type="text/babel">
+function Counter() {
+  const [n, setN] = React.useState(0);
+  const ref = React.useRef(null);
+  React.useEffect(() => { if (n === 0) ref.current.click(); else parent.postMessage({ react: ref.current.textContent }, "*"); }, [n]);
+  return <button ref={ref} onClick={() => setN(n + 1)}>Clicked {n} times</button>;
+}
+ReactDOM.createRoot(document.getElementById("root")).render(<Counter />);
+</script></body></html>`;
+// The React test needs the CDN; without a network it is skipped (the eval test above still runs).
+const online = chromeFound && (await fetch(`${CDN}/react/18.3.1/umd/react.production.min.js`, { method: "HEAD", signal: AbortSignal.timeout(5000) }).then((r) => r.ok, () => false));
+
 let chrome: Awaited<ReturnType<typeof startChrome>>;
 let server: Awaited<ReturnType<typeof spawnServer>>;
 let page: Awaited<ReturnType<typeof newSession>>;
@@ -46,7 +73,7 @@ async function load(hash = "", w = 1440, h = 900, mobile = false) {
   await page.s("Page.navigate", { url: "about:blank" });
   await page.s("Page.navigate", { url: `${server.base}/${hash}` });
   await until(`!!document.getElementById("lastNote")?.innerHTML`);
-  await ev(`window.__probe = null; addEventListener("message", (e) => { if (e.data?.probe) window.__probe = e.data.probe; }), true`);
+  await ev(`window.__probe = null; addEventListener("message", (e) => { if (e.data?.probe) window.__probe = e.data.probe; if (e.data?.mech) window.__mech = e.data.mech; if (e.data?.react) window.__react = e.data.react; }), true`);
 }
 let brief = 0;
 
@@ -58,6 +85,8 @@ beforeAll(async () => {
   await post("/api/rooms", { slug: "pricing", title: "Pricing", owner: "pm" });
   await upload("dot.png", PNG, "image/png");
   await upload("probe.html", PROBE(), "text/html");
+  await upload("mech.html", MECH, "text/html");
+  await upload("react.html", REACT, "text/html");
   // the brief sits at the room folder's top, its files in files/ (as on disk); a floor brief carries its pictures inline
   await post("/api/rooms/pricing/brief", { body: PROBE("files/dot.png"), as: "pm" });
   brief = (await post("/api/briefs", { title: "Pricing as a page", body: PROBE(`data:image/png;base64,${Buffer.from(PNG).toString("base64")}`) }, { "x-hud-pane": "w1:p1", "x-hud-machine": "local" })).id;
@@ -108,11 +137,21 @@ test.skipIf(!chromeFound)("a room brief that is a page: OPEN THE BRIEF, the same
   await until(`location.hash === "#room/pricing"`);
 }, 30_000);
 
+// The frame fills the view under its bar: its bottom is the view's, and the bar is all there is above it.
+const fills = () => ev(`(() => { const v = document.querySelector(".briefview"), f = v.querySelector(".pageframe"), b = v.querySelector(".bvbar"); const vr = v.getBoundingClientRect(), fr = f.getBoundingClientRect(), br = b.getBoundingClientRect(); return { below: Math.round(vr.bottom - fr.bottom), gap: Math.round(fr.top - br.bottom), scrolls: v.scrollHeight > v.clientHeight + 1 }; })()`);
+
 test.skipIf(!chromeFound)("a floor brief that is a page: the brief view shows it in the sandboxed frame", async () => {
   await load(`#brief/${brief}`);
   await until(`document.querySelector(".briefview .pageframe")?.getAttribute("src") === "/briefs/${brief}.html"`);
   expect(await ev(`document.querySelector(".briefview .pageframe").getAttribute("sandbox").includes("allow-same-origin")`)).toBe(false);
   expect(await ev(`document.querySelector(".briefview .pageframe").getBoundingClientRect().height > 300`)).toBe(true);
+  // the page has its own title: the HUD's is not drawn over it, only a compact line in the bar (date, who)
+  expect(await ev(`!!document.querySelector(".briefview h1")`)).toBe(false);
+  expect(await ev(`document.querySelector(".briefview .bvbar .bvmeta").textContent`)).toContain("by hq");
+  const f = await fills();
+  expect(f.below).toBeLessThanOrEqual(16);
+  expect(f.gap).toBeLessThanOrEqual(12);
+  expect(f.scrolls).toBe(false);
   await sandboxedProbe();
   // its lead in the list is its text, not its markup
   await ev(`document.querySelector('[data-qtab="briefs"]').click()`);
@@ -130,6 +169,39 @@ test.skipIf(!chromeFound)("opened by its link: a page fills a phone's screen; BA
   await ev(`document.querySelector("[data-page-back]").click()`);
   await until(`location.hash === "" && document.querySelector(".pageview").hidden`);
 }, 30_000);
+
+test.skipIf(!chromeFound)("a markdown brief keeps its title block", async () => {
+  const id = (await post("/api/briefs", { title: "Plain words", body: "# Heading\n\nText." }, { "x-hud-pane": "w1:p1", "x-hud-machine": "local" })).id;
+  await load(`#brief/${id}`);
+  await until(`document.querySelector(".briefview h1")?.textContent === "Plain words"`);
+  expect(await ev(`!!document.querySelector(".briefview .bvmeta")`)).toBe(false);
+}, 30_000);
+
+test.skipIf(!chromeFound)("a page brief on a phone: the bar, then the page to the foot of the screen", async () => {
+  await load(`#brief/${brief}`, 390, 844, true);
+  await until(`!!document.querySelector(".briefview .pageframe")`);
+  expect(await ev(`document.documentElement.scrollWidth <= 390`)).toBe(true);
+  const f = await fills();
+  expect(f.below).toBeLessThanOrEqual(6);
+  expect(f.scrolls).toBe(false);
+  expect(await ev(`document.querySelector(".briefview .pageframe").getBoundingClientRect().height`)).toBeGreaterThan(700);
+}, 30_000);
+
+test.skipIf(!chromeFound)("what JSX needs runs in the sandbox: eval, new Function, a script added inline", async () => {
+  await load("#page/rooms/pricing/files/mech.html");
+  await until(`!!document.querySelector(".pageview iframe")`);
+  await ev(`(() => { const f = document.querySelector(".pageview iframe"); f.src = f.getAttribute("src"); return true; })()`);
+  await until(`!!window.__mech`);
+  expect(await ev(`window.__mech`)).toEqual({ eval: true, fn: true, added: true });
+}, 30_000);
+
+test.skipIf(!online)("React with JSX from a CDN renders and handles a click in the sandboxed frame", async () => {
+  await load("#page/rooms/pricing/files/react.html");
+  await until(`!!document.querySelector(".pageview iframe")`);
+  await ev(`(() => { const f = document.querySelector(".pageview iframe"); f.src = f.getAttribute("src"); return true; })()`);
+  await until(`!!window.__react`, 20_000);
+  expect(await ev(`window.__react`)).toBe("Clicked 1 times");
+}, 40_000);
 
 test.skipIf(!chromeFound)("no page errors", () => {
   expect(errors.filter((e) => !/Blocked script execution|Content Security Policy|Failed to load resource|SecurityError|sandbox/i.test(e))).toEqual([]);

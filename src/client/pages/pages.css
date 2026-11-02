@@ -1,15 +1,34 @@
 /* HTML PAGES: a lane's page on the stage, in a sandboxed frame at full width (the whole screen on a phone). */
 .pageview[hidden] { display: none; }
 .stage.inpage > .room, .stage.inpage > .under, .stage.inpage > .building, .stage.inpage > .floornav, .stage.inpage > .roomview, .stage.inpage > .briefview { display: none; }
-.pageview { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 10px; padding: 10px 12px; min-height: 0; }
+.pageview { display: flex; flex-direction: column; gap: 10px; padding: 10px 12px; min-height: 0; }
+.pageview > .pageframe { flex: 1 1 auto; min-height: 0; }
 @media (min-width: 1151px) { .stage.inpage { grid-template-rows: minmax(0, 1fr) !important; } .pageview { height: 100%; box-sizing: border-box; } }
 .pvbar { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .pvbar .pvtitle { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 800 15px/1.3 var(--text); }
 .pvbar .btn-s { min-height: 32px; padding: 8px 10px; text-decoration: none; color: var(--ink); flex: none; white-space: nowrap; display: inline-flex; align-items: center; box-sizing: border-box; }
+/* VERSIONS: a list that drops over the page from the bar; an older version says so above its frame */
+.pvbar { position: relative; }
+.pvbar .pvvbtn:empty { display: none; }
+.pvvers[hidden], .pvold[hidden] { display: none; }
+.pvvers { position: absolute; top: calc(100% + 4px); right: 0; z-index: 5; display: grid; gap: 2px; min-width: 240px; max-width: min(360px, 100%); max-height: 50vh; overflow-y: auto; padding: 6px; background: #fff; border: 2px solid var(--edge-2); border-radius: 8px; box-shadow: 0 6px 20px rgba(0, 0, 0, .18); }
+.pvv { display: grid; grid-template-columns: 64px 1fr; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 6px; color: var(--ink); text-decoration: none; min-height: 32px; box-sizing: border-box; }
+.pvv b { font: 8px/1.4 var(--pixel); }
+.pvv span { font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pvv:hover { background: #eef4ff; }
+.pvv.here { background: #eef4ff; outline: 2px solid var(--blue); outline-offset: -2px; }
+.pvold { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 12px; border-radius: 8px; background: #fff8e6; border: 2px solid #f0d080; font-size: 13px; }
+.pvold > span { flex: 1; min-width: 0; }
+.pvold b { display: block; font: 8px/1.6 var(--pixel); }
+.pvold .btn-s { min-height: 32px; text-decoration: none; color: var(--ink); display: inline-flex; align-items: center; }
 /* the frame: white like a page, the size of its box */
 .pageframe { display: block; width: 100%; height: 100%; min-height: 60vh; border: 2px solid var(--edge-2); border-radius: 8px; background: #fff; }
 @media (max-width: 1150px) {
   .pageview:not([hidden]) { position: fixed; inset: 0; z-index: 44; border-radius: 0; padding: calc(10px + env(safe-area-inset-top, 0px)) max(10px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(10px, env(safe-area-inset-left, 0px)); }
   html.pageopen { overflow: hidden; }
-  .pvbar .btn-s { min-height: 44px; }
+  .pvbar .btn-s, .pvold .btn-s, .pvv { min-height: 44px; }
+  /* the buttons first, the page's name on a line of its own under them */
+  .pvbar { flex-wrap: wrap; row-gap: 6px; }
+  .pvbar .pvtitle { order: 1; flex-basis: 100%; font-size: 14px; }
+  .pvbar > :not(.pvtitle):not(.pvvers):nth-child(n) { flex: 1 1 auto; justify-content: center; }
 }

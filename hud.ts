@@ -382,7 +382,9 @@ function roomUsage() {
                                                      markdown, or a whole HTML page (<!doctype html>), shown sandboxed
   hud room brief SLUG                                 prints the brief (nothing given: never writes); --clear clears it
   hud room artifact SLUG --title T (--url U | --file PATH) [--kind claude-artifact|link|image|file] [--as LANE]
-                                                     a .html file is a page: it opens in the HUD, sandboxed
+                                                     a .html file is a page: it opens in the HUD, sandboxed;
+                                                     --file again with the same name replaces it, keeping the older
+  hud room versions SLUG (NAME | --brief) [--json]   a file's or the brief's versions, newest first (the HUD's VERSIONS)
   hud room say SLUG TEXT [--as LANE] [--reply ID]    write in the thread (as the owning lane unless --as)
   hud room read SLUG [--since ID] [--wait] [--json]  the owner's messages; --wait blocks until a new one
   hud room list [--all] [--json]
@@ -412,7 +414,7 @@ function ago(t: number) {
 }
 
 async function roomCmd(args: string[]) {
-  const bools = new Set(args.filter((a) => ["--json", "--wait", "--all", "--clear"].includes(a)));
+  const bools = new Set(args.filter((a) => ["--json", "--wait", "--all", "--clear", "--brief"].includes(a)));
   const { flags: f, rest: r, one: o } = parse(args.filter((a) => !bools.has(a)));
   const [verb, slugRaw, ...words] = r;
   const slug = (slugRaw ?? "").toLowerCase();
@@ -477,7 +479,7 @@ async function roomCmd(args: string[]) {
           console.error(out.error ?? res.statusText);
           process.exit(1);
         }
-        console.log(`artifact #${out.id} (${out.kind}) on ${slug}: ${BASE}${out.url}`);
+        console.log(`artifact #${out.id} (${out.kind}) on ${slug}: ${BASE}${out.url}${out.replaced ? ` (replaced the file of that name; ${out.versions} earlier ${out.versions === 1 ? "version" : "versions"} kept)` : ""}`);
         console.log(`file ${out.path}`);
         // An HTML page opens rendered in the HUD, sandboxed (src/server/pages.ts).
         if (/\.html?$/i.test(out.url)) console.log(`page ${BASE}/#page${out.url}`);
@@ -485,6 +487,20 @@ async function roomCmd(args: string[]) {
         const out = await call("POST", `${path}/artifacts`, { title: o("title"), url: o("url"), kind: o("kind"), as: o("as") });
         console.log(`artifact #${out.id} on ${slug}`);
       }
+      break;
+    }
+    case "versions": {
+      const name = words[0];
+      if (!name === !bools.has("--brief")) usage();
+      const v = await call("GET", `${path}/versions?${new URLSearchParams(name ? { file: name } : { brief: "1" })}`);
+      if (bools.has("--json")) { console.log(JSON.stringify(v, null, 2)); break; }
+      // Where each one opens: a page in the HUD (#page/...?v=V), any other file at its address (?v=V); an earlier
+      // markdown brief shows under VERSIONS in the room.
+      const file = name && `/rooms/${slug}/files/${encodeURIComponent(name)}`;
+      const addr = (q: string, html?: boolean) => (file ? (/\.html?$/i.test(name) ? `${BASE}/#page${file}${q}` : `${BASE}${file}${q}`) : html ? `${BASE}/#page/rooms/${slug}/brief${q}` : "");
+      console.log(v.current ? `${name || `the brief of ${slug}`}: now by ${v.current.by ?? "?"}, ${v.current.at ? ago(v.current.at) : "?"}  ${addr("", v.current.html)}` : `${name || `the brief of ${slug}`}: none now`);
+      if (!v.versions.length) console.log("no earlier versions");
+      for (const x of v.versions) console.log(`  ${x.v}  by ${x.by}, ${ago(x.at)}  ${addr(`?v=${x.v}`, x.html)}`);
       break;
     }
     case "say": {

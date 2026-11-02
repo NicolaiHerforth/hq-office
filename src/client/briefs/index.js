@@ -70,11 +70,16 @@ function show(b) {
   document.documentElement.classList.add("briefopen");
   const all = briefs(), i = all.findIndex((x) => x.id === b.id);
   const newer = i > 0 ? all[i - 1] : null, older = i >= 0 && i < all.length - 1 ? all[i + 1] : null;
-  setHTML(view, `<div class="bvbar"><button class="btn-s" type="button" data-brief-back>◀ BACK</button><span class="spacer"></span>`
+  // A brief that is a page has its own title: the bar carries a compact line (date, who) and the page fills the rest.
+  const page = !b.loading && b.html;
+  const meta = page ? `<span class="bvmeta">${floorChip(b.floor)}<span class="when">${esc(when(b.at))}</span><span class="by">by ${esc(b.by)}</span></span>` : `<span class="spacer"></span>`;
+  setHTML(view, `<div class="bvbar"><button class="btn-s" type="button" data-brief-back>◀ BACK</button>${meta}`
     + `<a class="btn-s${newer ? "" : " off"}" ${newer ? `href="#brief/${newer.id}"` : `aria-disabled="true"`}>NEWER</a><a class="btn-s${older ? "" : " off"}" ${older ? `href="#brief/${older.id}"` : `aria-disabled="true"`}>OLDER</a></div>`
-    + (b.loading ? `<div class="empty">LOADING…</div>` : `<article class="bbody">
+    + (b.loading ? `<div class="empty">LOADING…</div>`
+      : page ? frameHTML(`/briefs/${b.id}.html`, b.title)
+      : `<article class="bbody">
       <header><div class="meta">${floorChip(b.floor)}<span class="when">${esc(when(b.at))}</span><span class="by">by ${esc(b.by)}</span></div><h1>${mdInline(b.title)}</h1></header>
-      ${b.html ? frameHTML(`/briefs/${b.id}.html`, b.title) : `<div class="md">${md(b.body)}</div>`}</article>`));
+      <div class="md">${md(b.body)}</div></article>`));
   view.scrollTop = 0;
   view.querySelector(".bbody")?.scrollTo?.(0, 0);
   renderList();

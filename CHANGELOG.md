@@ -3,6 +3,28 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.29.0] - 2026-11-02
+### Added
+
+- **Versions of a page.** When a lane uploads a file under a name already on a room's shelf
+  (`hud room artifact SLUG --title T --file page.html` again), it now replaces that file instead of adding
+  `page-2.html`. The card stays one card, shows the newest and is marked with how many versions there are (V3).
+  The page's **VERSIONS** lists them, newest first. An older one opens read-only under a line that says which
+  version it is, with **SHOW LATEST**. While you look at the newest, a new version from the lane replaces it in
+  place. Your own uploads from the page still keep both files (`image-2.png`).
+- **Versions of a room's brief.** Every earlier brief is kept. **VERSIONS** in the room's brief pane lists them: an
+  earlier markdown brief shows in the pane, read-only, and an earlier page opens on the stage.
+- `hud room versions SLUG NAME` (or `--brief`) lists the versions and where each one opens. The versions live in the
+  room's folder (`versions/`), the newest 20 of each.
+- **React with JSX in a page**, the way artifacts use it: load React 18 and Babel standalone from a CDN and write
+  the component inline in `<script type="text/babel">`. The README has an example; nothing is compiled.
+
+### Changed
+
+- **A brief that is a page fills the brief view.** The HUD no longer draws the brief's title above the page's own.
+  The bar carries one compact line (the date and who posted it), and the page takes the rest of the view's height,
+  with no second scroll around it.
+
 ## [0.28.1] - 2026-11-02
 ### Fixed
 

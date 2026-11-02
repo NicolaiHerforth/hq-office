@@ -78,6 +78,8 @@ test.skipIf(!chromeFound)("OPEN ROOM: the room opens, with its lanes and issue, 
   expect(v).toMatchObject({ title: "Pricing page", owner: "pm", members: ["eng"], issues: ["OPE-12"] });
   for (let i = 0; i < 160 && !herdr.typedInto("pm").some((t) => t.includes("Draft the pricing copy here, please.")); i++) await Bun.sleep(25);
   expect(herdr.typedInto("pm").find((t) => t.includes("Draft the pricing copy here"))).toContain("hud room say pricing-page");
+  // HQ's notice goes through its outbox, so it may land a moment after the lane's
+  for (let i = 0; i < 160 && !herdr.typedInto("hq").some((t) => t.includes("opened room pricing-page")); i++) await Bun.sleep(25);
   expect(herdr.typedInto("hq").some((t) => t.includes("opened room pricing-page"))).toBe(true);
   await until(`document.getElementById("roomView")?.textContent.includes("Draft the pricing copy here")`);
 }, 20_000);
