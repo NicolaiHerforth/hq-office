@@ -10,7 +10,7 @@ import { S } from "../core/state.js";
 import { on } from "../core/bus.js";
 import { ago, esc, setHTML } from "../core/format.js";
 import { mdInline } from "../core/markdown.js";
-import { STATUS_TEXT } from "../core/status.js";
+import { laneStatusText } from "../core/status.js";
 import { floorById, multi } from "../core/floors.js";
 import { officeFloor } from "../core/scope.js";
 import { select, selected } from "../room/input.js";
@@ -55,7 +55,7 @@ export function renderBoard() {
       ? `<div class="lbchips">${working.map((l) => chip(l, tag, l.herdr_since)).join("")}</div>`
       : working.map((l) => row(l, tag, mdInline(l.title || "", { links: false }), l.herdr_since)).join(""))
     + col("lbyou", "WAITING ON YOU", you, "Nothing waits on you.", you.map((l) => row(l, tag, mdInline(askOf(l)?.title || l.title || "", { links: false }), oldestAsk.get(l.name))).join(""))
-    + col("lbstill", "NOT MOVING", still, "Every lane is working, waiting on you, or done.", still.map((l) => row(l, tag, esc(STATUS_TEXT[l.status]?.[0] ?? l.status), l.herdr_since ?? l.updated_at)).join(""))
+    + col("lbstill", "NOT MOVING", still, "Every lane is working, waiting on you, or done.", still.map((l) => row(l, tag, esc(laneStatusText(l)[0]), l.herdr_since ?? l.updated_at)).join(""))
     + `</div>`);
 }
 

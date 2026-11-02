@@ -48,7 +48,7 @@ export function cardOf(p, find) {
   if (p.kind === "lane") return card(find.lane(p.name), (l) => ({
     word: "LANE",
     title: l.name,
-    chips: [{ t: l.status, c: "st", status: l.status }, l.level && chip(String(l.level).toUpperCase(), "muted")].filter(Boolean),
+    chips: [{ t: l.status, c: "st", status: l.status, boss: l.parent ?? null }, l.level && chip(String(l.level).toUpperCase(), "muted")].filter(Boolean),
     preview: l.title || "",
     floor: l.floor,
     href: `#lane/${l.name}`,

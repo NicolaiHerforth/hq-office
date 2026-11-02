@@ -1,0 +1,29 @@
+/* SPLIT: what is under on the left, the brief or the page on the right, the divider between (index.js decides when).
+   The left column lays out as the stage does alone; the side and the divider span its rows. A pane is phone-wide, so
+   the room shows its CHAT, BRIEF and SHELF tabs, a side's bar wraps and its comments sit under it. */
+.splitbar { display: none; }
+:fullscreen .splitbtn, .stage:not(.cansplit) .splitbtn, .stage.split .splitbtn .tosplit, .stage:not(.split) .splitbtn .tosingle { display: none; }
+@media (min-width: 1151px) {
+  .stage.split { grid-template-columns: minmax(0, calc((100% - 14px) * var(--split, .5))) 14px minmax(0, 1fr); column-gap: 0; }
+  .stage.split > :is(.floornav, .room, .building, .under, .roomview) { grid-column: 1; }
+  .stage.split > :is(.briefview, .pageview) { grid-column: 3; grid-row: 1 / -1; }
+  .stage.split > .splitbar { display: block; grid-column: 2; grid-row: 1 / -1; position: relative; cursor: col-resize; touch-action: none; outline: none; }
+  .stage.split > .splitbar::before { content: ""; position: absolute; inset: 0 5px; border-radius: 2px; background: var(--edge-2); }
+  .stage.split > .splitbar:is(:hover, :focus-visible)::before, .stage.dragging > .splitbar::before { background: var(--blue); }
+  .stage.dragging { cursor: col-resize; user-select: none; }
+  .stage.dragging iframe { pointer-events: none; }
+  /* the drawer and the panels over the office: over the left pane only, following the divider */
+  .stage.split > :is(.card, .spanel, .nrpanel) { right: calc((100% - 14px) * (1 - var(--split, .5)) + 22px) !important; max-width: calc((100% - 14px) * var(--split, .5) - 16px); }
+
+  .stage.split > .roomview .railbtn, .stage.split > .roomview .rvhead .who { display: none; }
+  .stage.split > .roomview .rvptabs { display: flex; }
+  .stage.split > .roomview .rvbody { grid-template-columns: minmax(0, 1fr); }
+  .stage.split > .roomview[data-pane="chat"] .rvrail, .stage.split > .roomview:not([data-pane="chat"]) .rvchat { display: none; }
+  .stage.split > .roomview:not([data-pane="chat"]) .rvrail { display: grid; }
+  .stage.split > .roomview[data-pane="brief"] .rshelf, .stage.split > .roomview[data-pane="shelf"] :is(.rtop, .rbrief) { display: none; }
+
+  .stage.split > .briefview .bvbar, .stage.split > .pageview .pvbar { flex-wrap: wrap; row-gap: 6px; }
+  .stage.split > .pageview .pvtitle { order: 1; flex-basis: 100%; }
+  .stage.split > :is(.briefview, .pageview):has(> .cmount:not([hidden])) { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) minmax(160px, 40%); grid-template-areas: "bar" "main" "side"; }
+  .stage.split > .pageview:has(> .cmount:not([hidden])):has(> .pvold:not([hidden])) { grid-template-rows: auto auto minmax(0, 1fr) minmax(160px, 40%); grid-template-areas: "bar" "old" "main" "side"; }
+}

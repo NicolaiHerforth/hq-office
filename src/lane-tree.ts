@@ -54,6 +54,12 @@ const STATUS_WORDS: Record<string, string> = {
   done: "done",
 };
 
+// A lane waiting on its boss waits on the lane it reports to, or on HQ straight under it.
+function statusWords(status: string, boss: string | null | undefined) {
+  const words = STATUS_WORDS[status] ?? status;
+  return boss && (status === "hq_turn" || status === "stale") ? words.replace("HQ", boss) : words;
+}
+
 type TreeLane = { name: string; parent?: string | null; level?: string; status?: string };
 
 // The tree as `hud tree` prints it: HQ at the top (`head`, which names the floor when there are several), each lane
@@ -75,7 +81,7 @@ export function treeText(lanes: TreeLane[], head = "HQ") {
       if (seen.has(l.name)) return;
       seen.add(l.name);
       const last = i === list.length - 1;
-      const status = l.status ? STATUS_WORDS[l.status] ?? l.status : "";
+      const status = l.status ? statusWords(l.status, parent) : "";
       out.push(`${prefix}${last ? "└─ " : "├─ "}${l.name}  ${l.level ?? ""}${status ? ` · ${status}` : ""}`);
       walk(l.name, prefix + (last ? "   " : "│  "));
     });

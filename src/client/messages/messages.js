@@ -87,11 +87,17 @@ export function announceUpdates() {
   if (seenUpdates && [...unread].some((id) => !seenUpdates.has(id))) messageChime();
   seenUpdates = unread;
 }
+// An answer for a lane that asked it (a PM) says that lane: acted, to act, or kept while it is away.
+function answerSeen(m) {
+  const who = (m.to?.name ?? "HQ").toUpperCase();
+  const kept = ["away", "busy"].includes(m.to?.delivery) ? m.to.delivery.toUpperCase() : null;
+  return m.acked ? `${who} ACTED` : kept ? `${who} ${kept} · KEPT` : `${who} TO ACT`;
+}
 // Every update, note and answer becomes a message; a note that starts with a re: reference hangs under its parent.
 // An answer is yours: the question it answers is its title, your answer its text, and whether HQ acted on it.
 function msgModel() {
   const items = [
-    ...pick(S.answered ?? []).filter((a) => a.answered_at && a.status !== "withdrawn").map((a) => ({ key: `a${a.id}`, who: "YOU", at: a.answered_at, lane: a.lane, floor: a.floor, title: a.title, text: a.answer || "", answer: true, acked: !!a.acked_at, page: S.askPages?.[a.id] ? a.id : null })),
+    ...pick(S.answered ?? []).filter((a) => a.answered_at && a.status !== "withdrawn").map((a) => ({ key: `a${a.id}`, who: "YOU", at: a.answered_at, lane: a.lane, floor: a.floor, title: a.title, text: a.answer || "", answer: true, acked: !!a.acked_at, page: S.askPages?.[a.id] ? a.id : null, to: S.askers?.[a.id] ?? null })),
     ...pick(S.updates).map((u) => ({ key: `u${u.id}`, who: "HQ", at: u.at, lane: u.lane, floor: u.floor, title: u.title, text: u.body || "", unread: !u.read_at || msgFresh.has(u.id) })),
     ...pick(S.notes).map((n) => {
       const r = n.text.match(REF);
@@ -112,7 +118,7 @@ function msgItem(m, nameParent) {
   // A reply names what it answers when that is not the message right above it, or is too old to be in the list.
   const to = m.up ? (nameParent ? `${m.up.who} ${clock(m.up.at)}: ${short(m.up.title || m.up.text, 70)}` : "") : m.parent ? `an earlier message${m.said ? `: ${m.said}` : ""}` : "";
   return `<article class="msg ${m.who === "HQ" ? "hq" : "you"}${m.unread ? " unread" : ""}" data-msg="${m.key}">
-      <div class="meta">${tagged() ? floorTagHTML(S, m.floor) : ""}<span class="who">${m.who}</span><span class="tag">${clock(m.at)}</span>${m.answer ? `<span class="tag ans">ANSWERED</span>` : ""}${m.page ? `<a class="tag" href="#page/asks/${m.page}" title="The question's page: HQ reads what you did in it">PAGE</a>` : ""}${m.lane ? `<span class="tag lane">${esc(m.lane)}</span>` : ""}${m.unread ? `<span class="tag new">NEW</span>` : ""}${m.who === "YOU" ? `<span class="seen ${m.acked ? "ok" : ""}">${m.answer ? (m.acked ? "HQ ACTED" : "HQ TO ACT") : m.acked ? "HQ HAS IT" : "NOT PICKED UP YET"}</span>` : ""}${m.answer ? "" : `<button class="btn-s" type="button" data-reply="${m.key}">${replyTo === m.key ? "CANCEL" : "REPLY"}</button>`}</div>
+      <div class="meta">${tagged() ? floorTagHTML(S, m.floor) : ""}<span class="who">${m.who}</span><span class="tag">${clock(m.at)}</span>${m.answer ? `<span class="tag ans">ANSWERED</span>` : ""}${m.page ? `<a class="tag" href="#page/asks/${m.page}" title="The question's page: whoever asked reads what you did in it">PAGE</a>` : ""}${m.lane ? `<span class="tag lane">${esc(m.lane)}</span>` : ""}${m.unread ? `<span class="tag new">NEW</span>` : ""}${m.who === "YOU" ? `<span class="seen ${m.acked ? "ok" : ""}">${m.answer ? answerSeen(m) : m.acked ? "HQ HAS IT" : "NOT PICKED UP YET"}</span>` : ""}${m.answer ? "" : `<button class="btn-s" type="button" data-reply="${m.key}">${replyTo === m.key ? "CANCEL" : "REPLY"}</button>`}</div>
       ${to ? `<div class="quote">↩ to ${mdInline(to, { links: false })}</div>` : ""}
       ${m.title ? `<h3>${mdInline(m.title)}</h3>` : ""}${body}
     </article>${replyTo === m.key ? replyBox(m) : ""}`;

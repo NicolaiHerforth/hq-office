@@ -290,7 +290,7 @@ function tellThreads() {
   }
 }
 on("comments:mount", () => queueMicrotask(tellThreads));
-addEventListener("hashchange", () => setTimeout(tellThreads, 0));
+on("nav", () => setTimeout(tellThreads, 0));
 
 // ---- asking the owner: one bar at a time, the next waits its turn ----
 let queue = Promise.resolve();

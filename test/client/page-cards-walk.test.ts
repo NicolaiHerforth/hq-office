@@ -193,17 +193,17 @@ test.skipIf(!chromeFound)("a brief's page: a card for each reference its author 
   expect(errors).toEqual([]);
 }, 30_000);
 
-test.skipIf(!chromeFound)("a room card in the page › the room › the browser's back › the brief's page with its cards", async () => {
+test.skipIf(!chromeFound)("a room card in the page › the room beside it › the browser's back › the brief's page with its cards", async () => {
   await clickCard(BRIEF_FRAME(), "room/ope-12");
-  await until(`location.hash === "#room/ope-12" && ${shows("#roomView")}`);
+  await until(`location.hash === "#room/ope-12+brief/${brief}" && ${shows("#roomView")} && ${shows(".briefview .pageframe")}`);
   await back();
   await until(`location.hash === "#brief/${brief}" && ${shows(".briefview .pageframe")}`);
   await cardsReady(BRIEF_FRAME(), 7);
 }, 30_000);
 
-test.skipIf(!chromeFound)("a lane card in the page opens the drawer over it; Esc closes the drawer and the page stays", async () => {
+test.skipIf(!chromeFound)("a lane card in the page opens the drawer beside it; Esc closes the drawer and the page stays", async () => {
   await clickCard(BRIEF_FRAME(), "lane/api-auth");
-  await until(`${shows("#card")} && document.querySelector("#card h3").textContent === "api-auth"`);
+  await until(`${shows("#card")} && ${shows(".briefview .pageframe")} && document.querySelector("#card h3").textContent === "api-auth"`);
   expect(await ev(`location.hash`)).toBe(`#brief/${brief}`);
   await key("Escape");
   await until(`document.getElementById("card").hidden && ${shows(".briefview .pageframe")}`);
@@ -234,11 +234,12 @@ test.skipIf(!chromeFound)("FULL SCREEN › a lane card leaves full screen and sh
   await clickCard(BRIEF_FRAME(), "lane/api-auth");
   await until(`!document.fullscreenElement && ${shows("#card")}`);
   await key("Escape");
-  await until(`document.getElementById("card").hidden`);
+  // the label says FULL SCREEN again once the browser has left it; until then the bar is laid out for EXIT FULL SCREEN
+  await until(`document.getElementById("card").hidden && document.querySelector("[data-view-full]").textContent === "FULL SCREEN"`);
   await click("[data-view-full]");
   await until(`document.fullscreenElement === document.querySelector(".briefview")`);
   await clickCard(BRIEF_FRAME(), "room/ope-12");
-  await until(`!document.fullscreenElement && location.hash === "#room/ope-12" && ${shows("#roomView")}`);
+  await until(`!document.fullscreenElement && location.hash === "#room/ope-12+brief/${brief}" && ${shows("#roomView")}`);
 }, 30_000);
 
 test.skipIf(!chromeFound)("a reload keeps the cards; dark mode from MENU turns them dark inside the page", async () => {

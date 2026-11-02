@@ -113,21 +113,21 @@ test.skipIf(!chromeFound)("a status change shows on the card while the brief sta
   expect(await ev(`location.hash`)).toBe(`#brief/${brief}`);
 }, 20_000);
 
-test.skipIf(!chromeFound)("a click opens the thing: a lane's drawer over the office with the brief left open, a room, a page", async () => {
+test.skipIf(!chromeFound)("a click opens the thing: a lane's drawer over the office with the brief left open, a room beside the brief", async () => {
   await ev(`document.querySelector('.briefview .hudcard[data-ref="lane/api-auth"]').click()`);
   await until(`!document.getElementById("card").hidden && document.querySelector("#card h3")?.textContent === "api-auth"`);
   expect(await ev(`location.hash`)).toBe(`#brief/${brief}`);
   expect(await ev(`(() => { const r = document.getElementById("card").getBoundingClientRect(); return r.width > 100 && r.height > 100 && document.elementFromPoint(r.left + r.width / 2, r.top + 20)?.closest("#card") != null; })()`)).toBe(true);
   await ev(`document.querySelector("[data-card-close]").click()`);
   await ev(`document.querySelector('.briefview .hudcard[data-ref="room/ope-12"]').click()`);
-  await until(`location.hash === "#room/ope-12" && !document.getElementById("roomView").hidden`);
+  await until(`location.hash === "#room/ope-12+brief/${brief}" && !document.getElementById("roomView").hidden`);
 }, 20_000);
 
 test.skipIf(!chromeFound)("a room's thread shows cards too, and a page card opens the page", async () => {
   await until(`document.querySelectorAll("#roomView .rthread .hudcard:not(.loading)").length === 2`);
   expect((await cardsIn("#roomView .rthread")).map((c) => [c.word, c.title, c.chips[0]])).toEqual([["PAGE", "plan.html", undefined], ["QUESTION", "Ship the pricing page?", "ANSWERED"]]);
   await ev(`document.querySelector('#roomView .rthread .hudcard[data-ref="page/rooms/ope-12/files/plan.html"]').click()`);
-  await until(`location.hash === "#page/rooms/ope-12/files/plan.html" && !!document.querySelector(".pageview iframe")`);
+  await until(`location.hash === "#room/ope-12+page/rooms/ope-12/files/plan.html" && !!document.querySelector(".pageview iframe")`);
 }, 20_000);
 
 test.skipIf(!chromeFound)("inside a floor only another floor's things have its colour; a floor card goes into that floor", async () => {

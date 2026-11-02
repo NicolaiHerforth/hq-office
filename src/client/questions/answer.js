@@ -5,7 +5,16 @@ import { S } from "../core/state.js";
 import { copyCode } from "../core/markdown.js";
 import { post } from "../core/net.js";
 import { canSend, renderHud } from "./questions.js";
+import { forWhom, keptFor } from "./asker.js";
 import { clearImages, notReady, withImages } from "../images/images.js";
+
+// Whom the answer reaches, read before it is sent (once answered, the ask leaves S.open): the asker, or HQ. A lane
+// that is away (or at a prompt) or busy gets it once it can take it.
+function sentTo(id) {
+  const a = S.open.find((x) => x.id === id);
+  return { who: (a ? forWhom(a) : "HQ").toUpperCase(), kept: a ? keptFor(a) : null };
+}
+const reached = ({ who, kept }, has) => (kept ? `${who} IS ${kept === "busy" ? "BUSY" : "AWAY"}: KEPT FOR IT.` : `${who} ${has}.`);
 
 $("main").addEventListener("click", async (e) => {
   const copyBtn = e.target.closest(".copy");
@@ -32,16 +41,17 @@ $("main").addEventListener("click", async (e) => {
     if (send && ask) send.disabled = !canSend(ask, d);
     return;
   }
-  // NOT YET on a TO DO: it stays (still waiting on the owner); HQ hears it, with what is in the box as the note.
+  // NOT YET on a TO DO: it stays (still waiting on the owner); whoever asked hears it, with what is in the box as the note.
   if (e.target.closest(".notyet")) {
     e.target.disabled = true;
+    const to = sentTo(id);
     try {
       await post(`/api/asks/${id}/notyet`, { note: withImages(id, (d.text || "").trim()) });
       drafts.set(id, { ...d, text: "" });
       clearImages(id);
       const ta = card.querySelector("textarea");
       if (ta) ta.value = "";
-      toast("HQ KNOWS: NOT YET.");
+      toast(to.kept ? `NOT YET. ${reached(to)}` : `${to.who} KNOWS: NOT YET.`);
     } catch (err) { toast(err.message); }
     e.target.disabled = false;
     return;
@@ -53,17 +63,18 @@ $("main").addEventListener("click", async (e) => {
     const text = withImages(id, (d.text || "").trim());
     const answer = d.opt ? (text ? `${d.opt}. ${text}` : d.opt) : text || (ask.kind === "action" ? "done" : "seen");
     const values = secretDrafts.get(id);
+    const to = sentTo(id);
     if (ask.secrets?.length && values && Object.values(values).some(Boolean)) {
       // Cleared at once, whatever the server says.
       secretDrafts.delete(id);
       for (const inp of card.querySelectorAll("[data-secret]")) inp.value = "";
       e.target.disabled = true;
-      try { await post(`/api/asks/${id}/secrets`, { values, minutes: Number(d.minutes ?? 60), note: d.opt ? answer : text }); drafts.delete(id); clearImages(id); toast("SECRETS SAVED. HQ HAS THE NAMES."); }
+      try { await post(`/api/asks/${id}/secrets`, { values, minutes: Number(d.minutes ?? 60), note: d.opt ? answer : text }); drafts.delete(id); clearImages(id); toast(`SECRETS SAVED. ${reached(to, "HAS THE NAMES")}`); }
       catch (err) { toast(err.message); renderHud(); }
       return;
     }
     e.target.disabled = true;
-    try { await post(`/api/asks/${id}/answer`, { answer }); drafts.delete(id); clearImages(id); toast("SENT. HQ HAS IT."); }
+    try { await post(`/api/asks/${id}/answer`, { answer }); drafts.delete(id); clearImages(id); toast(`SENT. ${reached(to, "HAS IT")}`); }
     catch (err) { toast(err.message); e.target.disabled = false; }
   }
 });

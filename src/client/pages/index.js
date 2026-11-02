@@ -1,8 +1,9 @@
 // HTML PAGES on the stage (src/server/pages.ts): a page a lane wrote, shown the way a Claude artifact would be, with no
 // account. #page/rooms/SLUG/files/NAME (a room's .html file), #page/rooms/SLUG/brief (a room's brief that is a page),
 // #page/briefs/ID (a floor's brief that is a page), #page/asks/ID (an ask's page: the ask's answer row sits under it,
-// drawn by questions/questions.js into the dock this view mounts). It takes the right column at full width (the whole screen on a
-// phone), with BACK and OPEN IN NEW TAB. The page runs in an iframe sandboxed without allow-same-origin, and the
+// drawn by questions/questions.js into the dock this view mounts). It takes the right column at full width (the whole
+// screen on a phone), or sits beside the room or a lane's drawer on a wide stage (split/, #room/SLUG+page/...), with
+// BACK (to the room under it, if any) and OPEN IN NEW TAB. The page runs in an iframe sandboxed without allow-same-origin, and the
 // server sends it with a sandbox policy too: its scripts cannot reach the HUD, its data or its storage.
 //
 // A room's page keeps its earlier versions (src/server/room-folder.ts): VERSIONS lists them, and ?v=V on the address
@@ -12,6 +13,7 @@ import { setHTML, esc } from "../core/format.js";
 import { S } from "../core/state.js";
 import { emit, on } from "../core/bus.js";
 import { themedSrc } from "./theme.js";
+import { PAGE, closeSide, current, escIsFor, leaveField } from "../core/stage.js";
 
 export const SANDBOX = "allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms allow-modals allow-downloads";
 const stage = document.querySelector(".stage");
@@ -21,12 +23,10 @@ view.hidden = true;
 view.setAttribute("aria-label", "Page");
 stage.append(view);
 
-const SLUG = "[a-z0-9][a-z0-9-]{0,47}";
-const PLACE = new RegExp(`^#page/(rooms/(${SLUG})/files/([^/?#]+)|rooms/(${SLUG})/brief|briefs/(\\d{1,9})|asks/(\\d{1,9}))(?:\\?v=(\\d{1,15}))?$`);
 // The page's address on the server, what to call it and, for a room's page, where its versions are; null for anything
 // else.
 export function pageOf(hash) {
-  const m = hash.match(PLACE);
+  const m = hash.match(PAGE);
   if (!m) return null;
   const v = m[7] ?? null, q = v ? `?v=${v}` : "";
   if (m[3]) {
@@ -45,6 +45,9 @@ export function pageOf(hash) {
 export const ALLOW = "clipboard-write; fullscreen";
 // The same frame, for a page shown inside another view (a floor's brief). It shows in the HUD's theme (theme.js),
 // which keeps it in step through data-src.
+// SPLIT or SINGLE, in a brief's or a page's bar: split/ shows it while the side can sit beside what is under it, and
+// says the other way's name.
+export const SPLIT_BUTTON = `<button class="btn-s wideonly splitbtn" type="button" data-split-toggle title="Beside the room or the lane, or alone"><span class="tosplit">SPLIT</span><span class="tosingle">SINGLE</span></button>`;
 export const frameHTML = (src, label) => `<iframe class="pageframe" src="${esc(themedSrc(src))}" data-src="${esc(src)}" sandbox="${SANDBOX}" allow="${ALLOW}" allowfullscreen referrerpolicy="no-referrer" title="${esc(label)}"></iframe>`;
 
 export const when = (t) => new Date(t).toLocaleString([], { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
@@ -53,7 +56,7 @@ const byName = (by) => (by === "owner" ? "you" : by || "?");
 let shown = null; // the page on the stage: pageOf(hash), plus its versions once read
 let listOpen = false;
 function route() {
-  const p = pageOf(location.hash);
+  const side = current().side, p = side?.startsWith("page/") ? pageOf(`#${side}`) : null;
   if (!p) { close(); return; }
   if (shown?.src === p.src) return;
   shown = p;
@@ -62,7 +65,7 @@ function route() {
   stage.classList.add("inpage");
   document.documentElement.classList.add("pageopen");
   // An ask's page has its answer row docked under it (questions/questions.js) where other pages have comments.
-  setHTML(view, `<div class="pvbar"><button class="btn-s" type="button" data-page-back>◀ BACK</button><b class="pvtitle">${esc(p.title)}</b><span class="pvvbtn"></span>${p.ask ? "" : `<button class="btn-s" type="button" data-comments-toggle="${esc(p.key)}">COMMENTS</button>`}<button class="btn-s wideonly" type="button" data-view-full>FULL SCREEN</button><a class="btn-s" href="${esc(p.src)}" target="_blank" rel="noopener">OPEN IN NEW TAB</a><div class="pvvers" hidden></div></div><div class="pvold"${p.v ? "" : " hidden"}></div>${frameHTML(p.src, p.title)}${p.ask ? `<aside class="box askdock" data-askdock="${p.ask}" aria-label="Answer"></aside>` : `<aside class="cmount" data-comments="${esc(p.key)}"></aside>`}`);
+  setHTML(view, `<div class="pvbar"><button class="btn-s" type="button" data-page-back>◀ BACK</button><b class="pvtitle">${esc(p.title)}</b><span class="pvvbtn"></span>${p.ask ? "" : `<button class="btn-s" type="button" data-comments-toggle="${esc(p.key)}">COMMENTS</button>`}${SPLIT_BUTTON}<button class="btn-s wideonly" type="button" data-view-full>FULL SCREEN</button><a class="btn-s" href="${esc(p.src)}" target="_blank" rel="noopener">OPEN IN NEW TAB</a><div class="pvvers" hidden></div></div><div class="pvold"${p.v ? "" : " hidden"}></div>${frameHTML(p.src, p.title)}${p.ask ? `<aside class="box askdock" data-askdock="${p.ask}" aria-label="Answer"></aside>` : `<aside class="cmount" data-comments="${esc(p.key)}"></aside>`}`);
   if (p.ask) emit("askdock:mount", view.querySelector(".askdock"));
   else emit("comments:mount", view.querySelector(".cmount"));
   emit("page:stage", p);
@@ -128,14 +131,9 @@ on("state", () => {
   if (rev != null && rev !== p.rev) { p.rev = rev; loadVersions(p); }
 });
 
-// BACK returns to where the page was opened from (a room, a brief), else to the office. It replaces the address rather
-// than going back in the history: a page that navigates inside its frame adds history steps of its own. Moving between
-// versions replaces it too, so BACK leaves in one step.
-let cameFrom = null;
-function back() {
-  if (cameFrom) location.replace(cameFrom);
-  else { history.replaceState(null, "", location.pathname + location.search); route(); }
-}
+// BACK returns to the room under the page, else to the office (core/stage.js). Moving between versions replaces the
+// address, so BACK leaves in one step.
+const back = closeSide;
 view.addEventListener("click", (e) => {
   if (e.target.closest("[data-page-back]")) { back(); return; }
   // FULL SCREEN: the page alone on the screen (Esc, or the button again, leaves it).
@@ -144,22 +142,18 @@ view.addEventListener("click", (e) => {
     else view.requestFullscreen?.().catch(() => {});
     return;
   }
-  if (e.target.closest("[data-page-versions]")) { listOpen = !listOpen; renderVersions(); return; }
-  const go = e.target.closest("[data-page-version]");
-  if (go && !e.metaKey && !e.ctrlKey && !e.shiftKey) { e.preventDefault(); location.replace(go.getAttribute("href")); }
+  if (e.target.closest("[data-page-versions]")) { listOpen = !listOpen; renderVersions(); }
 });
-// Esc closes the versions list, then leaves the page (capture: before the room under it takes Esc to leave the room).
+// Esc closes the versions list, then leaves the page (capture: before the room under it takes Esc to leave the room),
+// when Esc is the page's (core/stage.js); in the comment box it first leaves the box.
 document.addEventListener("keydown", (e) => {
-  if (e.key !== "Escape" || e.defaultPrevented || view.hidden) return;
+  if (e.key !== "Escape" || e.defaultPrevented || view.hidden || !escIsFor(view)) return;
   e.preventDefault();
+  if (leaveField(view)) return;
   if (listOpen) { listOpen = false; renderVersions(); return; }
   back();
 }, true);
-addEventListener("hashchange", (e) => {
-  if (!pageOf(location.hash)) cameFrom = null;
-  else if (!pageOf(new URL(e.oldURL).hash)) cameFrom = new URL(e.oldURL).hash;
-  route();
-});
+on("nav", route);
 route();
 document.addEventListener("fullscreenchange", () => {
   for (const b of view.querySelectorAll("[data-view-full]")) b.textContent = document.fullscreenElement === view ? "EXIT FULL SCREEN" : "FULL SCREEN";

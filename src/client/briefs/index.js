@@ -1,8 +1,9 @@
 // BRIEFS: a floor's HQ's longer write-ups (hud brief), like a project update. The BRIEFS tab in the question column
 // lists the floor's briefs newest first, with the date, who posted it and its first lines; NEW marks one you have not
-// opened. Opening one (from the list, or the line MESSAGES gets, #brief/ID) takes the right column at full width, the
-// way a room does, with the whole brief in markdown (headings, tables, lists, code), BACK, NEWER and OLDER. On a
-// narrow screen the brief fills the screen. It reads in the HUD's theme (the tokens of core/base.css). Inside a floor, that floor's briefs (docs/floors.md).
+// opened. Opening one (from the list, or the line MESSAGES gets, #brief/ID) takes the right column at full width, or
+// sits beside the room or a lane's drawer on a wide stage (split/, #room/SLUG+brief/ID), with the whole brief in
+// markdown (headings, tables, lists, code), BACK, NEWER and OLDER. BACK returns to the room under it. On a narrow
+// screen the brief fills the screen. It reads in the HUD's theme (the tokens of core/base.css). Inside a floor, that floor's briefs (docs/floors.md).
 // A brief shows only inside its own floor or in the building: opened inside another floor (a MESSAGES line, a link, a
 // card), the page enters the brief's floor first, so NEWER and OLDER walk that floor; going to another floor closes it.
 import { $, toast } from "../core/dom.js";
@@ -13,7 +14,8 @@ import { emit, on } from "../core/bus.js";
 import { md, mdInline } from "../core/markdown.js";
 import { enter, officeFloor, pick, tagged } from "../core/scope.js";
 import { floorById } from "../core/floors.js";
-import { frameHTML } from "../pages/index.js";
+import { frameHTML, SPLIT_BUTTON } from "../pages/index.js";
+import { briefId, closeSide, escIsFor, leaveField } from "../core/stage.js";
 
 const list = $("briefs");
 const stage = document.querySelector(".stage");
@@ -48,7 +50,7 @@ function renderList() {
 
 // ---- one brief, on the stage ----
 
-const openId = () => { const m = location.hash.match(/^#brief\/(\d{1,9})$/); return m ? Number(m[1]) : null; };
+const openId = briefId;
 let shown = null; // { id, ...the brief } once read from the server
 async function route() {
   const id = openId();
@@ -59,7 +61,7 @@ async function route() {
       const r = await fetch(`/api/briefs/${id}`, { cache: "no-store" });
       const b = await r.json();
       if (openId() !== id) return;
-      if (!r.ok) { toast(b.error?.toUpperCase?.() || `NO BRIEF #${id}`); history.replaceState(null, "", location.pathname + location.search); close(); return; }
+      if (!r.ok) { toast(b.error?.toUpperCase?.() || `NO BRIEF #${id}`); closeSide(); close(); return; }
       shown = b;
       place();
       show(b);
@@ -69,6 +71,7 @@ async function route() {
 }
 function show(b) {
   shown = b;
+  view.dataset.floor = b.floor ?? "";
   view.hidden = false;
   stage.classList.add("inbrief");
   document.documentElement.classList.add("briefopen");
@@ -76,7 +79,7 @@ function show(b) {
   const page = !b.loading && b.html;
   const meta = page ? `<span class="bvmeta">${floorChip(b.floor)}<span class="when">${esc(when(b.at))}</span><span class="by">by ${esc(b.by)}</span></span>` : `<span class="spacer"></span>`;
   setHTML(view, `<div class="bvbar"><button class="btn-s" type="button" data-brief-back>◀ BACK</button>${meta}`
-    + (b.loading ? "" : `<button class="btn-s" type="button" data-comments-toggle="briefs/${b.id}">COMMENTS</button><button class="btn-s wideonly" type="button" data-view-full>FULL SCREEN</button><a class="btn-s wideonly" href="./#brief/${b.id}" target="_blank" rel="noopener" title="This brief in a window of its own, beside a room or a lane">NEW WINDOW</a>`)
+    + (b.loading ? "" : `<button class="btn-s" type="button" data-comments-toggle="briefs/${b.id}">COMMENTS</button>${SPLIT_BUTTON}<button class="btn-s wideonly" type="button" data-view-full>FULL SCREEN</button><a class="btn-s wideonly" href="./#brief/${b.id}" target="_blank" rel="noopener" title="This brief in a window of its own, beside a room or a lane">NEW WINDOW</a>`)
     + `<a class="btn-s" data-brief-step="-1">NEWER</a><a class="btn-s" data-brief-step="1">OLDER</a></div>`
     + (b.loading ? `<div class="empty">LOADING…</div>`
       : page ? frameHTML(`/briefs/${b.id}.html`, b.title)
@@ -116,10 +119,7 @@ function close() {
   document.documentElement.classList.remove("briefopen");
   renderList();
 }
-function back() {
-  if (history.state?.hqBrief) history.back();
-  else { history.replaceState(null, "", location.pathname + location.search); route(); }
-}
+const back = closeSide;
 view.addEventListener("click", (e) => {
   if (e.target.closest("[data-brief-back]")) back();
   // FULL SCREEN: the brief alone on the screen (Esc, or the button again, leaves it).
@@ -132,22 +132,15 @@ function fullScreen(el) {
 document.addEventListener("fullscreenchange", () => {
   for (const b of view.querySelectorAll("[data-view-full]")) b.textContent = document.fullscreenElement === view ? "EXIT FULL SCREEN" : "FULL SCREEN";
 });
-// A brief link adds one step to the history from elsewhere; from brief to brief it replaces it, so BACK leaves.
-document.addEventListener("click", (e) => {
-  const a = e.target.closest?.('a[href^="#brief/"]');
-  if (!a || a.target === "_blank" || e.metaKey || e.ctrlKey || e.shiftKey) return;
-  e.preventDefault();
-  const url = `${location.pathname}${location.search}${a.getAttribute("href")}`;
-  if (openId()) history.replaceState({ hqBrief: true }, "", url); else history.pushState({ hqBrief: true }, "", url);
-  route();
-});
+// Esc closes the brief before the room beside it (capture), when Esc is the brief's (core/stage.js); in the comment box
+// it first leaves the box.
 document.addEventListener("keydown", (e) => {
-  if (e.key !== "Escape" || e.defaultPrevented || view.hidden) return;
+  if (e.key !== "Escape" || e.defaultPrevented || view.hidden || !escIsFor(view)) return;
   e.preventDefault();
+  if (leaveField(view)) return;
   back();
-});
-addEventListener("hashchange", route);
-addEventListener("popstate", route);
+}, true);
+on("nav", route);
 on("state", () => { renderList(); steps(); if (openId() && !shown) route(); else place(); });
 // The floor changed with a brief open: the brief's own floor (or the building) draws it again, so NEWER and OLDER follow
 // the list; the owner going into another floor leaves the brief.

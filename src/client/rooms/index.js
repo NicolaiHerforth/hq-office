@@ -16,12 +16,13 @@ import { CONFIG, S } from "../core/state.js";
 import { clock, esc, setHTML } from "../core/format.js";
 import { post } from "../core/net.js";
 import { emit, on } from "../core/bus.js";
-import { STATUS_TEXT } from "../core/status.js";
+import { laneStatusText } from "../core/status.js";
 import { qTab } from "../messages/messages.js";
 import { clearImages, composer, hasImages, notReady, openPreview, pastesText, uploadTarget, withImages } from "../images/images.js";
 import { md, mdClip, mdInline } from "../core/markdown.js";
 import { ART_H, drawStrip, laneAt, stripKey } from "./pix.js";
 import { pick, tagged } from "../core/scope.js";
+import { current, leaveField, leaveRoom as leave, open } from "../core/stage.js";
 import { floorTagHTML } from "../core/floors.js";
 import "./new.js"; // + NEW ROOM
 
@@ -97,7 +98,7 @@ function laneInfo(name) {
   if (name === "hq") return { level: "HQ", label: "HQ", color: "var(--ink)", away: false };
   const l = (S?.lanes ?? []).find((x) => x.name === name);
   if (!l) return { level: "", label: "Not registered", color: "#6a6a82", away: true };
-  const [label, color] = STATUS_TEXT[l.status] ?? [l.status, "#6a6a82"];
+  const [label, color] = laneStatusText(l);
   // Away as the server decides it: herdr found no agent by this name (a lane can be away with a question open).
   return { level: l.level || "", label: l.herdr === "gone" ? `${label}, agent away` : label, color, away: l.herdr === "gone" };
 }
@@ -477,7 +478,7 @@ function render() {
 
 // ---- where you are: the address says it (#room/SLUG), and the page follows it ----
 
-const slugInHash = () => { const m = location.hash.match(/^#room\/([a-z0-9][a-z0-9-]{0,47})$/); return m ? m[1] : null; };
+const slugInHash = () => current().room;
 function setPtab(t) {
   view.dataset.pane = t;
   for (const b of view.querySelectorAll("[data-ptab]")) { b.classList.toggle("on", b.dataset.ptab === t); b.setAttribute("aria-selected", String(b.dataset.ptab === t)); }
@@ -498,7 +499,7 @@ function route() {
   if (slug === openSlug || (slug && !S)) return; // a room's summary comes with the first state
   if (slug && !roomOf(slug)) {
     toast(`NO ROOM ${slug.toUpperCase()}`);
-    history.replaceState(null, "", location.pathname + location.search);
+    leave();
     if (openSlug) show(null);
     return;
   }
@@ -506,22 +507,16 @@ function route() {
   if (slug) { renderRoom(); fetchRoom(slug); }
 }
 // Going to a room from the office adds a step to the browser's history; moving from room to room replaces it, so
-// one BACK always lands in the office.
+// one BACK always lands in the office (core/stage.js). A brief or a page beside the room stays.
 export function goRoom(slug) {
-  if (slugInHash() === slug) { route(); return; }
-  const url = `${location.pathname}${location.search}#room/${slug}`;
-  if (slugInHash()) history.replaceState(history.state, "", url);
-  else history.pushState({ hqRoom: true }, "", url);
-  route();
+  if (slugInHash() === slug) route();
+  else open({ room: slug });
 }
 export function leaveRoom() {
-  if (!slugInHash()) { route(); return; }
-  if (history.state?.hqRoom) { history.back(); return; } // popstate routes
-  history.replaceState(null, "", location.pathname + location.search);
-  route();
+  if (slugInHash()) leave();
+  else route();
 }
-addEventListener("popstate", route);
-addEventListener("hashchange", route);
+on("nav", route);
 
 // On a full-screen room the send box stays above the keyboard: the view follows the visible part of the screen.
 const vv = window.visualViewport;
@@ -639,12 +634,14 @@ view.addEventListener("keydown", (e) => {
   if (e.key === "Escape" && openSlug && draft(openSlug).reply) { e.preventDefault(); draft(openSlug).reply = null; renderSend(roomOf(openSlug)); }
 });
 // Esc goes back to the office, unless something over the room takes it first (a preview, SETTINGS, a reply being
-// set up) or you are typing in the question column.
+// set up) or you are typing in the question column. In the send box it first leaves the box, the draft kept.
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape" || !openSlug || e.defaultPrevented) return;
   if (document.querySelector("dialog[open]") || !$("settings").hidden) return;
   const f = document.activeElement;
   if (f && !view.contains(f) && f.matches("input, textarea, select, [contenteditable]")) return;
+  e.preventDefault();
+  if (leaveField(view)) return;
   leaveRoom();
 });
 view.addEventListener("input", (e) => {

@@ -17,12 +17,13 @@ import { toast } from "../core/dom.js";
 import { esc } from "../core/format.js";
 import { mdInline } from "../core/markdown.js";
 import { parseRef } from "../core/refs.js";
-import { STATUS_TEXT } from "../core/status.js";
+import { STATUS_TEXT, statusText } from "../core/status.js";
 import { floorById, inkOn, multi } from "../core/floors.js";
 import { enter, listFloor, officeFloor } from "../core/scope.js";
 import { select } from "../room/input.js";
 import { cardOf } from "./model.js";
 import { allowedIn } from "./pages.js";
+import { open as openStage, parseStage } from "../core/stage.js";
 
 // ---- what a card says: from S, else from the server ----
 
@@ -72,7 +73,7 @@ function resolve(p) {
 
 const chipHTML = (c) => {
   if (c.c === "st") {
-    const [label, color] = STATUS_TEXT[c.status] ?? [c.t, ""];
+    const [label, color] = STATUS_TEXT[c.status] ? statusText(c.status, c.boss) : [c.t, ""];
     return `<span class="hchip st"${color ? ` style="background:${esc(color)}"` : ""}>${esc(String(label).toUpperCase())}</span>`;
   }
   return `<span class="hchip ${esc(c.c)}">${esc(c.t)}</span>`;
@@ -190,7 +191,9 @@ on("page:open", ({ page, ref }) => {
   if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
   // The click left the keyboard in the page's frame: back to the HUD, so Esc closes what opened.
   if (document.activeElement?.tagName === "IFRAME") document.activeElement.blur();
+  const to = parseStage(`#${p.ref}`);
   if (ACTION.test(`#${p.ref}`)) act(p);
+  else if (to.room || to.side) openStage(to); // the room or the side beside it stays (core/stage.js)
   else location.hash = `#${p.ref}`;
 });
 addEventListener("hashchange", route);

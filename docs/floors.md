@@ -62,12 +62,33 @@ The caller's floor is then:
 
 `notifyHq(text, ref, floor)` types into that floor's HQ (the first floor's when none is given):
 
-- an answer, and a NOT YET: the ask's floor;
+- an answer, and a NOT YET: the ask's floor, unless a lane asked it (below);
 - a note: the note's floor;
 - a lane blocked on a prompt: the lane's floor;
 - a room the owner closed: the room's floor; a room message to `hq` goes to the room's floor's HQ;
 - a secret the owner sets, and secrets lost in a restart: every floor's HQ;
 - `hud floor tell FLOOR TEXT`: that floor's HQ, as `HUD from floor <caller's floor>: TEXT`, with an event line.
+
+### An ask a lane asked
+
+A lane that runs lanes (a PM) can ask the owner itself. When `hud ask` comes from a registered lane that is no floor's
+HQ, `ask_askers` records it as the asker (no row: HQ asked, as every ask did before). While the asker is still a lane on
+the ask's floor (`askerOf`, `src/server/ask-routing.ts`):
+
+- the answer, the secrets answer and NOT YET are typed into the asker's pane through `lane_outbox`, not into HQ, one
+  at a time in the order written: kept (`away`) while herdr finds no agent by its name or it waits at a prompt, and
+  (`busy`) while it is mid-turn, where a typed message can be lost; sent once it is idle, unless it read and acked the
+  answer meanwhile (`hud wait`). A lane that is removed, moved to another floor, gone 30 minutes
+  (`HUD_LANE_GONE_MS`) or that herdr refuses: its floor's HQ gets it instead (`hq`), with why;
+- `hud inbox` and `hud wait` from that lane show its own answers (no notes), and it acks only those (`answerOwner`:
+  the lane an answer went to stays its owner); the floor's HQ sees them under `forLanes` until the lane acks, and they
+  never wake HQ's `hud wait`;
+- the card says FOR PM · its level, the chip is the asker's pick, and the toast and MESSAGES name it (`S.askers`).
+
+A lane waiting on its boss (`hq_turn`, `stale`) waits on the lane it reports to (`bossOf`: a floor's HQ registered as a
+lane counts as HQ): "Waiting on pm" on its card, in
+`hud tree` and on the LANES BOARD, its worker behind that lane's desk, and the top bar's ON HQ counts only
+lanes that report to HQ.
 
 ## A new floor's HQ: STARTING, never the alarm
 
