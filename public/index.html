@@ -4,6 +4,8 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
 <title>HQ Office</title>
+<!-- before any stylesheet, which would hold it (and the page's parsing) up -->
+<script src="/src/client/menu/theme-first.js"></script>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Crect width=%2216%22 height=%2216%22 fill=%22%23d63c3c%22/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Nunito:wght@400;600;700;800&display=swap">
@@ -35,6 +37,7 @@
           <button class="mi" id="settingsBtn" type="button" role="menuitem">SETTINGS</button>
           <button class="mi" id="alerts" type="button" role="menuitem">SOUND OFF</button>
           <div class="mi mlayout" role="group" aria-label="Layout"><span>LAYOUT</span><span class="mseg"><button class="seg" type="button" role="menuitemradio" data-layout="office">OFFICE</button><button class="seg" type="button" role="menuitemradio" data-layout="board">LANES BOARD</button></span></div>
+          <div class="mi mlayout mtheme" role="group" aria-label="Theme"><span>THEME</span><span class="mseg"><button class="seg" type="button" role="menuitemradio" data-set-theme="system">SYSTEM</button><button class="seg" type="button" role="menuitemradio" data-set-theme="light">LIGHT</button><button class="seg" type="button" role="menuitemradio" data-set-theme="dark">DARK</button></span></div>
         </div>
       </div>
     </div>

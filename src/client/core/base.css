@@ -1,24 +1,246 @@
-/* Colour and font tokens, the reset, the page wrapper and the handheld dialog box (.box). Light only. */
-/* One deliberate look: a handheld-era office. Light only. */
+/* Colour and font tokens (light and dark), the reset, the page wrapper and the handheld dialog box (.box). */
+/* One deliberate look: a handheld-era office, light or dark. Every colour in the HUD's CSS comes from a token here.
+   Bare :root holds the light values (LIGHT and SYSTEM in a light browser draw exactly as before the dark theme);
+   dark comes from the system (SYSTEM) or from MENU › THEME (menu/index.js sets data-theme on the root). The room's
+   canvas is pixel art and keeps its own colours; only its frame follows the theme. A few roles carry more than one
+   light shade (the -2, -3 tokens): each keeps the exact shade it had, and dark gives them one value. */
 :root {
   color-scheme: light;
-  --bg: #2b2f45;
-  --box: #f8f8f0;
+  /* surfaces */
+  --bg: #2b2f45;            /* the page */
+  --box: #f8f8f0;           /* a panel (the dialog box) */
+  --lift: #fff;             /* a button or row under the pointer */
+  --field: #fff;            /* a text field, a card inside a panel */
+  --hover: #eef0fb;         /* a row under the pointer, or the chosen one */
+  --hover-2: #eeeef8;
+  --hover-3: #f1f1f8;
+  --hover-4: #ececf6;
+  --press: #dde2f6;
+  --select: #e6e6f6;        /* the option picked */
+  --soft: #eef1fa;          /* your own message, a held secret */
+  --head: #f2f2f8;          /* a table's header row */
+  --chip: #e8e8f4;          /* a quiet tag, an image's place */
+  --chip-2: #eee;
+  --code: #e6e6ea;
+  --code-edge: #c4c4d0;
+  --code-inline: rgba(40, 40, 70, .08);
+  --rule: #e2e2ee;          /* a thin line between things in a panel */
+  --well: #fbfbf6;          /* a pane set into a panel (a brief's comments) */
+  /* text */
   --ink: #23233a;
+  --ink-2: #3a3a52;         /* body text under a title */
   --muted: #6a6a82;
+  --on-ink: #fff;           /* text on an ink fill (a picked tab, a lane tag) */
+  --on-fill: #fff;          /* text on an accent, a status colour or a scrim */
+  /* edges */
   --edge: #3c3c5a;
   --edge-2: #a8a8c8;
+  --dim-edge: #8a8aa0;      /* the dashed edge of something not there yet */
+  --ring: #fff;             /* the ring that lifts a small swatch off what is under it */
+  --swatch-ring: rgba(255, 255, 255, .7);
+  /* the meanings: red waits on you, amber waits, green moves, blue is information and links. The plain token is the
+     fill (white text on it); -text is the colour as text on a panel; -strong a deeper shade for text on its tint. */
   --red: #d63c3c;
+  --red-text: #d63c3c;
+  --red-strong: #8a2020;
+  --red-edge: #8a2020;      /* the border of a red button */
+  --red-tint: #fff0f0;
+  --red-tint-2: #ffe0e0;
+  --red-tint-3: #fbecec;
+  --red-glow: rgba(214, 60, 60, .4);
   --amber: #e0901e;
+  --amber-text: #e0901e;
+  --amber-strong: #9a5a08;
+  --amber-strong-2: #a86410;
+  --amber-strong-3: #8a5a10;
+  --amber-strong-4: #8a5200;
+  --amber-strong-5: #9a5b00;
+  --amber-tint: #fff8e6;
+  --amber-tint-2: #fff3d6;
+  --amber-edge: #f0d080;
   --green: #2f9e57;
+  --green-text: #2f9e57;
+  --green-strong: #1d6b3a;
+  --green-strong-2: #1d7a43;
+  --green-edge: #1d6b3a;
+  --green-edge-soft: #cfe9d8;
+  --green-tint: #f2faf5;
+  --green-tint-2: #dff3e6;
+  --green-glow: #d6f1df;
   --blue: #3c6fd6;
+  --blue-text: #3c6fd6;
+  --blue-tint: #eef4ff;
+  --blue-veil: rgba(238, 244, 255, .88);
+  --blue-glow: rgba(60, 111, 214, .25);
+  /* tags with a kind of their own */
+  --decision-bg: #ece0ff;
+  --decision-ink: #5a2fb0;
+  --action-bg: #dcebff;
+  --action-ink: #1f4fa8;
+  --merged-bg: #e6dcff;
+  --secret-bg: #ffe4d6;
+  --secret-ink: #a8401e;
+  --artifact-bg: #fdf3ec;
+  --artifact-ink: #b8562f;
+  --owner-fill: #b0306a;
+  --blocked-fill: #b01e1e;
+  --idle-fill: #6a6a82;
+  /* dark in both themes: text on the page, the room's frame and its legend, the terminal, image overlays */
+  --on-bg: #f8f8f0;
+  --on-bg-2: #c8c8e0;
+  --on-bg-3: #d8d8e8;
+  --on-bg-edge: rgba(255, 255, 255, .14);
+  --frame: #1b1d2c;
+  --key-bg: #fff;
+  --key-edge: #23233a;
+  --term-bg: #1b1d2b;
+  --term-ink: #d9dbe8;
+  --term-dim: #8a8ca0;
+  --pix-wall: #9aa8c4;
+  --img-bg: #fff;           /* under an image, so a transparent one reads as it would on a page */
+  --img-edge: rgba(35, 35, 58, .12);
+  --scrim: rgba(35, 35, 58, .5);
+  --scrim-2: rgba(35, 35, 58, .7);
+  --scrim-full: rgba(23, 25, 40, .96);
+  --spin-track: rgba(255, 255, 255, .35);
+  /* fonts */
   --pixel: "Press Start 2P", ui-monospace, monospace;
   --text: "Nunito", system-ui, -apple-system, sans-serif;
   --mono: ui-monospace, "SF Mono", Menlo, monospace;
 }
+/* Dark: SYSTEM in a dark browser, or DARK picked in MENU. A dark panel with a light pixel border, light ink; the fills
+   keep their colours, and the colours as text are lighter so they read on a dark panel (each at 4.5:1 or more). */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #12131f;
+    --box: #22253a;
+    --lift: #2f3352;
+    --field: #191b2b;
+    --hover: #2f3352;
+    --hover-2: var(--hover);
+    --hover-3: var(--hover);
+    --hover-4: #343859;
+    --press: #3c4168;
+    --select: #383c62;
+    --soft: #2a2e4a;
+    --head: #2a2d45;
+    --chip: #353950;
+    --chip-2: var(--chip);
+    --code: #191b2b;
+    --code-edge: #44486c;
+    --code-inline: rgba(255, 255, 255, .1);
+    --rule: #3a3d5a;
+    --well: #1d2033;
+    --ink: #ecebf4;
+    --ink-2: #c8c8da;
+    --muted: #a6a6c2;
+    --on-ink: #1b1d2c;
+    --edge: #b4b4d4;
+    --edge-2: #50547c;
+    --dim-edge: #7a7a96;
+    --ring: var(--box);
+    --red-text: #ff8a8a;
+    --red-strong: #ffa8a8;
+    --red-tint: #3c2232;
+    --red-tint-2: #4a2634;
+    --red-tint-3: var(--red-tint);
+    --amber-text: #f2b04c;
+    --amber-strong: #f2b04c;
+    --amber-strong-2: var(--amber-strong);
+    --amber-strong-3: var(--amber-strong);
+    --amber-strong-4: var(--amber-strong);
+    --amber-strong-5: var(--amber-strong);
+    --amber-tint: #37301f;
+    --amber-tint-2: var(--amber-tint);
+    --amber-edge: #8a6a2a;
+    --green-text: #5fd08a;
+    --green-strong: #7ddc9e;
+    --green-strong-2: var(--green-strong);
+    --green-edge-soft: #2c5a3e;
+    --green-tint: #1c3227;
+    --green-tint-2: var(--green-tint);
+    --green-glow: #24503a;
+    --blue-text: #8fb0ff;
+    --blue-tint: #22304e;
+    --blue-veil: rgba(34, 48, 78, .92);
+    --decision-bg: #352a55;
+    --decision-ink: #cbb6ff;
+    --action-bg: #22304e;
+    --action-ink: #a2c2ff;
+    --merged-bg: #352a55;
+    --secret-bg: #45281e;
+    --secret-ink: #ffb08a;
+    --artifact-bg: #382620;
+    --artifact-ink: #f0a07a;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #12131f;
+  --box: #22253a;
+  --lift: #2f3352;
+  --field: #191b2b;
+  --hover: #2f3352;
+  --hover-2: var(--hover);
+  --hover-3: var(--hover);
+  --hover-4: #343859;
+  --press: #3c4168;
+  --select: #383c62;
+  --soft: #2a2e4a;
+  --head: #2a2d45;
+  --chip: #353950;
+  --chip-2: var(--chip);
+  --code: #191b2b;
+  --code-edge: #44486c;
+  --code-inline: rgba(255, 255, 255, .1);
+  --rule: #3a3d5a;
+  --well: #1d2033;
+  --ink: #ecebf4;
+  --ink-2: #c8c8da;
+  --muted: #a6a6c2;
+  --on-ink: #1b1d2c;
+  --edge: #b4b4d4;
+  --edge-2: #50547c;
+  --dim-edge: #7a7a96;
+  --ring: var(--box);
+  --red-text: #ff8a8a;
+  --red-strong: #ffa8a8;
+  --red-tint: #3c2232;
+  --red-tint-2: #4a2634;
+  --red-tint-3: var(--red-tint);
+  --amber-text: #f2b04c;
+  --amber-strong: #f2b04c;
+  --amber-strong-2: var(--amber-strong);
+  --amber-strong-3: var(--amber-strong);
+  --amber-strong-4: var(--amber-strong);
+  --amber-strong-5: var(--amber-strong);
+  --amber-tint: #37301f;
+  --amber-tint-2: var(--amber-tint);
+  --amber-edge: #8a6a2a;
+  --green-text: #5fd08a;
+  --green-strong: #7ddc9e;
+  --green-strong-2: var(--green-strong);
+  --green-edge-soft: #2c5a3e;
+  --green-tint: #1c3227;
+  --green-tint-2: var(--green-tint);
+  --green-glow: #24503a;
+  --blue-text: #8fb0ff;
+  --blue-tint: #22304e;
+  --blue-veil: rgba(34, 48, 78, .92);
+  --decision-bg: #352a55;
+  --decision-ink: #cbb6ff;
+  --action-bg: #22304e;
+  --action-ink: #a2c2ff;
+  --merged-bg: #352a55;
+  --secret-bg: #45281e;
+  --secret-ink: #ffb08a;
+  --artifact-bg: #382620;
+  --artifact-ink: #f0a07a;
+}
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 var(--text); }
-a { color: var(--blue); }
+a { color: var(--blue-text); }
 button { font: inherit; color: inherit; cursor: pointer; }
 .wrap { max-width: 1680px; margin: 0 auto; padding-block: 14px 40px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 14px; }
 /* the handheld dialog box */

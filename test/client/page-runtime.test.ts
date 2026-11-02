@@ -119,7 +119,7 @@ const frame = `document.querySelector(".pageview:not([hidden]) iframe, .briefvie
 // The frame loads again once the test listens, so its report is not missed.
 async function reloadFrame(ready = "window.__probe?.sizes?.length") {
   await ev(`(() => { window.__probe = null; window.__since = Date.now(); const f = ${frame}; f.src = f.getAttribute("src"); return true; })()`);
-  await until(`!!(${ready})`, 10_000);
+  await until(`!!(${ready})`, 25_000); // a page in a cold browser on a loaded machine can take a while
   return ev(`window.__probe`);
 }
 let brief = 0;

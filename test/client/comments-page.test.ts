@@ -27,6 +27,8 @@ const until = async (expr: string, ms = 8000) => {
 const post = (p: string, b: object = {}, pane?: string) => fetch(`${server.base}${p}`, { method: "POST", headers: { "content-type": "application/json", "x-hud": "1", ...(pane ? { "x-hud-pane": pane, "x-hud-machine": "local" } : {}) }, body: JSON.stringify(b) }).then((r) => r.json());
 async function load(hash = "", w = 1440, h = 900, mobile = false) {
   await page.s("Emulation.setDeviceMetricsOverride", { width: w, height: h, deviceScaleFactor: 1, mobile });
+  // These tests read the thread: this viewer keeps it open (COMMENTS; brief-view-controls tests the closed default).
+  await page.s("Page.addScriptToEvaluateOnNewDocument", { source: `try { if (location.origin !== "null") localStorage.setItem("hq-comments-open", "1"); } catch {}` });
   await page.s("Page.navigate", { url: "about:blank" });
   await page.s("Page.navigate", { url: `${server.base}/${hash}` });
   await until(`!!document.getElementById("lastNote")?.innerHTML`);

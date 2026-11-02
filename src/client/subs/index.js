@@ -31,6 +31,8 @@ function place() {
   } else if (q.right < w.right) drop.style.setProperty("--subs-max", `${w.right - q.right - 14}px`);
 }
 addEventListener("resize", () => isOpen() && place());
+// The stacked layout can switch after the resize event has run (a phone turned): place it again then.
+stacked.addEventListener?.("change", () => isOpen() && place());
 function openSubs() {
   drop.hidden = false;
   btn.setAttribute("aria-expanded", "true");

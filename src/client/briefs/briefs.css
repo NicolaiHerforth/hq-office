@@ -1,6 +1,6 @@
 /* BRIEFS: the list in the question column, and one brief on the stage at full width (fills a narrow screen). Colours
    are the tokens of core/base.css, so a brief reads in the HUD's theme. */
-.briefs[hidden], .briefview[hidden] { display: none; }
+.briefs[hidden], .briefview[hidden] { display: none !important; } /* over any layout rule, the comments' grid included */
 .briefs { display: grid; gap: 10px; align-content: start; padding: 12px 14px; }
 @media (min-width: 1151px) { .briefs { height: 100%; overflow-y: auto; overscroll-behavior: contain; } }
 .bsum { font: 8px/1.6 var(--pixel); color: var(--muted); }
@@ -50,3 +50,7 @@
   .bbody h1 { font-size: 22px; }
   .bvbar .btn-s { min-height: 44px; }
 }
+
+/* FULL SCREEN: the brief alone, on its reading surface */
+.briefview:fullscreen { background: var(--box); padding: 16px max(24px, env(safe-area-inset-left, 0px)); overflow-y: auto; }
+@media (max-width: 1150px) { .bvbar .wideonly { display: none; } }

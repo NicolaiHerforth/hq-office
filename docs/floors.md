@@ -56,6 +56,7 @@ The caller's floor is then:
 | Board item | Its lane's floor; an item with no lane, the floor it was tracked from. |
 | Note from the page | `floor` in the body of `POST /api/notes`, else the first floor. |
 | Event | The floor given, else its lane's floor; else none. |
+| Brief | The caller's floor when it is posted (`hud brief`, `--floor` to pick one). Its comments and its page data (`briefs/ID`) are on its floor; a comment on a room's page is on the room's floor. A comment goes to the lane that wrote the page only while that lane is on the page's floor, else to that floor's HQ. |
 
 ## Routing to an HQ
 
@@ -127,6 +128,12 @@ floor's answer or note is refused without `--all`), `hud board`, `hud tree`, `hu
 lists archived rooms, as before). An HQ never sees another floor's answers or notes in its inbox. `/api/state` is
 not scoped: the page gets every floor, each row tagged.
 
+Briefs: an agent (a call from `hud`, which sends `x-hud-cwd`) reading or answering another floor's brief is refused
+with "brief #ID is on floor X, not yours (Y) ... add --all": `GET /api/briefs/ID`, `hud brief comments|reply ID`,
+`hud page comments|reply KEY` (a room's page: the room's floor) and `hud page data briefs/ID`; `hud page data` with no
+page leaves out other floors' briefs. `--all`, or `--floor X`, reaches them. The HUD's page sends no caller and reads
+every brief (`briefs.ts` `agentOnFloor`). `S.briefs` holds each floor's newest 100, newest first.
+
 ## CLI
 
 ```
@@ -141,7 +148,7 @@ hud lane NAME --floor ID
 ```
 
 A floor's id is 1 to 32 lowercase letters, digits and dashes (not `all`). One agent is the HQ of one floor only.
-What a removed floor leaves behind (answered questions, updates, notes, the log) moves to the first floor.
+What a removed floor leaves behind (answered questions, updates, notes, briefs and their comments, the log) moves to the first floor.
 
 ## API
 
@@ -244,7 +251,7 @@ leaves out the FLOORS section in SETTINGS, and puts back the two things this rew
 - **The scope** (`src/client/core/scope.js`): the floor you are in, or none (the building), and SHOW ALL. It is kept in
   sessionStorage, dropped when its floor is gone, and every change emits `scope` on the bus. Pure helpers of `S` (the
   floor list, a floor's HQ link and state, the readings and slots, the card stripe) are in `core/floors.js`.
-- **Lists and counts**: NEEDS YOU, MESSAGES, WORK (and its STALLED strip), ROOMS, and the
+- **Lists and counts**: NEEDS YOU, MESSAGES, WORK (and its STALLED strip), ROOMS, BRIEFS and the
   tab counts, follow `listFloor()`. In a list that shows every floor a card has a 4 px stripe in its floor's colour and
   a swatch in its lane tag; its kind tag stays; the timer stays on the right and the tags shorten first.
 - **TELL HQ**: `to: Backend ▾` left of SEND (a native select under a label as wide as the name, at most 40% of the row)
@@ -257,6 +264,10 @@ leaves out the FLOORS section in SETTINGS, and puts back the two things this rew
   floors only when a stall's step (none, amber, red) changes. No timer of its own.
 - **A phone** (under 1151 px): the switcher row under the top bar (44 px targets on touch), then the questions; the
   floor list a bottom sheet; the building a list of rows after the questions; no sideways page scroll.
+- **A brief** (`briefs/index.js`) shows only inside its own floor or in the building. Opened inside another floor (a
+  MESSAGES line, a link, a card, the address), the page enters the brief's floor first (SHOW ALL off), so its BRIEFS
+  list and NEWER / OLDER are that floor's; in the building it opens there and NEWER / OLDER walk every floor's. Going
+  into another floor with a brief open leaves the brief; going to the building keeps it.
 - SECRETS stay global.
 
 The scope, SHOW ALL and marking read within it are adapted from PR #8. Floors themselves come from `S.floors`, not the

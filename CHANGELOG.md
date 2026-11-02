@@ -3,6 +3,45 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.32.0] - 2026-11-02
+### Added
+
+- **Dark mode.** MENU has a **THEME** row: **SYSTEM** (the default) follows your browser's light or dark setting as
+  it changes, **LIGHT** is the look you know, unchanged, and **DARK** gives the whole HUD dark panels with a light
+  pixel border. Red, amber and green mean what they always did, in shades that read on a dark panel. The choice is
+  yours alone, kept in this browser like LAYOUT, and a reload opens straight in it. The office itself is pixel art
+  and keeps its colours; only its frame follows the theme.
+
+### Changed
+
+- **Comments stay out of the way.** The thread beside a brief or a page is closed until you press **COMMENTS** in
+  its bar, which shows how many comments there are and lights up when an answer waits. Your choice is kept in this
+  browser.
+- **FULL SCREEN** shows a brief or a page alone on the screen, and **NEW WINDOW** opens a brief in a window of its own,
+  so it can sit beside a room or a lane.
+- **Parity Lab judges every check.** Copy, fullscreen and saving a file need a person's click, so the harness used to
+  leave them waiting; it now clicks them for real (mouse input inside the page's sandboxed frame, and SAVE on the
+  HUD's prompt), so all 21 checks are judged. `--expect N` makes it fail when fewer than N pass, to catch a
+  regression.
+
+### Fixed
+
+- **BACK closes a brief.** Once a brief had a comment thread, BACK left the brief and its thread on screen until a
+  reload. BACK now closes the whole view, for briefs and for a room's pages.
+- **Pasting text that came with a picture.** Text copied from Excel, Word, Notes or a web page also puts a picture of
+  itself on the clipboard; pasting it into a text box was taken as an image, and the text never arrived. It now pastes
+  as text. A screenshot, a copied image or a file still attaches.
+- **Briefs stay on their floor.** Each floor's BRIEFS list now keeps its own newest 100, so a busy floor no longer
+  pushes another floor's briefs out. Opening a brief from inside another floor (a MESSAGES line, a link, an address)
+  takes you to the brief's floor, so NEWER and OLDER walk that floor's briefs; in the building it opens where you are,
+  as before. An agent reads and answers only its own floor's briefs, their comments and their page data
+  (`hud brief comments|reply`, `hud page comments|reply`, `hud page data`); another floor's needs `--all`, as
+  `hud inbox` and `hud ack` do. Comments on a room's page follow the room's floor, and a comment never goes to a lane
+  that has moved to another floor: that floor's HQ gets it. A removed floor's briefs move to the first floor with
+  everything else.
+- **SUBS on a narrow screen.** When the layout switched to stacked after a resize (a phone turned), the open
+  dropdown could stay where the wide layout put it, over the questions. It now moves with the layout.
+
 ## [0.31.0] - 2026-11-02
 ### Added
 

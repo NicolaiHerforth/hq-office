@@ -1,37 +1,37 @@
 /* Shared controls: buttons, tags, tabs, the reply box and SEND, code boxes, MORE, thumbs, toasts, keyframes. */
 .spacer { flex: 1; }
 .btn { background: var(--box); border: 3px solid var(--edge); border-radius: 8px; padding: 8px 12px; font: 9px/1 var(--pixel); }
-.btn:hover { background: #fff; }
+.btn:hover { background: var(--lift); }
 .tab { font: 8px/1 var(--pixel); padding: 6px 8px; border: 2px solid var(--edge); border-radius: 6px; background: var(--box); display: inline-flex; gap: 6px; align-items: center; }
-.tab:hover { background: #fff; }
-.tab.on { background: var(--ink); color: #fff; }
+.tab:hover { background: var(--lift); }
+.tab.on { background: var(--ink); color: var(--on-ink); }
 .tab .tag { padding: 3px 5px; font-size: 7px; }
-@keyframes flash { 50% { box-shadow: inset 0 0 0 3px var(--box), inset 0 0 0 5px var(--red), 0 0 0 4px rgba(214,60,60,.4); } }
-.tag { font: 8px/1 var(--pixel); padding: 5px 7px; border-radius: 4px; background: #e8e8f4; color: var(--ink); border: 0; }
-.more { display: inline-block; margin-left: 6px; background: none; border: 0; padding: 2px 4px; font: 8px/1 var(--pixel); color: var(--blue); }
+@keyframes flash { 50% { box-shadow: inset 0 0 0 3px var(--box), inset 0 0 0 5px var(--red), 0 0 0 4px var(--red-glow); } }
+.tag { font: 8px/1 var(--pixel); padding: 5px 7px; border-radius: 4px; background: var(--chip); color: var(--ink); border: 0; }
+.more { display: inline-block; margin-left: 6px; background: none; border: 0; padding: 2px 4px; font: 8px/1 var(--pixel); color: var(--blue-text); }
 .more:hover { text-decoration: underline; }
 .btn-s { font: 8px/1 var(--pixel); padding: 6px 8px; border: 2px solid var(--edge); border-radius: 6px; background: var(--box); }
-.btn-s:hover:not(:disabled) { background: #fff; }
+.btn-s:hover:not(:disabled) { background: var(--lift); }
 .btn-s:disabled { opacity: .4; cursor: default; }
-.tag.new { background: var(--amber); color: #fff; }
+.tag.new { background: var(--amber); color: var(--on-fill); }
 /* A code box keeps its lines: a long one scrolls sideways inside the box, never the page (width 0, then 100%: the
    box never widens what holds it). */
-.codebox { position: relative; max-width: 100%; margin: 6px 0; background: #e6e6ea; border: 2px solid #c4c4d0; border-radius: 6px; }
+.codebox { position: relative; max-width: 100%; margin: 6px 0; background: var(--code); border: 2px solid var(--code-edge); border-radius: 6px; }
 .codebox pre { box-sizing: border-box; width: 0; min-width: 100%; margin: 0; padding: 30px 12px 10px; overflow-x: auto; font: 13px/1.45 var(--mono); white-space: pre; overflow-wrap: normal; color: var(--ink); }
 .copy { position: absolute; top: 6px; right: 6px; font: 8px/1 var(--pixel); padding: 6px 8px; border: 2px solid var(--edge); border-radius: 6px; background: var(--box); }
-.copy:hover { background: #fff; }
+.copy:hover { background: var(--lift); }
 /* A send box is one rounded composer: its images on top (images/images.css), the text field, then a slim row with
    the photo button on the left and SEND on the right. The field grows with its text up to five lines. */
-.reply { display: grid; min-width: 0; background: #fff; border: 2px solid var(--edge-2); border-radius: 14px; }
+.reply { display: grid; min-width: 0; background: var(--field); border: 2px solid var(--edge-2); border-radius: 14px; }
 .reply:focus-within { border-color: var(--edge); }
-.reply.dropping { border-color: var(--blue); background: #eef4ff; }
+.reply.dropping { border-color: var(--blue); background: var(--blue-tint); }
 .reply textarea { display: block; width: 100%; min-width: 0; resize: none; field-sizing: content; min-height: calc(1.4em + 5px); max-height: calc(7em + 5px); overflow-y: auto; border: 0; border-radius: 12px; padding: 5px 12px 0; font: 14px/1.4 var(--text); background: transparent; color: var(--ink); }
 .reply textarea:focus { outline: none; }
 .reply .acts { display: flex; align-items: center; gap: 8px; padding: 0 6px 3px; }
 /* SEND is a 32 px target; the field and the row give back the 4 px, so the composer keeps its height */
 .reply .acts .send { margin-left: auto; min-height: 32px; padding: 0 12px; }
-.thumb { display: block; max-width: 100%; max-height: 140px; margin-top: 6px; border: 2px solid var(--edge); border-radius: 4px; background: #fff; }
-.send { background: var(--red); color: #fff; border: 3px solid #8a2020; border-radius: 8px; padding: 0 14px; min-height: 40px; font: 10px/1 var(--pixel); }
-.send.go { background: var(--green); border-color: #1d6b3a; }
+.thumb { display: block; max-width: 100%; max-height: 140px; margin-top: 6px; border: 2px solid var(--edge); border-radius: 4px; background: var(--img-bg); }
+.send { background: var(--red); color: var(--on-fill); border: 3px solid var(--red-edge); border-radius: 8px; padding: 0 14px; min-height: 40px; font: 10px/1 var(--pixel); }
+.send.go { background: var(--green); border-color: var(--green-edge); }
 .send:disabled { opacity: .35; cursor: not-allowed; }
 .empty { font: 9px/1.8 var(--pixel); color: var(--muted); text-align: center; padding: 16px 4px; }

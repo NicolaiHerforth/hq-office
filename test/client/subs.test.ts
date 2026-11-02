@@ -79,6 +79,7 @@ test.skipIf(!chromeFound)("no account id, email, token or transcript text reache
 
 test.skipIf(!chromeFound)("stacked on a narrow screen, it opens under the question panel, not over it", async () => {
   await size(800, 900);
+  await until(`matchMedia("(max-width: 1150px)").matches`); // the stacked layout applies
   await page.evaluate(`scrollTo(0, 0); document.getElementById("subsBtn").click()`);
   expect(await page.evaluate(OPEN)).toBe(true);
   await until(APART, 3000); // placed once the narrow layout applies

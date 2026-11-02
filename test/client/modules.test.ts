@@ -49,7 +49,10 @@ describe("client modules", () => {
   }
 
   test("every module is loaded by the page", () => {
-    const entries = [join(CLIENT, "main.js"), ...modules.filter((f) => /^[^/]+\/index\.js$/.test(name(f)))];
+    // main.js, every feature's index.js, and a classic script the shell loads itself (MENU › THEME before the first paint)
+    const shell = readFileSync(join(ROOT, "public", "index.html"), "utf8");
+    const early = [...shell.matchAll(/<script src="\/(src\/client\/[^"]+\.js)"><\/script>/g)].map((m) => join(ROOT, m[1]));
+    const entries = [join(CLIENT, "main.js"), ...modules.filter((f) => /^[^/]+\/index\.js$/.test(name(f))), ...early];
     const seen = new Set<string>();
     const visit = (f: string) => {
       if (seen.has(f)) return;

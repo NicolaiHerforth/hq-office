@@ -1,10 +1,10 @@
 /* SUBS, in the top bar next to MACHINES (it shares .health's look), and its dropdown over the office, like MENU's. */
 .subswrap { position: relative; display: flex; }
 .subsbtn { white-space: nowrap; font: inherit; color: inherit; text-align: left; cursor: pointer; }
-.subsbtn:hover, .subsbtn[aria-expanded="true"] { background: #fff; }
+.subsbtn:hover, .subsbtn[aria-expanded="true"] { background: var(--lift); }
 .subsbtn:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
 .health i.none, .subsdrop i.none { background: var(--edge-2); }
-.subsbtn.bad .v { color: var(--red); }
+.subsbtn.bad .v { color: var(--red-text); }
 .subsdrop { position: absolute; z-index: 60; top: calc(100% + 6px); right: 0; width: 400px; max-width: var(--subs-max, 400px); max-height: calc(100dvh - 120px); overflow-y: auto; overscroll-behavior: contain; padding: 12px 14px; display: grid; gap: 10px; box-shadow: 0 8px 0 rgba(0, 0, 0, .25); }
 .subsdrop[hidden] { display: none; }
 .subsdrop .stitle { font: 9px/1 var(--pixel); letter-spacing: 1px; }
@@ -16,15 +16,15 @@
 .subsdrop .shead i.off { background: var(--amber); }
 .subsdrop .shead i.bad { background: var(--red); }
 .subsdrop .splan { font: 7px/1 var(--pixel); color: var(--muted); border: 2px solid var(--edge-2); border-radius: 4px; padding: 3px 4px; }
-.subsdrop .son { margin-left: auto; flex: none; font: 7px/1 var(--pixel); color: var(--blue); }
+.subsdrop .son { margin-left: auto; flex: none; font: 7px/1 var(--pixel); color: var(--blue-text); }
 .subsdrop .sw { display: grid; grid-template-columns: 38px 90px minmax(0, 1fr); align-items: center; gap: 8px; font-size: 13px; }
 .subsdrop .sw.none { grid-template-columns: 38px minmax(0, 1fr); color: var(--muted); }
 .subsdrop .swk { font: 7px/1 var(--pixel); color: var(--muted); }
-.subsdrop .bar { height: 10px; border: 2px solid var(--edge); border-radius: 3px; background: #fff; overflow: hidden; }
+.subsdrop .bar { height: 10px; border: 2px solid var(--edge); border-radius: 3px; background: var(--field); overflow: hidden; }
 .subsdrop .bar i { display: block; height: 100%; background: var(--green); }
 .subsdrop .sw.off .bar i { background: var(--amber); }
 .subsdrop .sw.bad .bar i { background: var(--red); }
-.subsdrop .sw.bad b { color: var(--red); }
+.subsdrop .sw.bad b { color: var(--red-text); }
 .subsdrop .swv { min-width: 0; }
 .subsdrop .sage { font-size: 12px; color: var(--muted); }
 .subsdrop .ssrc { display: grid; gap: 4px; padding-top: 10px; border-top: 2px dashed var(--edge-2); font-size: 12px; color: var(--muted); }

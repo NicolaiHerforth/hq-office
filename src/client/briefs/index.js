@@ -3,13 +3,15 @@
 // opened. Opening one (from the list, or the line MESSAGES gets, #brief/ID) takes the right column at full width, the
 // way a room does, with the whole brief in markdown (headings, tables, lists, code), BACK, NEWER and OLDER. On a
 // narrow screen the brief fills the screen. It reads in the HUD's theme (the tokens of core/base.css). Inside a floor, that floor's briefs (docs/floors.md).
+// A brief shows only inside its own floor or in the building: opened inside another floor (a MESSAGES line, a link, a
+// card), the page enters the brief's floor first, so NEWER and OLDER walk that floor; going to another floor closes it.
 import { $, toast } from "../core/dom.js";
 import { S } from "../core/state.js";
 import { esc, setHTML } from "../core/format.js";
 import { post } from "../core/net.js";
 import { emit, on } from "../core/bus.js";
 import { md, mdInline } from "../core/markdown.js";
-import { pick, tagged } from "../core/scope.js";
+import { enter, officeFloor, pick, tagged } from "../core/scope.js";
 import { floorById } from "../core/floors.js";
 import { frameHTML } from "../pages/index.js";
 
@@ -58,6 +60,8 @@ async function route() {
       const b = await r.json();
       if (openId() !== id) return;
       if (!r.ok) { toast(b.error?.toUpperCase?.() || `NO BRIEF #${id}`); history.replaceState(null, "", location.pathname + location.search); close(); return; }
+      shown = b;
+      place();
       show(b);
       if (!b.read) post(`/api/briefs/${id}/read`, {}).catch(() => {});
     } catch (err) { toast(err.message); }
@@ -68,23 +72,39 @@ function show(b) {
   view.hidden = false;
   stage.classList.add("inbrief");
   document.documentElement.classList.add("briefopen");
-  const all = briefs(), i = all.findIndex((x) => x.id === b.id);
-  const newer = i > 0 ? all[i - 1] : null, older = i >= 0 && i < all.length - 1 ? all[i + 1] : null;
   // A brief that is a page has its own title: the bar carries a compact line (date, who) and the page fills the rest.
   const page = !b.loading && b.html;
   const meta = page ? `<span class="bvmeta">${floorChip(b.floor)}<span class="when">${esc(when(b.at))}</span><span class="by">by ${esc(b.by)}</span></span>` : `<span class="spacer"></span>`;
   setHTML(view, `<div class="bvbar"><button class="btn-s" type="button" data-brief-back>◀ BACK</button>${meta}`
-    + `<a class="btn-s${newer ? "" : " off"}" ${newer ? `href="#brief/${newer.id}"` : `aria-disabled="true"`}>NEWER</a><a class="btn-s${older ? "" : " off"}" ${older ? `href="#brief/${older.id}"` : `aria-disabled="true"`}>OLDER</a></div>`
+    + (b.loading ? "" : `<button class="btn-s" type="button" data-comments-toggle="briefs/${b.id}">COMMENTS</button><button class="btn-s wideonly" type="button" data-view-full>FULL SCREEN</button><a class="btn-s wideonly" href="./#brief/${b.id}" target="_blank" rel="noopener" title="This brief in a window of its own, beside a room or a lane">NEW WINDOW</a>`)
+    + `<a class="btn-s" data-brief-step="-1">NEWER</a><a class="btn-s" data-brief-step="1">OLDER</a></div>`
     + (b.loading ? `<div class="empty">LOADING…</div>`
       : page ? frameHTML(`/briefs/${b.id}.html`, b.title)
       : `<article class="bbody">
       <header><div class="meta">${floorChip(b.floor)}<span class="when">${esc(when(b.at))}</span><span class="by">by ${esc(b.by)}</span></div><h1>${mdInline(b.title)}</h1></header>
       <div class="md">${md(b.body)}</div></article>`)
     + (b.loading ? "" : `<aside class="cmount" data-comments="briefs/${b.id}"></aside>`));
+  steps();
   if (!b.loading) emit("comments:mount", view.querySelector(".cmount"));
   view.scrollTop = 0;
   view.querySelector(".bbody")?.scrollTo?.(0, 0);
   renderList();
+}
+// NEWER and OLDER: the next brief in the list as it shows now (the floor you are in, or every floor in the building).
+function steps() {
+  const all = briefs(), i = all.findIndex((x) => x.id === shown?.id);
+  for (const a of view.querySelectorAll("[data-brief-step]")) {
+    const to = i < 0 ? null : all[i + Number(a.dataset.briefStep)];
+    a.classList.toggle("off", !to);
+    if (to) { a.setAttribute("href", `#brief/${to.id}`); a.removeAttribute("aria-disabled"); }
+    else { a.removeAttribute("href"); a.setAttribute("aria-disabled", "true"); }
+  }
+}
+// Inside another floor than the brief's: enter the brief's floor. Before the first state the page knows no floors yet;
+// that state places it.
+function place() {
+  const f = officeFloor();
+  if (shown && !shown.loading && shown.floor && f && f !== shown.floor) enter(shown.floor);
 }
 function close() {
   if (view.hidden) return;
@@ -98,11 +118,22 @@ function back() {
   if (history.state?.hqBrief) history.back();
   else { history.replaceState(null, "", location.pathname + location.search); route(); }
 }
-view.addEventListener("click", (e) => { if (e.target.closest("[data-brief-back]")) back(); });
+view.addEventListener("click", (e) => {
+  if (e.target.closest("[data-brief-back]")) back();
+  // FULL SCREEN: the brief alone on the screen (Esc, or the button again, leaves it).
+  else if (e.target.closest("[data-view-full]")) fullScreen(view);
+});
+function fullScreen(el) {
+  if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
+  else el.requestFullscreen?.().catch(() => toast("THIS BROWSER WON'T GO FULL SCREEN HERE"));
+}
+document.addEventListener("fullscreenchange", () => {
+  for (const b of view.querySelectorAll("[data-view-full]")) b.textContent = document.fullscreenElement === view ? "EXIT FULL SCREEN" : "FULL SCREEN";
+});
 // A brief link adds one step to the history from elsewhere; from brief to brief it replaces it, so BACK leaves.
 document.addEventListener("click", (e) => {
   const a = e.target.closest?.('a[href^="#brief/"]');
-  if (!a || e.metaKey || e.ctrlKey || e.shiftKey) return;
+  if (!a || a.target === "_blank" || e.metaKey || e.ctrlKey || e.shiftKey) return;
   e.preventDefault();
   const url = `${location.pathname}${location.search}${a.getAttribute("href")}`;
   if (openId()) history.replaceState({ hqBrief: true }, "", url); else history.pushState({ hqBrief: true }, "", url);
@@ -115,8 +146,16 @@ document.addEventListener("keydown", (e) => {
 });
 addEventListener("hashchange", route);
 addEventListener("popstate", route);
-on("state", () => { renderList(); if (openId() && !shown) route(); });
-on("scope", renderList);
+on("state", () => { renderList(); steps(); if (openId() && !shown) route(); else place(); });
+// The floor changed with a brief open: the brief's own floor (or the building) draws it again, so NEWER and OLDER follow
+// the list; the owner going into another floor leaves the brief.
+on("scope", () => {
+  if (!shown || shown.loading) { renderList(); return; }
+  const f = officeFloor();
+  if (f && shown.floor && f !== shown.floor) back();
+  else steps();
+  renderList();
+});
 on("qtab", (t) => { if (t === "briefs") renderList(); });
 renderList();
 route();

@@ -64,10 +64,10 @@ test.skipIf(!chromeFound)("OFFICE is the default: no panel under the office, no 
   expect(await ev(`innerHeight - document.querySelector(".room").getBoundingClientRect().bottom`)).toBeLessThan(40);
 }, 20_000);
 
-test.skipIf(!chromeFound)("MENU: SECRETS, SETTINGS, SOUND and LAYOUT; Esc closes it and gives focus back; a click elsewhere closes it", async () => {
+test.skipIf(!chromeFound)("MENU: SECRETS, SETTINGS, SOUND, LAYOUT and THEME; Esc closes it and gives focus back; a click elsewhere closes it", async () => {
   await ev(`document.getElementById("menuBtn").click()`);
   expect(await shown("#menuDrop")).toBe(true);
-  expect(await ev(`[...document.querySelectorAll("#menuDrop .mi")].map((m) => m.firstChild.textContent.trim())`)).toEqual(["SECRETS", "SETTINGS", "SOUND OFF", "LAYOUT"]);
+  expect(await ev(`[...document.querySelectorAll("#menuDrop .mi")].map((m) => m.firstChild.textContent.trim())`)).toEqual(["SECRETS", "SETTINGS", "SOUND OFF", "LAYOUT", "THEME"]);
   expect(await ev(`document.getElementById("secretsSay").textContent`)).toBe("none held");
   await page.s("Input.dispatchKeyEvent", { type: "keyDown", key: "Escape", code: "Escape", windowsVirtualKeyCode: 27 });
   expect(await shown("#menuDrop")).toBe(false);

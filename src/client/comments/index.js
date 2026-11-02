@@ -70,10 +70,45 @@ function commentHtml(c, byId) {
     </article>`;
 }
 
+// The thread beside a brief or a page is closed until the owner opens it with COMMENTS in the view's bar: one choice
+// for every brief and page, kept in this browser. On a narrow screen the thread is a sheet that COMMENTS opens.
+const OPEN_KEY = "hq-comments-open";
+let open = (() => { try { return localStorage.getItem(OPEN_KEY) === "1"; } catch { return false; } })();
+const wide = matchMedia("(min-width: 1151px)");
+const showThread = () => open || !wide.matches;
+function toggles() {
+  for (const b of document.querySelectorAll("[data-comments-toggle]")) {
+    const c = S?.comments?.[b.dataset.commentsToggle], n = c?.n ?? 0;
+    setHTML(b, n ? `COMMENTS · ${n}` : "COMMENTS");
+    b.classList.toggle("on", wide.matches && open);
+    b.classList.toggle("new", !!c?.unread);
+    b.setAttribute("aria-pressed", String(wide.matches && open));
+  }
+}
+function applyOpen() {
+  for (const el of live()) if (loaded.get(el.dataset.comments)) el.hidden = !showThread();
+  toggles();
+}
+wide.addEventListener?.("change", applyOpen);
+document.addEventListener("click", (e) => {
+  const b = e.target.closest?.("[data-comments-toggle]");
+  if (!b) return;
+  if (wide.matches) {
+    open = !open;
+    try { localStorage.setItem(OPEN_KEY, open ? "1" : "0"); } catch {}
+    applyOpen();
+    if (open) live().find((el) => el.dataset.comments === b.dataset.commentsToggle)?.querySelector("textarea")?.focus({ preventScroll: true });
+  } else {
+    const el = live().find((m) => m.dataset.comments === b.dataset.commentsToggle);
+    if (el) { el.classList.add("open"); el.querySelector("textarea")?.focus({ preventScroll: true }); }
+  }
+});
+
 function render(el) {
   const key = el.dataset.comments, d = loaded.get(key)?.data;
   if (!d) return;
-  el.hidden = false;
+  el.hidden = !showThread();
+  toggles();
   const n = d.comments.length + d.earlier;
   setHTML(el.querySelector(".cn"), n ? String(n) : "");
   setHTML(el.querySelector(".cto"), d.away ? `to ${esc(d.to)} · <span class="aw">AWAY</span>` : `to ${esc(d.to)}`);
@@ -225,5 +260,5 @@ document.addEventListener("keydown", (e) => {
 });
 on("attach", (k) => { for (const el of live()) if (boxKey(el.dataset.comments) === k) sendState(el); });
 on("comments:mount", mount);
-on("state", () => { for (const el of live()) load(el); });
+on("state", () => { for (const el of live()) load(el); toggles(); });
 document.querySelectorAll(".cmount[data-comments]").forEach(mount);

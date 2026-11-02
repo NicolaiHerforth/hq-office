@@ -313,9 +313,16 @@ document.addEventListener("drop", (e) => {
   const key = boxKey(e.target), files = [...(e.dataTransfer?.files ?? [])];
   if (key && files.length) addFiles(files, key);
 });
+// Copying from Excel, Word, Notes or a web page puts a picture of the selection on the clipboard beside its text.
+// Pasted into a text box, that is text: let the browser paste it. A screenshot, a copied image or a file copied in the
+// Finder has no rich text with it, and attaches as before.
+export const pastesText = (e) => {
+  const cd = e.clipboardData, f = document.activeElement;
+  return !!f?.matches?.("input, textarea, [contenteditable]") && [...(cd?.types ?? [])].includes("text/html") && !!cd.getData("text/plain").trim();
+};
 document.addEventListener("paste", (e) => {
   const files = [...(e.clipboardData?.files ?? [])];
-  if (!files.length) return;
+  if (!files.length || pastesText(e)) return;
   const f = document.activeElement, key = boxKey(f);
   // Typing in some other field (a secret, a link): not an attachment.
   if (!key && f?.matches?.("input, textarea, [contenteditable]")) return;

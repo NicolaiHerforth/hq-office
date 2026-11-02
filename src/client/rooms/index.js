@@ -18,7 +18,7 @@ import { post } from "../core/net.js";
 import { emit, on } from "../core/bus.js";
 import { STATUS_TEXT } from "../core/status.js";
 import { qTab } from "../messages/messages.js";
-import { clearImages, composer, hasImages, notReady, openPreview, uploadTarget, withImages } from "../images/images.js";
+import { clearImages, composer, hasImages, notReady, openPreview, pastesText, uploadTarget, withImages } from "../images/images.js";
 import { md, mdClip, mdInline } from "../core/markdown.js";
 import { ART_H, drawStrip, laneAt, stripKey } from "./pix.js";
 import { pick, tagged } from "../core/scope.js";
@@ -94,7 +94,7 @@ const fullScreen = matchMedia("(max-width: 1150px)");
 // ---- lanes: level, status, away ----
 
 function laneInfo(name) {
-  if (name === "hq") return { level: "HQ", label: "HQ", color: "#23233a", away: false };
+  if (name === "hq") return { level: "HQ", label: "HQ", color: "var(--ink)", away: false };
   const l = (S?.lanes ?? []).find((x) => x.name === name);
   if (!l) return { level: "", label: "Not registered", color: "#6a6a82", away: true };
   const [label, color] = STATUS_TEXT[l.status] ?? [l.status, "#6a6a82"];
@@ -710,7 +710,7 @@ document.addEventListener("drop", (e) => {
 document.addEventListener("paste", (e) => {
   if (!openSlug || view.hidden) return;
   const files = [...(e.clipboardData?.files ?? [])];
-  if (!files.length) return;
+  if (!files.length || pastesText(e)) return;
   const f = document.activeElement;
   if (f?.closest?.(".rsend [data-composer]")) return;
   if (f && !view.contains(f) && f.matches("input, textarea, [contenteditable]")) return;
