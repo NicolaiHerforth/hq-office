@@ -106,6 +106,21 @@ A brief can also be a whole HTML page (anything starting with `<!doctype html>` 
 
 It goes on the HQ's own floor. The **BRIEFS** tab lists the floor's briefs newest first, with dates and a count of new ones. Opening one takes the right column at full width, the way a room does, with its markdown rendered (headings, tables, lists, code), **NEWER**, **OLDER** and **BACK**; on a phone it fills the screen. Each new brief also puts one short line in MESSAGES that opens it. The HQ guide tells every HQ to use briefs for anything longer than a few lines.
 
+### Comments
+
+You can comment on any brief, and on a room's pages, the way you comment on a Claude artifact. The thread sits beside the brief on a wide screen and under it on a phone (a **COMMENTS** button jumps to it), newest at the bottom, with a send box that takes images and files. Select a passage of a markdown brief and press **COMMENT** to quote it in your comment.
+
+Each comment is typed into the brief's author: the lane that posted it, else the floor's HQ (through HQ's outbox, so it waits while HQ is not receiving). On a room's page it goes to the room's owner. A comment for a lane shows **DELIVERED**, or **AWAY · KEPT** while herdr does not see the lane; a kept one is typed in once when the lane is back. The prompt names the brief and says how to answer:
+
+```sh
+hud brief comments ID                      # the thread (--json for JSON)
+hud brief reply ID "Answer" [--reply N]    # answer in it (or pipe the text in)
+hud page comments rooms/SLUG/files/NAME.html          # the same for a room's page (or rooms/SLUG/brief)
+hud page reply rooms/SLUG/brief "Answer" [--reply N]
+```
+
+An answer shows in the thread, marks the brief **REPLY** in BRIEFS until you open it, and puts one line in MESSAGES.
+
 ## HQ queue
 
 **HQ QUEUE** in SETTINGS is off by default, and off is the HUD as it always was: lanes and your notes are typed straight into HQ's pane. Turned on, what reaches HQ waits in a queue HQ reads at its own pace, instead of interrupting it mid-turn:
@@ -132,6 +147,27 @@ The hook does nothing in any session but a floor's HQ's own (the HUD matches the
 - **LANES BOARD**: a board under the office lists every lane by name in three columns: **WORKING**, **WAITING ON YOU** (with what it asks, oldest first) and **NOT MOVING** (waiting on HQ, on CI, at a prompt, or its agent gone; stuck longest first). Parked and done lanes are counted, not listed. Inside a floor it shows that floor's lanes; in the building, every floor's.
 
 Clicking a worker in the office, or a lane on the board, slides in its **agent drawer** from the right, over the office. It is read-only; talking to a lane goes through its room. It shows the lane's status, its open question (with **ANSWER IN NEEDS YOU**), a prompt it is blocked on, **NOW**: its terminal (the last 30 lines, read from herdr every 3 seconds while the drawer is open and the page is visible, and not otherwise; any secret value the HUD holds is blanked out as `[secret NAME]`), what it last said (its updates, room messages, questions and events), and its work (issue, PR and its rooms). ✕ or Esc closes it; on a phone it is a sheet at the bottom of the screen.
+
+## Subscription usage
+
+**SUBS**, in the top bar next to MACHINES, shows how much each subscription has left, so you can pick the one with
+room. One square per sub, colored by its tighter window (green: 25% or more left; amber: under 25%; red: under 10%), and
+how many have room. Click it for each sub's **5H** and **WEEK** windows: what is left, when each resets, which machine
+it is active on (or PARKED), and how old the reading is. Esc or a click elsewhere closes it.
+
+The numbers are what the agents last reported, read once a minute on every machine in `HUD_MACHINES` (over the same
+ssh as the machine stats) by `src/server/sub-usage.sh`, which needs python3 on that machine:
+
+- **Claude Code**, through the [grazr](https://github.com/wazum/herdr-grazr) herdr plugin. After every message, grazr
+  keeps the 5-hour and weekly usage Claude hands its status line, per enrolled account. SUBS shows each account once,
+  with its newest reading from any machine. A parked account shows what it had when grazr left it.
+- **Codex**: the last `rate_limits` in its newest session log (`~/.codex/sessions`). Codex doesn't say which account it
+  is on, so each machine's Codex is a sub of its own. It may report a weekly window only; SUBS then says "no 5-hour limit
+  reported".
+
+Nothing calls a provider or uses a credential. Only names, percentages and times leave a machine: no email, account
+id, token or transcript text. The readings are kept in memory, never in the database. A machine without grazr,
+Codex or python3 shows as "no source" in the dropdown; with no source anywhere, there is no SUBS box.
 
 ## Secrets
 
@@ -334,7 +370,7 @@ Set these in `config.env`. An empty value means the default.
 | `HUD_GITHUB_REPO` | empty | `owner/repo`, used to link lanes to pull requests. |
 | `HUD_LINEAR_WORKSPACE` | empty | Linear workspace slug, used to link lanes to issues. |
 | `HUD_LOCAL_MACHINE` | `local` | Name of this machine in the room. |
-| `HUD_MACHINES` | this machine | Comma-separated herdr machine labels to poll for agents and sample for CPU and memory. Remote machines need SSH access. |
+| `HUD_MACHINES` | this machine | Comma-separated herdr machine labels to poll for agents, sample for CPU and memory, and read subscription usage from (SUBS). Remote machines need SSH access. |
 | `HERDR_BIN` | `herdr` on PATH | Path to the herdr binary. |
 | `HUD_GH_BIN` | `gh` on PATH | Path to the GitHub CLI, used by the work board. |
 | `HUD_DATA_DIR` | plugin state dir | Where the database, uploads and settings live. The plugin sets it; leave it empty. |

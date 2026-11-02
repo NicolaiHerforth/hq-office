@@ -1,0 +1,65 @@
+/* COMMENTS: the thread on a brief or a page. Beside the page on a wide screen (a column of its own, the thread
+   scrolling inside it and the send box at its foot); under it on a narrow one, where the whole view scrolls and a
+   COMMENTS button jumps to the thread. Only views that hold a mount (.cmount) change; every other view is as it was. */
+.cmount[hidden] { display: none; }
+.cmount { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; gap: 8px; min-width: 0; min-height: 0; padding: 10px; border: 2px solid var(--edge-2); border-radius: 8px; background: #fbfbf6; }
+.chead { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.chead b { font: 9px/1 var(--pixel); }
+.chead .cn { font: 8px/1 var(--pixel); color: var(--muted); }
+.chead .cn:empty { display: none; }
+.chead .cto { margin-left: auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font-size: 13px; color: var(--muted); }
+.chead .aw { font: 7px/1 var(--pixel); color: var(--amber); }
+.cthread { display: grid; gap: 8px; align-content: start; min-height: 0; overflow-y: auto; overscroll-behavior: contain; outline: none; }
+.cthread .empty { font-size: 13px; color: var(--muted); }
+.cthread .earlier { font: 7px/1.4 var(--pixel); color: var(--muted); text-align: center; }
+.cthread .msg.lane { background: #fff; border-color: #e2e2ee; }
+.cthread .msg.lane.unread { background: #fff8e6; border-color: #f0d080; }
+.cthread .msg .seen.kept { color: var(--amber); }
+.cthread .msg .seen.bad { color: var(--red); }
+.cthread .msg .meta .btn-s:last-child { margin-left: auto; padding: 5px 7px; font-size: 7px; }
+.cthread .msg .text { font-size: 14px; overflow-wrap: anywhere; }
+.cthread .quote { font-size: 12px; color: var(--muted); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+/* the passage a comment quotes */
+.cq, .cquote blockquote { margin: 0; padding: 2px 0 2px 8px; border-left: 3px solid var(--edge-2); font-size: 13px; color: #3a3a52; overflow-wrap: anywhere; }
+.cq > :last-child { margin-bottom: 0; }
+.cq { max-height: 9em; overflow: hidden; }
+.csend { display: grid; gap: 6px; min-width: 0; }
+.cquote, .creply { display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 13px; color: var(--muted); }
+.cquote:empty, .creply:empty { display: none; }
+.cquote blockquote { flex: 1; min-width: 0; max-height: 4.2em; overflow: hidden; }
+.creply span { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.cquote .btn-s, .creply .btn-s { padding: 4px 7px; flex: none; }
+/* COMMENT on a selection: a small button above the selected text */
+.cpick { position: fixed; z-index: 60; padding: 9px 12px; border: 2px solid var(--edge); border-radius: 8px; background: var(--ink); color: #fff; font: 8px/1 var(--pixel); box-shadow: 0 3px 0 rgba(0, 0, 0, .25); }
+.cpick[hidden] { display: none; }
+.cjump { display: none; }
+
+/* wide: the thread is a column beside the page (a markdown brief, or a page's frame), the bar across the top; an older
+   version's line, when a page shows one, sits over the frame */
+@media (min-width: 1151px) {
+  :is(.briefview, .pageview):has(> .cmount:not([hidden])) { display: grid; grid-template-columns: minmax(0, 1fr) clamp(280px, 32%, 380px); grid-template-rows: auto minmax(0, 1fr); grid-template-areas: "bar bar" "main side"; }
+  .pageview:has(> .cmount:not([hidden])):has(> .pvold:not([hidden])) { grid-template-rows: auto auto minmax(0, 1fr); grid-template-areas: "bar bar" "old side" "main side"; }
+  :is(.briefview, .pageview):has(> .cmount:not([hidden])) > :is(.bvbar, .pvbar) { grid-area: bar; }
+  .pageview:has(> .cmount:not([hidden])) > .pvold { grid-area: old; }
+  :is(.briefview, .pageview):has(> .cmount:not([hidden])) > :is(.bbody, .pageframe, .empty) { grid-area: main; }
+  :is(.briefview, .pageview) > .cmount { grid-area: side; }
+}
+/* narrow, a markdown brief: the thread is under it; the whole view scrolls, its bar stays at the top, and COMMENTS
+   jumps to the thread */
+@media (max-width: 1150px) {
+  .briefview:not([hidden]):has(> .bbody):has(> .cmount:not([hidden])) { display: block; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+  .briefview:has(> .bbody):has(> .cmount:not([hidden])) > .bvbar { position: sticky; top: calc(-10px - env(safe-area-inset-top, 0px)); z-index: 2; margin: 0 calc(-1 * max(12px, env(safe-area-inset-left, 0px))) 10px; padding: 10px max(12px, env(safe-area-inset-left, 0px)); background: var(--box); }
+  .briefview:has(> .cmount:not([hidden])) > .bbody { overflow: visible; }
+  .briefview > .bbody ~ .cmount { margin: 14px 0 calc(16px + env(safe-area-inset-bottom, 0px)); grid-template-rows: auto auto auto; }
+  .bbody ~ .cmount .cthread { overflow: visible; }
+  .cjump { display: block; position: fixed; z-index: 3; right: max(14px, env(safe-area-inset-right, 0px)); bottom: calc(14px + env(safe-area-inset-bottom, 0px)); min-height: 44px; padding: 0 14px; border: 2px solid var(--edge); border-radius: 22px; background: var(--ink); color: #fff; font: 8px/1 var(--pixel); box-shadow: 0 3px 0 rgba(0, 0, 0, .25); }
+  .cmount.inview .cjump { display: none; }
+  .cpick { padding: 14px 16px; }
+  /* a page in a frame keeps the whole view (no second scroll around it): the thread is a sheet from the bottom that
+     COMMENTS opens and × closes */
+  .pageframe ~ .cmount:not(.open) { display: contents; }
+  .pageframe ~ .cmount:not(.open) > :not(.cjump) { display: none; }
+  .pageframe ~ .cmount.open { position: fixed; z-index: 46; left: 0; right: 0; bottom: 0; max-height: 82vh; max-height: 82dvh; margin: 0; border-width: 2px 0 0; border-radius: 14px 14px 0 0; padding: 12px max(12px, env(safe-area-inset-right, 0px)) calc(10px + env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px)); box-shadow: 0 -8px 24px rgba(0, 0, 0, .25); }
+  .pageframe ~ .cmount .cclose { display: inline-flex; }
+}
+.cclose { display: none; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; margin: -10px -6px -10px 0; padding: 0; border: 0; background: none; font: 700 22px/1 var(--text); color: var(--ink); }

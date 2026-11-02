@@ -7,7 +7,7 @@ import { $, toast } from "../core/dom.js";
 import { S } from "../core/state.js";
 import { esc, setHTML } from "../core/format.js";
 import { post } from "../core/net.js";
-import { on } from "../core/bus.js";
+import { emit, on } from "../core/bus.js";
 import { md, mdInline } from "../core/markdown.js";
 import { pick, tagged } from "../core/scope.js";
 import { floorById } from "../core/floors.js";
@@ -33,7 +33,7 @@ function renderList() {
   const unread = all.filter((b) => !b.read).length;
   setHTML(list, all.length
     ? `<div class="bsum">${all.length} ${all.length === 1 ? "BRIEF" : "BRIEFS"}${unread ? ` · ${unread} NEW` : ""}</div>` + all.map((b) => `<a class="brow${b.read ? "" : " unread"}${b.id === open ? " here" : ""}" href="#brief/${b.id}">
-        <div class="meta">${floorChip(b.floor)}<span class="when">${esc(when(b.at))}</span>${b.read ? "" : `<span class="tag new">NEW</span>`}<span class="by">${esc(b.by)}</span></div>
+        <div class="meta">${floorChip(b.floor)}<span class="when">${esc(when(b.at))}</span>${b.read ? "" : `<span class="tag new">NEW</span>`}${S.comments?.[`briefs/${b.id}`]?.unread ? `<span class="tag new">REPLY</span>` : ""}<span class="by">${esc(b.by)}</span></div>
         <b class="bt">${mdInline(b.title, { links: false })}</b>
         <span class="blead">${mdInline(lead(b.lead), { links: false })}</span>
       </a>`).join("")
@@ -79,7 +79,9 @@ function show(b) {
       : page ? frameHTML(`/briefs/${b.id}.html`, b.title)
       : `<article class="bbody">
       <header><div class="meta">${floorChip(b.floor)}<span class="when">${esc(when(b.at))}</span><span class="by">by ${esc(b.by)}</span></div><h1>${mdInline(b.title)}</h1></header>
-      <div class="md">${md(b.body)}</div></article>`));
+      <div class="md">${md(b.body)}</div></article>`)
+    + (b.loading ? "" : `<aside class="cmount" data-comments="briefs/${b.id}"></aside>`));
+  if (!b.loading) emit("comments:mount", view.querySelector(".cmount"));
   view.scrollTop = 0;
   view.querySelector(".bbody")?.scrollTo?.(0, 0);
   renderList();

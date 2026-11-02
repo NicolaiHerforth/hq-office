@@ -22,6 +22,10 @@
 //   hud brief --title T (--body B | --file PATH | piped in)   a brief on your floor's BRIEFS page: a longer
 //                        write-up in markdown (an update, a plan, a summary), or a whole HTML page (<!doctype html>,
 //                        its styles, scripts and pictures inline), shown sandboxed; MESSAGES gets one line linking to it
+//   hud brief comments ID [--json]               the owner's comments on a brief, and the answers
+//   hud brief reply ID TEXT [--reply N]          answer in a brief's comments (or from stdin)
+//   hud page comments KEY [--json] | reply KEY TEXT [--reply N]   the same for a room's page: KEY is
+//                        rooms/SLUG/brief or rooms/SLUG/files/NAME.html (its address after #page/ works too)
 //   hud request TEXT [--urgent] [--file PATH]   a message for your floor's HQ: in its queue when HQ QUEUE is on,
 //                        typed into its pane when it is off; --urgent always goes straight in (main is red, production
 //                        is affected, or the owner is waiting on it)
@@ -198,6 +202,10 @@ switch (cmd) {
     await call("POST", "/api/updates", { lane: one("lane"), title: one("title"), body: one("body") });
     break;
   case "brief": {
+    if (rest[0] === "comments" || rest[0] === "reply") {
+      await commentCmd("brief", argv);
+      break;
+    }
     // The body: --body, else the file --file names, else what is piped in.
     const file = one("file");
     let body = one("body");
@@ -285,6 +293,9 @@ switch (cmd) {
   case "guide":
     console.log(rest[0] === "lane" ? LANE_GUIDE : GUIDE);
     break;
+  case "page":
+    await commentCmd("page", argv);
+    break;
   case "room":
     await roomCmd(argv);
     break;
@@ -292,7 +303,7 @@ switch (cmd) {
     await floorCmd();
     break;
   default:
-    console.log("usage: hud ask|update|comment|item|lane|rm-lane|tree|withdraw|event|tell|say|brief|request|req|inbox|ack|wait|state|sync|secret|track|done|pause|resume|board|room|floor|guide");
+    console.log("usage: hud ask|update|comment|item|lane|rm-lane|tree|withdraw|event|tell|say|brief|request|req|inbox|ack|wait|state|sync|secret|track|done|pause|resume|board|room|page|floor|guide");
     console.log("HQ: run `hud guide` for how to reach the owner (through the HUD, never only in your terminal).");
 }
 
@@ -547,6 +558,42 @@ async function roomCmd(args: string[]) {
     default:
       usage();
   }
+}
+
+// ---- comments on a brief or a room's page (hud brief comments|reply, hud page comments|reply) ----
+
+async function commentCmd(kind: "brief" | "page", args: string[]) {
+  const json = args.includes("--json");
+  const { rest: r, one: o } = parse(args.filter((a) => a !== "--json"));
+  const [verb, id, ...words] = r;
+  const usage = () => {
+    console.error(kind === "brief" ? "usage: hud brief comments ID [--json] | hud brief reply ID TEXT [--reply N] [--as AGENT]" : "usage: hud page comments KEY [--json] | hud page reply KEY TEXT [--reply N] [--as AGENT]   (KEY: rooms/SLUG/brief or rooms/SLUG/files/NAME.html)");
+    process.exit(2);
+  };
+  if (!id || !["comments", "reply"].includes(verb)) usage();
+  const page = kind === "brief" ? `briefs/${id.replace(/^#/, "")}` : id;
+  if (verb === "reply") {
+    const text = await textArg(words.length ? words.join(" ") : undefined);
+    if (!text.trim()) usage();
+    const out = await call("POST", "/api/comments/reply", { page, text, reply: o("reply"), as: o("as") });
+    console.log(`answer #${out.id} on ${out.page}`);
+    return;
+  }
+  const t = await call("GET", `/api/comments?page=${encodeURIComponent(page)}`);
+  if (json) {
+    console.log(JSON.stringify(t, null, 2));
+    return;
+  }
+  const clock = (at: number) => new Date(at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  const state: Record<string, string> = { sent: "delivered", away: "away, kept", held: "held for HQ", failed: "not delivered", sending: "sending" };
+  console.log(`comments on ${t.title} (${t.page}), for ${t.to}${t.earlier ? `; ${t.earlier} earlier not shown` : ""}`);
+  if (!t.comments.length) console.log("no comments yet");
+  for (const c of t.comments) {
+    const head = `#${c.id} ${clock(c.at)} ${c.who}${c.reply ? ` (re #${c.reply})` : ""}${c.delivery ? ` [${state[c.delivery] ?? c.delivery}]` : ""}:`;
+    const quote = c.quote ? `\n${c.quote.split("\n").map((l: string) => `  > ${l}`).join("\n")}` : "";
+    console.log(`${head}${quote}\n  ${c.text.split("\n").join("\n  ")}`);
+  }
+  console.log(`answer: ${t.reply} "<your answer>" [--reply N]`);
 }
 
 // ---- the HQ queue (hud req ...), for a floor's HQ ----

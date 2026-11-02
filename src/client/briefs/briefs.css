@@ -48,4 +48,6 @@
   html.briefopen { overflow: hidden; }
   .bbody h1 { font-size: 22px; }
   .bvbar .btn-s { min-height: 44px; }
+  /* one column the width of the screen: the bar's date line gives way (ellipsis) before NEWER and OLDER leave it */
+  .briefview { grid-template-columns: minmax(0, 1fr); }
 }

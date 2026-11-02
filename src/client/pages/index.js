@@ -9,7 +9,7 @@
 // version from the lane replaces it in place.
 import { setHTML, esc } from "../core/format.js";
 import { S } from "../core/state.js";
-import { on } from "../core/bus.js";
+import { emit, on } from "../core/bus.js";
 
 export const SANDBOX = "allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms allow-modals allow-downloads";
 const stage = document.querySelector(".stage");
@@ -32,11 +32,11 @@ export function pageOf(hash) {
     try { name = decodeURIComponent(name); } catch {}
     if (!/\.html?$/i.test(name)) return null;
     const src = `/rooms/${m[2]}/files/${encodeURIComponent(name)}`;
-    return { src: src + q, title: name, slug: m[2], v, latest: `#page${src}`, versions: `/api/rooms/${m[2]}/versions?file=${encodeURIComponent(name)}` };
+    return { src: src + q, title: name, slug: m[2], v, latest: `#page${src}`, key: `rooms/${m[2]}/files/${name}`, versions: `/api/rooms/${m[2]}/versions?file=${encodeURIComponent(name)}` };
   }
-  if (m[4]) return { src: `/rooms/${m[4]}/brief.html${q}`, title: `Brief of ${m[4]}`, slug: m[4], v, latest: `#page/rooms/${m[4]}/brief`, versions: `/api/rooms/${m[4]}/versions?brief=1` };
+  if (m[4]) return { src: `/rooms/${m[4]}/brief.html${q}`, title: `Brief of ${m[4]}`, slug: m[4], v, latest: `#page/rooms/${m[4]}/brief`, key: `rooms/${m[4]}/brief`, versions: `/api/rooms/${m[4]}/versions?brief=1` };
   if (v) return null; // a floor's brief has no versions: each one is a brief of its own
-  return { src: `/briefs/${m[5]}.html`, title: `Brief #${m[5]}` };
+  return { src: `/briefs/${m[5]}.html`, title: `Brief #${m[5]}`, key: `briefs/${m[5]}` };
 }
 // The same frame, for a page shown inside another view (a floor's brief).
 export const frameHTML = (src, label) => `<iframe class="pageframe" src="${esc(src)}" sandbox="${SANDBOX}" referrerpolicy="no-referrer" title="${esc(label)}"></iframe>`;
@@ -55,7 +55,8 @@ function route() {
   view.hidden = false;
   stage.classList.add("inpage");
   document.documentElement.classList.add("pageopen");
-  setHTML(view, `<div class="pvbar"><button class="btn-s" type="button" data-page-back>◀ BACK</button><b class="pvtitle">${esc(p.title)}</b><span class="pvvbtn"></span><a class="btn-s" href="${esc(p.src)}" target="_blank" rel="noopener">OPEN IN NEW TAB</a><div class="pvvers" hidden></div></div><div class="pvold"${p.v ? "" : " hidden"}></div>${frameHTML(p.src, p.title)}`);
+  setHTML(view, `<div class="pvbar"><button class="btn-s" type="button" data-page-back>◀ BACK</button><b class="pvtitle">${esc(p.title)}</b><span class="pvvbtn"></span><a class="btn-s" href="${esc(p.src)}" target="_blank" rel="noopener">OPEN IN NEW TAB</a><div class="pvvers" hidden></div></div><div class="pvold"${p.v ? "" : " hidden"}></div>${frameHTML(p.src, p.title)}<aside class="cmount" data-comments="${esc(p.key)}"></aside>`);
+  emit("comments:mount", view.querySelector(".cmount"));
   renderVersions();
   if (p.versions) loadVersions(p);
 }

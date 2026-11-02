@@ -3,6 +3,37 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.30.0] - 2026-11-02
+### Added
+
+- **Comments on briefs and pages.** You can comment on any brief, and on a room's HTML pages, the way you comment on
+  a Claude artifact. The thread sits beside the brief on a wide screen and under it on a phone, with a send box that
+  takes images and files. Select a passage of a markdown brief and press **COMMENT** to quote it.
+  - Each comment is typed into the brief's author: the lane that posted it, else the floor's HQ (through HQ's
+    outbox). On a room's page it goes to the room's owner. A lane that is away gets it when it is back (**AWAY ·
+    KEPT**, then **DELIVERED**).
+  - Authors answer from the CLI: `hud brief comments ID`, `hud brief reply ID TEXT [--reply N]`, and for a room's
+    page `hud page comments KEY`, `hud page reply KEY TEXT` (KEY: `rooms/SLUG/brief` or `rooms/SLUG/files/NAME`).
+  - An answer shows in the thread, marks the brief **REPLY** in BRIEFS until you open it, and puts one line in
+    MESSAGES.
+- **SUBS: what each subscription has left.** A box in the top bar, next to MACHINES, shows one square per
+  subscription and how many have room. Click it for each sub's 5-hour and weekly windows: how much is left, when each
+  resets, which machine it is active on, and how old the reading is, most room first. It closes on Esc or a click
+  elsewhere, and never covers an open question. The numbers are the ones the agents last reported, read once a
+  minute on every machine in `HUD_MACHINES`: Claude Code's from the [grazr](https://github.com/wazum/herdr-grazr)
+  herdr plugin's account files (it keeps what Claude reports after every message), and Codex's from its newest session
+  log. Nothing calls a provider, and no email, account id, credential or transcript text leaves the machine it is on.
+  A Claude account seen on several machines is one sub; each machine's Codex is its own. Codex may report no 5-hour
+  window, and the box says so. Without grazr, Codex or python3 anywhere, the box doesn't appear.
+
+### Fixed
+
+- **The floor swatch no longer covers a title.** With more than one floor showing, the small floor-coloured square
+  on a card sat on the first letter of a room's title in ROOMS, and of the sender in MESSAGES and WORK. It now sits
+  beside the text, and inside the lane tag where a card has one.
+- **On a phone, a brief's bar fits the screen.** A brief that is a page had a bar wider than a 390 px screen, so
+  OLDER sat off the edge.
+
 ## [0.29.0] - 2026-11-02
 ### Added
 

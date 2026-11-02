@@ -69,7 +69,7 @@ test.skipIf(!chromeFound)("the line in MESSAGES opens the brief at full width, w
   expect(await ev(`[...document.querySelectorAll(".briefview .md h4, .briefview .md h5")].map((h) => h.textContent)`)).toEqual(["Where we are", "Next"]);
   expect(await ev(`[...document.querySelectorAll(".briefview .md th")].map((h) => h.textContent)`)).toEqual(["Lane", "State"]);
   expect(await ev(`document.querySelectorAll(".briefview .md li").length`)).toBe(2);
-  expect(await ev(`document.querySelector(".briefview .md").getBoundingClientRect().width`)).toBeGreaterThan(600);
+  expect(await ev(`document.querySelector(".briefview .md").getBoundingClientRect().width`)).toBeGreaterThan(500); // the comments column is beside it
   expect(await ev(`getComputedStyle(document.querySelector(".building")).display`)).toBe("none"); // the brief has the stage
   await until(`document.getElementById("qtBriefs").textContent === "2"`);
 }, 20_000);
