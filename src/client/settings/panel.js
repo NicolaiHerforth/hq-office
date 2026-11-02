@@ -48,7 +48,7 @@ function renderSettings() {
 const SWEEP_MINUTES = [20, 30, 60];
 const hh = (h) => (h === 24 ? "midnight" : `${String(h).padStart(2, "0")}:00`);
 function sweepHint(sw) {
-  if (!sw?.on) return "Off. When on, the HUD nudges HQ to sweep (idle lanes, stalled work, rooms, questions waiting on you) whenever HQ is idle, at most every interval.";
+  if (!sw?.on) return "Off. When on, the HUD nudges HQ to sweep (idle lanes, stalled work, rooms, questions waiting on you) and to do housekeeping (close done lanes, stop their stacks, prune their worktrees) whenever HQ is idle, at most every interval.";
   const [a, b] = sw.hours.split("-").map(Number);
   const when = sw.lastAt ? `Last ${clock(sw.lastAt)}, next from ${clock(sw.nextAt)}.` : "No nudge yet.";
   return `On: every ${sw.minutes} min from ${hh(a)} to ${hh(b)}, while HQ is idle and something needs a look. ${when}`;

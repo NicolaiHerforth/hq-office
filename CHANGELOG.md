@@ -3,6 +3,15 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.27.1] - 2026-11-02
+### Changed
+
+- **Every HQ sweep asks for housekeeping too.** The "HUD sweep:" line now ends by asking HQ to close lanes whose work
+  is merged or done, stop their stacks and test containers, and prune their worktrees on each machine. Lanes the HUD
+  knows are done with nothing open (no open question) are named as "done lanes to close", with the folder their agent
+  works in (usually its worktree) and its machine. They are reason enough for a sweep on their own, and they are no
+  longer listed again among the idle lanes.
+
 ## [0.27.0] - 2026-11-01
 ### Added
 
