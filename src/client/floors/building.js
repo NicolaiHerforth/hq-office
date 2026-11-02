@@ -7,7 +7,7 @@
 // A tile's picture is drawn again only when what it shows changes (its lanes, its HQ, the theme or the season) and
 // only while the building shows: no frame loop, no live canvas per tile.
 import { esc, setHTML } from "../core/format.js";
-import { MOOD_WORD, floorsOf, hqMood, hqShown, needsFix, readingBigHTML, readingLineHTML, readingOf, slotAHTML, slotBHTML, worstOf } from "../core/floors.js";
+import { MOOD_WORD, floorsOf, hqMood, hqShown, needsFix, readingBigHTML, readingLineHTML, readingOf, slotAHTML, slotBHTML, worstOf, deskLanes } from "../core/floors.js";
 import { STILL_H, STILL_W, drawStill, stillKey } from "../room/still.js";
 import { fixHTML } from "./list.js";
 
@@ -74,7 +74,7 @@ export function renderBuilding(box, S) {
     const say = r.blocking ? `${r.blocking} waiting on you` : r.stall ? "nothing moving" : `${r.working} of ${r.active} working`;
     t.el.querySelector(".tgo").setAttribute("aria-label", `Enter the ${f.name} floor: ${say}`);
     setHTML(t.el.querySelector(".tfacts"), factsHTML(S, f, now));
-    const lanes = (S.lanes ?? []).filter((l) => l.floor === f.id), open = (S.open ?? []).filter((a) => a.floor === f.id);
+    const lanes = deskLanes(S, (S.lanes ?? []).filter((l) => l.floor === f.id)), open = (S.open ?? []).filter((a) => a.floor === f.id);
     const key = stillKey(f, lanes, open);
     if (t.key !== key) {
       t.key = key;
