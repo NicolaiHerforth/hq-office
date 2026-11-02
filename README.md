@@ -102,6 +102,8 @@ A brief is a longer write-up from a floor's HQ: a project update, a plan, a summ
 hud brief --title "Weekly: pricing and search" --file brief.md   # or --body "...", or pipe it in
 ```
 
+A brief can also be a whole HTML page (anything starting with `<!doctype html>` or `<html>`), with its own styles, scripts, charts and pictures inline, the way a Claude artifact is, without a Claude account: `hud brief --title T --file brief.html`. See [Pages](#pages).
+
 It goes on the HQ's own floor. The **BRIEFS** tab lists the floor's briefs newest first, with dates and a count of new ones. Opening one takes the right column at full width, the way a room does, with its markdown rendered (headings, tables, lists, code), **NEWER**, **OLDER** and **BACK**; on a phone it fills the screen. Each new brief also puts one short line in MESSAGES that opens it. The HQ guide tells every HQ to use briefs for anything longer than a few lines.
 
 ## HQ queue
@@ -228,6 +230,7 @@ You can open one yourself too: **+ NEW ROOM** on the ROOMS tab asks for a title,
 hud room create SLUG --title T --owner LANE [--member L ...] [--issue X ...] [--pr N ...]   # again: change or reopen it
 hud room path SLUG                    # the room's folder (see below)
 hud room brief SLUG --body B          # the pinned brief, in markdown, replaced as a whole (or piped on stdin)
+hud room brief SLUG --file brief.html # or a whole HTML page (see Pages)
 hud room artifact SLUG --title T --url U            # a Claude artifact link (recognised by its address) or any link
 hud room artifact SLUG --title T --file PATH        # an image or any file, copied into the room's files/ (25 MB at most)
 hud room say SLUG TEXT [--as LANE] [--reply ID]     # write in the thread (as the owning lane unless --as)
@@ -238,9 +241,24 @@ hud room archive SLUG
 
 The **ROOMS** tab, next to WORK, lists the rooms with their owner and its level, the state of their work on the work board and their last activity; the tab counts rooms with new messages from lanes. A room is a place you go to: open one and it takes the place of the office on the right, full height, at its own address (`#room/SLUG`), so a link, a reload and the browser's back button work. BACK TO OFFICE or Esc return to the office, and the strip at the top of a room moves straight to the other open rooms, marking those with new messages. The question column never moves. In the room, the thread fills the main column with the send box always at its foot: write there, with images as anywhere else, and messages keep their line breaks and render as markdown. TO picks the lane (the owner by default, or any lane in the room); REPLY on a lane's message answers it and addresses that lane. A rail beside the thread holds the room's lanes (level, status, and AWAY when herdr cannot find the agent), its issues and PRs with their board state, the brief and the artifacts shelf (Claude artifacts and links as cards with OPEN, images as thumbnails that open full screen, files); fold it to give the thread the width. Above them a small pixel conference room seats the room's lanes at a table with you at its head. On a phone a room fills the screen with CHAT, BRIEF and SHELF tabs.
 
-Each room is a folder on the HUD's machine, `rooms/SLUG/` in its data folder (`hud room path SLUG` prints it, and so does `hud room create`). Its `files/` holds everything shared in the room: files added with `hud room artifact --file`, files you add on the page, and images attached to the room's messages, each under its own name (`name-2.ext` when the name is taken). A lane can also save straight into `files/`: the file joins the shelf (by "folder") once it is written, and a file deleted from `files/` drops off the shelf. Beside it, `shelf.json` and `brief.md` mirror the shelf and the brief, so a lane can read the whole room from disk; the database stays the source of truth and the mirrors are rewritten whenever the shelf or the brief changes. An open room's `files/` is watched (no polling); an archived room keeps its folder. On the page, the shelf's **+ ADD** takes files from a picker and a link with a title, and dropping files anywhere on the room or pasting an image into it does the same. Files are served from `/rooms/SLUG/files/NAME` sandboxed: images show inline, text as plain text, and HTML, SVG and anything else download instead of opening on the HUD's address.
+Each room is a folder on the HUD's machine, `rooms/SLUG/` in its data folder (`hud room path SLUG` prints it, and so does `hud room create`). Its `files/` holds everything shared in the room: files added with `hud room artifact --file`, files you add on the page, and images attached to the room's messages, each under its own name (`name-2.ext` when the name is taken). A lane can also save straight into `files/`: the file joins the shelf (by "folder") once it is written, and a file deleted from `files/` drops off the shelf. Beside it, `shelf.json` and `brief.md` mirror the shelf and the brief, so a lane can read the whole room from disk; the database stays the source of truth and the mirrors are rewritten whenever the shelf or the brief changes. An open room's `files/` is watched (no polling); an archived room keeps its folder. On the page, the shelf's **+ ADD** takes files from a picker and a link with a title, and dropping files anywhere on the room or pasting an image into it does the same. Files are served from `/rooms/SLUG/files/NAME` sandboxed: images show inline, text as plain text, an `.html` file as a sandboxed page (see [Pages](#pages)), and SVG and anything else download instead of opening on the HUD's address.
 
 What you write is typed into that lane's terminal through herdr, naming the room and telling it to answer with `hud room say` and to keep the brief and artifacts current. Each message shows DELIVERED, or AWAY · KEPT when the lane is not there: a kept message stays in the thread and is typed into the lane once, when herdr sees it again (RETRY appears if herdr refused one). Uploaded files are served sandboxed, so a file a lane uploads can show but never run a script.
+
+
+### Pages
+
+A lane can show the owner a whole HTML page, the way a Claude artifact does, without anyone logging in to a Claude account. A page is any brief or `.html` file that starts with `<!doctype html>` or `<html>`, with its own styles, scripts, pictures, diagrams and interactive parts, up to 5 MB:
+
+```sh
+hud room artifact SLUG --title "Pricing model" --file model.html   # on the room's shelf; OPEN shows it in the HUD
+hud room brief SLUG --file brief.html                              # the room's brief; OPEN THE BRIEF shows it
+hud brief --title "Weekly: pricing" --file weekly.html             # a floor brief; the BRIEFS view shows the page
+```
+
+The HUD shows a page on the stage at full width (the whole screen on a phone) with **BACK** and **OPEN IN NEW TAB**, at its own address (`#page/rooms/SLUG/files/NAME`, `#page/rooms/SLUG/brief`, `#page/briefs/ID`), so markdown elsewhere can link to it. A shelf page loads the room's other files by name (`<img src="chart.png">` for `files/chart.png`); a room brief, which sits at the top of the room's folder, loads them as `files/NAME`; a floor brief carries its pictures inline (`data:` URLs). Scripts, styles and fonts may also come from https, so a page can use a chart library from a CDN.
+
+Pages run in a sandbox: the server sends each with `Content-Security-Policy: sandbox allow-scripts ...` without `allow-same-origin`, and the HUD shows it in an `<iframe sandbox>` without it too. The page gets an origin of its own: it cannot read the HUD's page, its data, its storage or its cookies, cannot send anything to the HUD (it may only connect to https), and cannot navigate the HUD. Secret values are masked in a page as they are in the agent drawer.
 
 ## Changing a question in place
 

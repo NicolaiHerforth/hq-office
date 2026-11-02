@@ -11,6 +11,7 @@ import { on } from "../core/bus.js";
 import { md, mdInline } from "../core/markdown.js";
 import { pick, tagged } from "../core/scope.js";
 import { floorById } from "../core/floors.js";
+import { frameHTML } from "../pages/index.js";
 
 const list = $("briefs");
 const stage = document.querySelector(".stage");
@@ -73,7 +74,7 @@ function show(b) {
     + `<a class="btn-s${newer ? "" : " off"}" ${newer ? `href="#brief/${newer.id}"` : `aria-disabled="true"`}>NEWER</a><a class="btn-s${older ? "" : " off"}" ${older ? `href="#brief/${older.id}"` : `aria-disabled="true"`}>OLDER</a></div>`
     + (b.loading ? `<div class="empty">LOADING…</div>` : `<article class="bbody">
       <header><div class="meta">${floorChip(b.floor)}<span class="when">${esc(when(b.at))}</span><span class="by">by ${esc(b.by)}</span></div><h1>${mdInline(b.title)}</h1></header>
-      <div class="md">${md(b.body)}</div></article>`));
+      ${b.html ? frameHTML(`/briefs/${b.id}.html`, b.title) : `<div class="md">${md(b.body)}</div>`}</article>`));
   view.scrollTop = 0;
   view.querySelector(".bbody")?.scrollTo?.(0, 0);
   renderList();

@@ -20,6 +20,7 @@ const RAW = [new RegExp(`\\besc\\([^)]*\\.${FIELD}\\b`, "g"), new RegExp(`\\$\\{
 
 // Where plain text is right. Each entry: the file, text on the line, and why.
 const ALLOW = [
+  { file: "src/client/pages/index.js", has: '<b class="pvtitle">${esc(p.title)}</b>', why: "a page's file name or a fixed label (a room's slug, a brief's number): not text HQ or a lane wrote" },
   { file: "src/client/rooms/index.js", has: 'title="${esc(w.item.why)}"', why: "a tooltip attribute: markup cannot go in an attribute" },
   { file: "src/client/rooms/index.js", has: 'aria-label="Go to room ${esc(r.title)}"', why: "an aria-label attribute" },
   { file: "src/client/rooms/index.js", has: 'title="${esc(x.title)}"', why: "a tooltip attribute on a room's tab" },

@@ -1,0 +1,15 @@
+/* HTML PAGES: a lane's page on the stage, in a sandboxed frame at full width (the whole screen on a phone). */
+.pageview[hidden] { display: none; }
+.stage.inpage > .room, .stage.inpage > .under, .stage.inpage > .building, .stage.inpage > .floornav, .stage.inpage > .roomview, .stage.inpage > .briefview { display: none; }
+.pageview { display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 10px; padding: 10px 12px; min-height: 0; }
+@media (min-width: 1151px) { .stage.inpage { grid-template-rows: minmax(0, 1fr) !important; } .pageview { height: 100%; box-sizing: border-box; } }
+.pvbar { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.pvbar .pvtitle { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 800 15px/1.3 var(--text); }
+.pvbar .btn-s { min-height: 32px; padding: 8px 10px; text-decoration: none; color: var(--ink); flex: none; white-space: nowrap; display: inline-flex; align-items: center; box-sizing: border-box; }
+/* the frame: white like a page, the size of its box */
+.pageframe { display: block; width: 100%; height: 100%; min-height: 60vh; border: 2px solid var(--edge-2); border-radius: 8px; background: #fff; }
+@media (max-width: 1150px) {
+  .pageview:not([hidden]) { position: fixed; inset: 0; z-index: 44; border-radius: 0; padding: calc(10px + env(safe-area-inset-top, 0px)) max(10px, env(safe-area-inset-right, 0px)) env(safe-area-inset-bottom, 0px) max(10px, env(safe-area-inset-left, 0px)); }
+  html.pageopen { overflow: hidden; }
+  .pvbar .btn-s { min-height: 44px; }
+}

@@ -20,7 +20,8 @@
 //   hud tell --title T [--lane L] [--body B]   an update for the owner: information, no reply asked for
 //                                              (hud say is the same command)
 //   hud brief --title T (--body B | --file PATH | piped in)   a brief on your floor's BRIEFS page: a longer
-//                        write-up in markdown (an update, a plan, a summary); MESSAGES gets one line linking to it
+//                        write-up in markdown (an update, a plan, a summary), or a whole HTML page (<!doctype html>,
+//                        its styles, scripts and pictures inline), shown sandboxed; MESSAGES gets one line linking to it
 //   hud request TEXT [--urgent] [--file PATH]   a message for your floor's HQ: in its queue when HQ QUEUE is on,
 //                        typed into its pane when it is off; --urgent always goes straight in (main is red, production
 //                        is affected, or the owner is waiting on it)
@@ -377,9 +378,11 @@ function roomUsage() {
   return `usage:
   hud room create SLUG --title T --owner LANE [--member L ...] [--issue X ...] [--pr N ...]   (again: change or reopen it)
   hud room path SLUG                                 the room's folder: files/ is shared, and what is saved there shows on the shelf
-  hud room brief SLUG --body B [--as LANE]           the pinned brief, replaced as a whole (or from stdin)
+  hud room brief SLUG (--body B | --file PATH) [--as LANE]   the pinned brief, replaced as a whole (or from stdin);
+                                                     markdown, or a whole HTML page (<!doctype html>), shown sandboxed
   hud room brief SLUG                                 prints the brief (nothing given: never writes); --clear clears it
   hud room artifact SLUG --title T (--url U | --file PATH) [--kind claude-artifact|link|image|file] [--as LANE]
+                                                     a .html file is a page: it opens in the HUD, sandboxed
   hud room say SLUG TEXT [--as LANE] [--reply ID]    write in the thread (as the owning lane unless --as)
   hud room read SLUG [--since ID] [--wait] [--json]  the owner's messages; --wait blocks until a new one
   hud room list [--all] [--json]
@@ -437,9 +440,14 @@ async function roomCmd(args: string[]) {
         console.log(`brief of ${slug} cleared`);
         break;
       }
-      const body = await textArg(o("body"));
+      const file = o("file");
+      if (file && !(await Bun.file(file).exists())) {
+        console.error(`no file ${file}`);
+        process.exit(1);
+      }
+      const body = file ? await Bun.file(file).text() : await textArg(o("body"));
       if (!body.trim()) {
-        if (o("body") !== undefined) {
+        if (o("body") !== undefined || file) {
           console.error(`an empty --body would clear the brief of ${slug}; to clear it, use: hud room brief ${slug} --clear`);
           process.exit(2);
         }
@@ -447,8 +455,9 @@ async function roomCmd(args: string[]) {
         console.log(v.brief ?? `(${slug} has no brief yet: hud room brief ${slug} --body B, or pipe it in)`);
         break;
       }
-      await call("POST", `${path}/brief`, { body, as: o("as") });
+      const set = await call("POST", `${path}/brief`, { body, as: o("as") });
       console.log(`brief of ${slug} set`);
+      if (set?.html) console.log(`page ${BASE}/#page/rooms/${slug}/brief`);
       break;
     }
     case "artifact": {
@@ -470,6 +479,8 @@ async function roomCmd(args: string[]) {
         }
         console.log(`artifact #${out.id} (${out.kind}) on ${slug}: ${BASE}${out.url}`);
         console.log(`file ${out.path}`);
+        // An HTML page opens rendered in the HUD, sandboxed (src/server/pages.ts).
+        if (/\.html?$/i.test(out.url)) console.log(`page ${BASE}/#page${out.url}`);
       } else {
         const out = await call("POST", `${path}/artifacts`, { title: o("title"), url: o("url"), kind: o("kind"), as: o("as") });
         console.log(`artifact #${out.id} on ${slug}`);
