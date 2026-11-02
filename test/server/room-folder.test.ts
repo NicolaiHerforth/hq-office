@@ -142,7 +142,7 @@ describe("a room's folder", () => {
     expect((await room("auth")).artifactList.some((x: any) => x.id === it.id)).toBe(false);
   });
 
-  test("files are served sandboxed: images inline, text as plain text, HTML and SVG as downloads", async () => {
+  test("files are served sandboxed: images inline, text as plain text, HTML as a sandboxed page, SVG as a download", async () => {
     await upload("auth", "report.html", "<script>alert(1)</script>");
     await upload("auth", "logo.svg", `<svg xmlns="http://www.w3.org/2000/svg"><script>alert(1)</script></svg>`);
     const get = (name: string) => fetch(`${BASE}/rooms/auth/files/${encodeURIComponent(name)}`);
@@ -152,7 +152,11 @@ describe("a room's folder", () => {
       expect(r.headers.get("content-security-policy")).toStartWith("sandbox");
       expect(r.headers.get("x-content-type-options")).toBe("nosniff");
     }
-    for (const name of ["report.html", "logo.svg"]) {
+    // an HTML page runs only in its own origin (pages.ts): no allow-same-origin
+    const page = await get("report.html");
+    expect(page.headers.get("content-type")).toBe("text/html; charset=utf-8");
+    expect(page.headers.get("content-security-policy")).not.toContain("allow-same-origin");
+    for (const name of ["logo.svg"]) {
       const r = await get(name);
       expect(r.headers.get("content-type")).toBe("application/octet-stream");
       expect(r.headers.get("content-disposition")).toStartWith("attachment");

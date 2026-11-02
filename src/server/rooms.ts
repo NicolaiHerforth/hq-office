@@ -13,6 +13,7 @@ import { notifyHq } from "./hq-link.ts";
 import { floorOr, hqOf, laneFloor } from "./floors.ts";
 import { ensureFolder, reconcileRoom, removeItem, roomDir, saveFile, startFolders, unwatchRoom, watchRoom, writeBrief, writeShelf } from "./room-folder.ts";
 import { refusal, safeName } from "./attachments.ts";
+import { isHtmlDoc } from "./pages.ts";
 
 export const MAX_ROOM_FILE = 25 * 1024 * 1024;
 const KINDS = ["claude-artifact", "link", "image", "file"];
@@ -117,11 +118,12 @@ export function setBrief(slugRaw: unknown, body: any) {
   const text = String(body.body ?? "").replace(/\s+$/, "");
   // An empty brief clears the room's brief, so it has to be asked for: a client that sends nothing never wipes it.
   if (!text.trim() && body.clear !== true) throw new Error("the brief is empty: send clear: true to clear it (hud room brief SLUG --clear)");
-  if (text.length > 100_000) throw new Error("the brief is over 100,000 characters");
+  if (text.length > (isHtmlDoc(text) ? 5_000_000 : 100_000)) throw new Error(isHtmlDoc(text) ? "the brief page is over 5 MB" : "the brief is over 100,000 characters");
   const by = str(body.as) || r.owner;
   db.query("UPDATE rooms SET brief = ?, brief_at = ?, brief_by = ? WHERE slug = ?").run(text || null, Date.now(), by, r.slug);
   touch(r.slug);
   writeBrief(r.slug);
+  return { html: isHtmlDoc(text) };
 }
 
 export function kindOf(url: string, kind?: unknown) {
@@ -357,6 +359,7 @@ export function roomView(slugRaw: unknown) {
   return {
     ...summary(r),
     brief: r.brief,
+    briefHtml: isHtmlDoc(r.brief), // a whole HTML page: the page opens it at /rooms/SLUG/brief.html
     briefBy: r.brief_by,
     folder: roomDir(r.slug),
     artifactList: db.query("SELECT id, at, by, kind, title, url, path FROM room_artifacts WHERE slug = ? ORDER BY id").all(r.slug),

@@ -5,6 +5,8 @@ import { addFile, addLink, archive, createRoom, ownerPost, readOwner, removeArti
 import { LEGACY_FILES, movedTo, servedFile } from "../room-folder.ts";
 import { SAFE, fileResponse as serve, notFound } from "../attachments.ts";
 import type { Route } from "../router.ts";
+import { HTML_EXT, isHtmlDoc, pageResponse } from "../pages.ts";
+import { readFileSync } from "node:fs";
 
 const S = "([a-z0-9][a-z0-9-]{0,47})";
 const at = (tail: string) => new RegExp(`^/api/rooms/${S}${tail}$`);
@@ -40,8 +42,16 @@ const routes: Route[] = [
   { method: "POST", pattern: at("/archive"), handle: ({ body, m }) => archive(m[1], body.by) },
   // A file in a room's folder: /rooms/SLUG/files/NAME.
   { method: "GET", prefix: "/rooms/", handle: ({ path }) => {
+    // A room's brief that is a whole HTML page, rendered sandboxed (pages.ts).
+    const b = path.match(/^\/rooms\/([a-z0-9][a-z0-9-]{0,47})\/brief\.html$/);
+    if (b) {
+      let brief: string | null = null;
+      try { brief = roomView(b[1]).brief; } catch {}
+      return isHtmlDoc(brief) ? pageResponse(brief!, "brief.html") : notFound();
+    }
     const m = path.match(/^\/rooms\/([^/]+)\/files\/([^/]+)$/);
     const f = m && servedFile(m[1], m[2]);
+    if (f && HTML_EXT.test(f.name)) return pageResponse(readFileSync(f.path, "utf8"), f.name);
     return f ? fileResponse(f.path, f.name) : notFound();
   } },
   // A link from before rooms had folders: to where its file moved, or the file itself if it never moved.

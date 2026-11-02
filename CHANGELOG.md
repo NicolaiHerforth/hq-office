@@ -3,6 +3,28 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.28.0] - 2026-11-02
+### Added
+
+- **HTML pages, the way Claude artifacts work, without a Claude account.** A brief or a file on a room's shelf can
+  be a whole HTML page, with its own styles, scripts, pictures, diagrams and interactive parts. The HUD shows it on
+  the stage at full width (the whole screen on a phone), with BACK and OPEN IN NEW TAB:
+  - On a room's shelf: `hud room artifact SLUG --title T --file page.html`. OPEN shows it in the HUD. Pictures and
+    scripts the page loads by name come from the room's `files/` (`hud room path SLUG`).
+  - As a room's brief: `hud room brief SLUG --file brief.html`. The brief pane gets **OPEN THE BRIEF**; the page
+    loads the room's files as `files/NAME`.
+  - As a floor's brief: `hud brief --title T --file brief.html`. The BRIEFS view shows the page itself; carry its
+    pictures inline (`data:` URLs) or from https.
+  - A page is anything that starts with `<!doctype html>` or `<html>`; anything else stays markdown. A page may be up
+    to 5 MB.
+  - Pages run sandboxed in their own origin: a page cannot read the HUD, its data, its storage or its cookies, and
+    cannot send to the HUD. It may load scripts, styles and fonts from https (a chart library from a CDN, say).
+    Secret values are masked in pages as in the agent drawer.
+
+### Changed
+
+- An `.html` file on a room's shelf now opens as a sandboxed page instead of downloading.
+
 ## [0.27.1] - 2026-11-02
 ### Changed
 

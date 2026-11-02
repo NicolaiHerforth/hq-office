@@ -31,7 +31,7 @@ function fileRef(escaped) {
 }
 // A link's target, as escaped text: http(s), mailto, a path on this HUD that does not climb out of it, or a place on
 // this page (#brief/ID, #room/SLUG), which opens here rather than in a new tab.
-const IN_PAGE = /^#(?:brief\/\d{1,9}|room\/[a-z0-9][a-z0-9-]{0,47})$/;
+const IN_PAGE = /^#(?:brief\/\d{1,9}|room\/[a-z0-9][a-z0-9-]{0,47}|page\/(?:rooms\/[a-z0-9][a-z0-9-]{0,47}\/(?:files\/[^\s/?#)]+\.html?|brief)|briefs\/\d{1,9}))$/i;
 const safeUrl = (u) => /^(?:https?:\/\/[^\s/]|mailto:[^\s/])/i.test(u) || (/^\/(?:uploads|room-files|rooms)\//.test(u) && !/\.\.|\\/.test(u)) || IN_PAGE.test(u);
 const anchor = (href, label) => (IN_PAGE.test(href) ? `<a href="${href}">${label}</a>` : `<a href="${href}" target="_blank" rel="noopener noreferrer">${label}</a>`);
 const shorten = (u) => { const t = unesc(u); return esc(t.length > 60 ? t.slice(0, 57) + "…" : t); };

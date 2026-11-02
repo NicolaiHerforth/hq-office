@@ -220,7 +220,7 @@ function renderTop(r) {
 }
 function renderBrief(d) {
   const head = `<div class="k"><span>BRIEF</span>${d?.briefAt ? `<span class="by">${esc(d.briefBy || "")} · ${ago(d.briefAt)}</span>` : ""}</div>`;
-  const body = !d ? "" : d.brief ? `<div class="md">${md(d.brief)}</div>` : `<div class="md none">No brief yet. The owning lane pins one with hud room brief ${esc(d.slug)}.</div>`;
+  const body = !d ? "" : d.briefHtml ? `<div class="md"><p>This brief is a page.</p><p><a class="btn-s" href="#page/rooms/${esc(d.slug)}/brief">OPEN THE BRIEF</a></p></div>` : d.brief ? `<div class="md">${md(d.brief)}</div>` : `<div class="md none">No brief yet. The owning lane pins one with hud room brief ${esc(d.slug)}.</div>`;
   setHTML(part("rbrief"), head + body);
 }
 
@@ -241,7 +241,10 @@ function cardHtml(a) {
   }
   const ext = a.kind === "file" ? (a.url.match(/\.([a-z0-9]{1,8})$/i)?.[1] ?? "").toUpperCase() : "";
   const label = a.kind === "file" ? `${ext || "FILE"} FILE` : a.kind === "link" ? host(a.url) || "LINK" : LABEL[a.kind];
-  return `<div class="art ${esc(a.kind)}"><div class="ak">${ICON[a.kind] ?? ICON.link}<span>${esc(label)}</span></div><div class="at" title="${esc(a.title)}">${mdInline(a.title)}</div><div class="af">${meta}<a class="btn-s open" href="${esc(a.url)}" target="_blank" rel="noopener">OPEN</a></div></div>`;
+  // An HTML page on the shelf opens rendered in the HUD (pages/), sandboxed, like an artifact would.
+  const page = a.kind === "file" && /^\/rooms\/[a-z0-9-]+\/files\/[^/]+\.html?$/i.test(a.url);
+  const open = page ? `<a class="btn-s open" href="#page${esc(a.url)}">OPEN</a>` : `<a class="btn-s open" href="${esc(a.url)}" target="_blank" rel="noopener">OPEN</a>`;
+  return `<div class="art ${esc(a.kind)}${page ? " page" : ""}"><div class="ak">${ICON[a.kind] ?? ICON.link}<span>${esc(page ? "PAGE" : label)}</span></div><div class="at" title="${esc(a.title)}">${mdInline(a.title)}</div><div class="af">${meta}${open}</div></div>`;
 }
 // The shelf: its head (with ADD), the ADD form, the cards and where the folder is. The form is built once per room
 // and never redrawn, so what you type in it survives every update.
