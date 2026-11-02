@@ -41,7 +41,7 @@ restoreDrafts();
 export const PANELS = [
   [["open", "lanes", "score", "updatesUnread", "hq"], () => renderStats()],
   [["machines"], () => renderMachines()],
-  [["open"], () => renderHud()],
+  [["open", "askPages", "answered"], () => renderHud()],
   [["lanes", "open", "config"], () => renderCard()],
   [["notes", "hq"], () => renderLastNote()],
   [["secrets", "secretsLost"], () => renderSecrets()],

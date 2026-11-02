@@ -3,9 +3,16 @@ import { db } from "../db.ts";
 import { event } from "../events.ts";
 import { answerAsk, checkScope, createAsk, notYet } from "../asks.ts";
 import type { Route } from "../router.ts";
+import { json } from "../json.ts";
+import { askPageKey, hasAskPage, serveAskPage } from "../ask-pages.ts";
+
+// The new ask's id, and its page's key when it has one (hud ask prints where to read what the owner does in it).
+export const withPage = (id: number) => (hasAskPage(id) ? { id, page: askPageKey(id) } : { id });
 
 const routes: Route[] = [
-  { method: "POST", path: "/api/asks", handle: ({ body, caller }) => ({ id: createAsk(body, caller().floor) }) },
+  // An ask's HTML page, served sandboxed like every page (ask-pages.ts), whatever the ask's status.
+  { method: "GET", pattern: /^\/asks\/(\d+)\.html$/, handle: ({ m, url }) => serveAskPage(Number(m[1]), url.searchParams.get("theme")) ?? json({ error: `ask #${m[1]} has no page` }, 404) },
+  { method: "POST", path: "/api/asks", handle: ({ body, caller }) => withPage(createAsk(body, caller().floor)) },
   { method: "POST", pattern: /^\/api\/asks\/(\d+)\/answer$/, handle: ({ body, m }) => {
     answerAsk(Number(m[1]), String(body.answer ?? "").trim() || "done");
   } },

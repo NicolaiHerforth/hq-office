@@ -58,3 +58,24 @@
 .qtabs .tag[hidden] { display: none; }
 .tag.count { background: var(--red); color: var(--on-fill); }
 .hud[hidden], .msgs[hidden] { display: none; }
+/* An ask's page (ask-page.js): a sandboxed frame under the text, above the answer row. It is as tall as the page says it
+   is, never over the cap: the answer row under it stays in the list's view on a laptop screen. Colours are tokens. */
+.hud { --askcap: clamp(150px, calc(100dvh - 590px), 280px); }
+.ask .askpage { min-width: 0; }
+.ask .askframe { height: min(var(--fh, var(--askcap)), var(--askcap)); min-height: 0; border-width: 2px; }
+/* a phone, or the ask on the stage: a strip that opens the page */
+.askstrip { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 8px 10px; border: 2px solid var(--edge-2); border-radius: 8px; color: var(--ink); text-decoration: none; background: color-mix(in srgb, var(--blue) 6%, var(--box)); }
+.askstrip .sk { flex: none; font: 7px/1 var(--pixel); color: var(--blue); }
+.askstrip .st { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 700 14px/1.3 var(--text); }
+.askstrip .st i { font-weight: 400; color: var(--muted); }
+.askstrip .btn-s { flex: none; min-height: 32px; display: inline-flex; align-items: center; box-sizing: border-box; }
+.tag.pageopen { text-decoration: none; color: var(--blue); }
+.ask .onstage { justify-self: start; font: 8px/1.6 var(--pixel); color: var(--blue); text-decoration: none; }
+/* the answer row on the stage, under the ask's page (#page/asks/ID) */
+.pageview > .askdock { flex: none; max-height: 45%; overflow-y: auto; padding: 10px 12px; }
+.pageview:has(> .askdock) > .pageframe { min-height: 30vh; }
+.askdock .ask.dock { padding: 0; }
+.askdock .dockdone { display: grid; gap: 6px; }
+.askdock .dockdone .sk { font: 8px/1.4 var(--pixel); color: var(--green); }
+.askdock h3 { margin: 0; }
+@media (max-width: 1150px) { .pageview > .askdock { max-height: 50%; } }

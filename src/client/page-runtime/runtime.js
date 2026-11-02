@@ -3,7 +3,9 @@
 // It gives the page what a Claude artifact gets from its runtime, without leaving the sandbox:
 //   window.hud.use(name), and window.claude.use(name) when the page has no window.claude: a Promise of the
 //     capability's frozen namespace, or null (unknown name, not framed by the HUD, or no answer in 10 s).
-//     db, user and downloads work; artifact, room, comments, sample and the rest are null for now.
+//     db, user, downloads, artifact (publish), room, comments (openComposer, into the HUD's thread) and sample (when
+//     the owner set HUD_SAMPLE_CMD) work; anything else is null.
+//   COMMENT on a text selection, when the HUD shows the page's comment thread.
 //   localStorage and sessionStorage, synchronous: localStorage starts with the stored keys and writes go back through
 //     the HUD, so it is kept per page and shared by everyone who opens the HUD; sessionStorage lasts while the page is open.
 //   Mermaid: a page with .mermaid diagrams and no mermaid of its own gets them drawn, as an artifact does.
@@ -17,6 +19,7 @@
   bootEl?.remove();
   me?.remove();
   const PAGE = String(boot.page || "");
+  const VERSION = String(boot.version || "");
   const framed = window.parent !== window && !!PAGE;
   const error = (code, message) => Object.assign(new Error(message), { code });
 
@@ -40,12 +43,13 @@
         if (port || !d || d.hello !== "hud-page") { if (port !== ch.port1) ch.port1.close(); return; }
         port = ch.port1;
         ready = d;
+        threadHere = !!d.comments;
         for (const p of tries) if (p !== port) p.close();
         port.onmessage = onReply;
         for (const m of outbox.splice(0)) port.postMessage(m.msg, m.transfer);
         resolve(d);
       };
-      try { window.parent.postMessage({ "hud-page": "hello", page: PAGE, nonce }, "*", [ch.port2]); } catch {}
+      try { window.parent.postMessage({ "hud-page": "hello", page: PAGE, nonce, version: VERSION }, "*", [ch.port2]); } catch {}
     };
     hello();
     const timer = setInterval(() => { if (port) clearInterval(timer); else hello(); }, 400);
@@ -54,10 +58,14 @@
   function onReply(e) {
     const d = e.data || {};
     if (d.snap !== undefined) { listeners.get(d.snap)?.(d); return; }
+    if (d.roomEv !== undefined) { rooms.get(d.roomEv)?.hear(d); return; }
+    if (d.stream !== undefined) { streams.get(d.stream)?.(d.text); return; }
+    if (d.mount !== undefined) { threadHere = !!d.mount; if (!threadHere) pickHide(); return; }
     const w = waiting.get(d.re);
     if (!w) return;
     waiting.delete(d.re);
-    if (d.error) w.reject(error(d.error.code || "unavailable", d.error.message || "refused"));
+    streams.delete(d.re);
+    if (d.error) w.reject(Object.assign(error(d.error.code || "unavailable", d.error.message || "refused"), d.error.text ? { text: d.error.text } : {}));
     else w.resolve(d.value);
   }
   function send(msg, transfer = []) {
@@ -260,8 +268,218 @@
     },
   });
 
+  // ---- artifact: the page publishes a new version of itself; every open view, this one too, reloads to it ----
+  const removed = (what) => async () => { throw error("capability_removed", `${what} is not part of this HUD's runtime`); };
+  const artifactNs = Object.freeze({
+    publish: async (html) => {
+      if (typeof html !== "string") throw error("invalid_content", "this HUD publishes a whole HTML document, as a string");
+      return call("publish", { html, base: VERSION });
+    },
+    edit: removed("artifact.edit"),
+    sync: removed("artifact.sync"),
+    metadata: async () => ({}),
+  });
+
+  // ---- room: whoever has this page open right now ----
+  const rooms = new Map(); // name ("" is the lobby) -> its state
+  const TOPIC = /^[A-Za-z_][A-Za-z0-9_-]{0,63}$/;
+  const safely = (fn, ...a) => { try { fn(...a); } catch (e) { reportError(e); } };
+  function makeRoom(name) {
+    const topics = new Map(), peerFns = new Set(), connFns = new Set();
+    let list = Object.freeze([]), live = false, left = false;
+    const joined = call("room", { act: "join", room: name }).then((r) => { live = !!r?.connected; }, (e) => { left = true; throw e; });
+    joined.catch(() => {});
+    const st = {
+      hear(d) {
+        if (left) return;
+        if (d.connected !== undefined) { live = d.connected; for (const fn of [...connFns]) safely(fn, live); return; }
+        if (d.msg) { const m = Object.freeze({ ...d.msg }); for (const fn of [...(topics.get(m.topic) ?? [])]) safely(fn, m); return; }
+        if (d.peers) {
+          const before = new Map(list.map((p) => [p.peer, p]));
+          const next = Object.freeze(d.peers.map((p) => Object.freeze({ ...p, presence: freezeDeep(p.presence ?? {}) })));
+          const now = new Set(next.map((p) => p.peer));
+          const change = Object.freeze({
+            peers: next,
+            joined: next.filter((p) => !before.has(p.peer)),
+            left: list.filter((p) => !now.has(p.peer)),
+            updated: next.filter((p) => before.has(p.peer) && before.get(p.peer).updatedAt !== p.updatedAt),
+          });
+          list = next;
+          for (const fn of [...peerFns]) safely(fn, change);
+        }
+      },
+    };
+    rooms.set(name, st);
+    const ready = async () => { if (left) throw error("not_permitted", "this room was left"); await joined; };
+    const api = {
+      emit: async (topic, data) => {
+        if (!TOPIC.test(String(topic))) throw error("invalid_argument", "a topic is a name: a letter or _, then up to 63 letters, digits, _ or -");
+        await ready();
+        await call("room", { act: "emit", room: name, topic: String(topic), data });
+      },
+      on: (topic, fn) => {
+        if (!TOPIC.test(String(topic)) || typeof fn !== "function") throw new TypeError("room.on(topic, handler)");
+        const set = topics.get(topic) ?? topics.set(topic, new Set()).get(topic);
+        set.add(fn);
+        return () => set.delete(fn);
+      },
+      presence: async (patch) => { await ready(); await call("room", { act: "presence", room: name, patch }); },
+      peers: () => list,
+      onPeers: (fn) => {
+        peerFns.add(fn);
+        if (list.length) queueMicrotask(() => peerFns.has(fn) && safely(fn, Object.freeze({ peers: list, joined: list, left: [], updated: [] })));
+        return () => peerFns.delete(fn);
+      },
+      connected: () => live,
+      onConnection: (fn) => { connFns.add(fn); return () => connFns.delete(fn); },
+    };
+    if (!name) {
+      return Object.freeze({
+        ...api,
+        join: async (n) => {
+          n = String(n ?? "");
+          if (!/^[A-Za-z0-9_.:-]{1,64}$/.test(n)) throw error("invalid_argument", "a room's name is 1 to 64 letters, digits and _ . : -");
+          const r = namedRooms.get(n) ?? namedRooms.set(n, makeRoom(n)).get(n);
+          await joinedOf.get(r);
+          return r;
+        },
+        sendToClaudeSession: async () => { throw error("claude_unavailable", "this HUD sends nothing to an agent's session from a page; use the page's comments"); },
+        canSendToClaudeSession: async () => "unsupported",
+      });
+    }
+    const named = Object.freeze({
+      ...api,
+      name,
+      leave: async () => {
+        if (left) return;
+        left = true;
+        rooms.delete(name);
+        namedRooms.delete(name);
+        await call("room", { act: "leave", room: name }).catch(() => {});
+      },
+    });
+    joinedOf.set(named, joined);
+    return named;
+  }
+  const namedRooms = new Map(), joinedOf = new WeakMap();
+  let lobby = null;
+
+  // ---- sample: ask a model (the command the owner set up; the HUD asks the owner first) ----
+  const streams = new Map();
+  const TIERS = ["default", "quick", "complex"];
+  function ask(input, opts = {}) {
+    if (opts.tools?.length) return Promise.reject(error("tools_unavailable", "this HUD's sample takes no tools"));
+    if (opts.images && (opts.images instanceof Blob || opts.images.length)) return Promise.reject(error("images_unavailable", "this HUD's sample takes no images"));
+    if (opts.signal?.aborted) return Promise.reject(error("cancelled", "cancelled"));
+    return new Promise((resolve, reject) => {
+      const id = ++seq;
+      waiting.set(id, { resolve, reject });
+      let prev = "";
+      if (typeof opts.onText === "function") streams.set(id, (text) => { const delta = text.startsWith(prev) ? text.slice(prev.length) : text; prev = text; safely(opts.onText, { text, delta }); });
+      opts.signal?.addEventListener("abort", () => send({ op: "sampleAbort", re: id }), { once: true });
+      send({ id, op: "sample", input, tier: TIERS.includes(opts.modelTier) ? opts.modelTier : "default" });
+    });
+  }
+  const sampleNs = Object.freeze(Object.assign((input, opts) => ask(input, opts), {
+    json: async (input, opts = {}) => {
+      const suffix = "\n\nAnswer with the JSON value only: no prose, no code fences.";
+      const r = await ask(typeof input === "string" ? input + suffix : Array.isArray(input) ? input.map((m, i) => (i === input.length - 1 ? { ...m, content: m.content + suffix } : m)) : input, opts);
+      const text = r.text.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+      try { return JSON.parse(text); } catch { throw Object.assign(error("invalid_json", "the answer was not JSON"), { text: r.text }); }
+    },
+    limits: async () => ({ maxPromptBytes: 200_000, modelTiers: [...TIERS] }),
+  }));
+
+  // ---- comments: the page's thread is the HUD's (src/client/comments/); the page opens it with a quote ----
+  // openComposer sends the element's text or the selected passage, with where it sits (a CSS path), and the HUD opens
+  // the page's thread with it quoted. Selecting text in the page shows COMMENT, which does the same, whenever the HUD
+  // shows the page's thread. Comments are written in the HUD, so the write verbs are not here.
+  let threadHere = false;
+  const MAX_QUOTE = 2000;
+  function cssPath(el) {
+    const parts = [];
+    for (; el && el.nodeType === 1 && el !== document.documentElement; el = el.parentElement) {
+      if (el.id) { parts.unshift(`#${CSS.escape(el.id)}`); break; }
+      let i = 1;
+      for (let s = el.previousElementSibling; s; s = s.previousElementSibling) if (s.tagName === el.tagName) i++;
+      parts.unshift(`${el.tagName.toLowerCase()}:nth-of-type(${i})`);
+    }
+    return parts.join(" > ") || "html";
+  }
+  const textOf = (el) => String(el?.innerText ?? el?.textContent ?? "").trim();
+  function quoteOf(target) {
+    if (target?.range instanceof Range) {
+      const node = target.range.commonAncestorContainer;
+      const el = node.nodeType === 1 ? node : node.parentElement;
+      return { text: (target.range.toString().trim() || textOf(el)).slice(0, MAX_QUOTE), anchor: cssPath(el) };
+    }
+    if (target?.element instanceof Element) return { text: textOf(target.element).slice(0, MAX_QUOTE), anchor: cssPath(target.element) };
+    throw error("invalid", "openComposer({ element }) or openComposer({ range })");
+  }
+  const notHere = (what) => async () => { throw error("not_granted", `${what}: comments are written in the HUD; open the composer with openComposer`); };
+  const commentsNs = Object.freeze({
+    openComposer: async (target) => call("comment", quoteOf(target)),
+    anchorFor: async (el) => {
+      if (!(el instanceof Element)) throw error("invalid", "anchorFor takes an element");
+      return Object.freeze({ path: cssPath(el), x: 0, y: 0 });
+    },
+    canSendToClaude: async () => "off",
+    create: notHere("create"),
+    reply: notHere("reply"),
+    sendToClaude: notHere("sendToClaude"),
+    resolve: notHere("resolve"),
+    delete: notHere("delete"),
+    customAnchors: notHere("customAnchors"),
+  });
+  // COMMENT on a selection: in a shadow root of its own, so the page's styles neither reach it nor are touched by it.
+  let pickHost = null, pickBtn = null, picked = null;
+  function pickHide() { if (pickHost) pickHost.style.display = "none"; picked = null; }
+  function pickShow(range) {
+    if (!pickHost) {
+      pickHost = document.createElement("hud-comment-pick");
+      const root = pickHost.attachShadow({ mode: "closed" });
+      // The HUD's own COMMENT, in its light and dark colours (--ink, --on-ink, --edge): the HUD's tokens do not reach
+      // into the page, but the theme does, as data-theme on the page's <html>.
+      root.innerHTML = `<style>button{position:fixed;z-index:2147483647;margin:0;padding:9px 12px;border:2px solid var(--e);border-radius:8px;background:var(--i);color:var(--o);font:700 11px/1 ui-monospace,Menlo,monospace;letter-spacing:.08em;box-shadow:0 3px 0 rgba(0,0,0,.25);cursor:pointer;--i:#23233a;--o:#fff;--e:#3c3c5a}button.dark{--i:#ecebf4;--o:#1b1d2c;--e:#b4b4d4}@media (pointer:coarse){button{padding:14px 16px}}</style><button type="button">COMMENT</button>`;
+      pickBtn = root.querySelector("button");
+      pickBtn.addEventListener("pointerdown", (e) => e.preventDefault()); // keep the selection while pressing
+      pickBtn.addEventListener("click", () => {
+        const r = picked;
+        pickHide();
+        if (!r) return;
+        call("comment", quoteOf({ range: r })).catch(() => {});
+        getSelection()?.removeAllRanges();
+      });
+    }
+    if (!pickHost.isConnected) document.documentElement.append(pickHost);
+    pickHost.style.display = "";
+    const theme = document.documentElement.dataset.theme;
+    pickBtn.classList.toggle("dark", theme ? theme === "dark" : matchMedia("(prefers-color-scheme: dark)").matches);
+    picked = range;
+    const rect = range.getBoundingClientRect();
+    const w = pickBtn.offsetWidth || 90, h = pickBtn.offsetHeight || 34;
+    pickBtn.style.left = `${Math.min(innerWidth - w - 8, Math.max(8, rect.left + rect.width / 2 - w / 2))}px`;
+    pickBtn.style.top = `${rect.top - h - 8 >= 8 ? rect.top - h - 8 : Math.min(innerHeight - h - 8, rect.bottom + 8)}px`;
+  }
+  let pickQueued = false;
+  if (framed) document.addEventListener("selectionchange", () => {
+    if (pickQueued) return;
+    pickQueued = true;
+    requestAnimationFrame(() => {
+      pickQueued = false;
+      const sel = getSelection();
+      if (!threadHere || !sel || sel.isCollapsed || !sel.rangeCount || !sel.toString().trim()) return pickHide();
+      const range = sel.getRangeAt(0);
+      const node = range.commonAncestorContainer;
+      const at = node.nodeType === 1 ? node : node.parentElement;
+      if (at?.closest("textarea, input, [contenteditable]")) return pickHide();
+      pickShow(range.cloneRange());
+    });
+  });
+  addEventListener("scroll", pickHide, { passive: true, capture: true });
+
   // ---- use() ----
-  const MADE = { db: () => dbNs, user: userNs, downloads: () => downloadsNs };
+  const MADE = { db: () => dbNs, user: userNs, downloads: () => downloadsNs, artifact: () => artifactNs, self: () => artifactNs, room: () => (lobby ??= makeRoom("")), sample: () => sampleNs, comments: () => commentsNs };
   const made = new Map();
   function use(name) {
     name = String(name);

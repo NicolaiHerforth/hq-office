@@ -3,6 +3,40 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.33.0] - 2026-11-02
+### Added
+
+- **A page can save itself.** `claude.use("artifact").publish(html)` saves a new version of the page, as an artifact
+  that is its own record (a poll, a checklist) does. It replaces the room's file or brief, the earlier one kept under
+  **VERSIONS**, or the floor brief; every open view of the page reloads to it, and a view that was behind gets
+  `conflict` and reloads to the newer one.
+- **Who has a page open, live.** `claude.use("room")` gives a page its room, as on an artifact: every view of it in the
+  HUD sees the others (presence, `onPeers`) and hears their moments (`emit`, `on`), and `join(name)` makes a room of its
+  own. Lanes and HQ take part with `hud page room KEY peers | emit TOPIC [JSON] | listen` (a brief's room on the
+  brief's own floor, as its data; `--all` for another floor's). Nothing is kept.
+- **Pages can ask a model**, when you let them. `claude.use("sample")` sends a prompt to a command you set in
+  `HUD_SAMPLE_CMD` (one that reads a prompt and prints an answer, such as `claude -p`) and streams the answer back. It
+  is off until you set it, the HUD asks you (ALLOW or NO) before a page's first call, and it never reaches a lane's or
+  HQ's session. Secret values are blanked out of the prompt and the answer. The README has the line for Claude Code
+  (no tools, MCP servers, settings or memory).
+- **Comment on a page from the page.** `claude.use("comments").openComposer({ element })` or `({ range })` opens the
+  page's comment thread in the HUD with that passage quoted, and selecting text in a page shows **COMMENT**, as on a
+  markdown brief. The comment is written in the HUD and goes to the page's author.
+- **Cards of HQ things.** HQ and lanes can point you at anything in the HUD by its address: a line that is only
+  `#brief/12`, `#room/ope-12`, `#lane/api-auth`, `#ask/31`, `#floor/crm` or a shelf file
+  (`#page/rooms/ope-12/files/plan.html`), bare or as `[label](#ref)`, shows in a message, question, brief, room or
+  comment as a live card: its kind, title, status (a lane's status and level, a room's unread messages, a brief's NEW
+  and REPLY, a question's OPEN or ANSWERED, a file's versions and picture), one line, and its floor's colour when it
+  is on another floor. A click opens it (out of FULL SCREEN, so you see it); a lane, question or floor opens without
+  leaving what you are reading. Something gone shows as a muted NOT FOUND card. `hud ref KIND ID` prints the address
+  and fails when the thing does not exist; the HQ guide and `hud guide lane` say how.
+- **A page in a question.** A question or a to-do can carry an HTML page, as a brief can: `hud ask ... --file q.html`
+  (`hud update ID --file` replaces it). NEEDS YOU shows it in the card, between the question and its answer row, in a
+  sandboxed frame capped in height so the options and SEND stay in view; **OPEN PAGE** shows it on the stage at full
+  width with the answer row under it, and a phone gets a strip with **OPEN**. The page runs with the page runtime, so
+  it can show "pick the rows to delete" and HQ reads the picks with `hud page data asks/ID` after you answer. The page
+  cannot answer: that stays the HUD's own buttons. MESSAGES marks such an answer with PAGE.
+
 ## [0.32.1] - 2026-11-02
 ### Fixed
 

@@ -10,6 +10,7 @@ import { renderSecretTimes } from "../secrets/secrets.js";
 import { clearImages, composer, hasImages, imageKeys } from "../images/images.js";
 import { pick, scope, tagged } from "../core/scope.js";
 import { floorById, floorTagHTML, hqShown, readingOf } from "../core/floors.js";
+import { fillFrames, holdFrames, onSmall, onStage, pageSlotHTML, stagedAsk } from "./ask-page.js";
 
 // A question below the fold gets a red pill at the bottom of the list. Click it to go to the next one.
 export function renderBelow() {
@@ -47,7 +48,44 @@ function emptyFloorHTML(f) {
 // The +N MORE OUT OF VIEW pill sits at the foot of the list it is about.
 document.querySelector(".qwrap")?.append($("below"));
 
+// The answer row: the options (with HQ's pick), the secrets an ask wants, and the send box. One copy at a time: in the
+// card, or on the stage while the ask's page is there (renderDock).
+function answerHTML(a) {
+  const d = drafts.get(a.id) || {};
+  const kind = a.kind;
+  const want = a.secrets ?? [];
+  const opts = a.options.map((o) => `<button class="opt ${d.opt === o ? "sel" : ""}" data-opt="${esc(o)}">${esc(o)}${a.recommended === o ? ` <span class="pick">HQ PICK</span>` : ""}</button>`).join("");
+  return `${opts ? `<div class="menu">${opts}</div>` : ""}
+      ${want.length ? `<div class="asksec">${want.map((n) => `<label><span class="tag secret">${esc(n)}</span><input class="sin val" type="password" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore placeholder="paste ${esc(n)}" data-secret="${esc(n)}"></label>`).join("")}
+        <label><span class="sk">READABLE FOR</span><input class="sin min" type="number" min="1" max="10080" step="1" autocomplete="off" data-secret-min value="${esc(d.minutes ?? 60)}"><span class="sk">MIN</span></label></div>` : ""}
+      ${composer(a.id, `<textarea rows="1" placeholder="${kind === "action" ? "Optional note for HQ" : a.options.length ? "Add detail, or your own answer" : "Your answer"}">${esc(d.text || "")}</textarea>`,
+        `${kind === "action" ? `<button class="notyet" type="button">NOT YET</button>` : ""}<button class="send ${kind !== "decision" ? "go" : ""}" ${canSend(a, d) ? "" : "disabled"}>${kind === "action" ? "DONE" : kind === "info" ? "OK" : "SEND"}</button>`)}`;
+}
+function metaHTML(a, tags, page) {
+  const want = a.secrets ?? [];
+  return `<div class="meta">
+        ${tags ? floorTagHTML(S, a.floor) : ""}${a.lane ? `<button class="tag lane" data-select="${esc(a.lane)}">${esc(a.lane)}</button>` : ""}
+        <span class="tag kind ${esc(a.kind)}">${esc(KIND_LABEL[a.kind] ?? a.kind.toUpperCase())}</span>
+        ${want.length ? `<span class="tag secret">SECRETS</span>` : ""}
+        ${page ? `<a class="tag pageopen" href="#page/asks/${a.id}" title="Open the page at full width">OPEN PAGE ▶</a>` : ""}
+        ${a.link ? `<a class="tag" href="${esc(a.link)}" target="_blank" rel="noopener">OPEN LINK</a>` : ""}
+        <span class="due"></span>
+        <span class="timer"></span>
+      </div>`;
+}
+// Values being pasted are kept in memory only and put back as the input's value, never as markup.
+function restoreSecrets(root) {
+  for (const inp of root.querySelectorAll("[data-secret]")) {
+    const v = secretDrafts.get(Number(inp.closest("[data-ask]").dataset.ask))?.[inp.dataset.secret];
+    if (v) inp.value = v;
+  }
+}
+
 export function renderHud() {
+  renderList();
+  renderDock();
+}
+function renderList() {
   const hud = $("hud");
   // Focus goes back only to a field being typed in (not a clicked button), and never scrolls anything to it.
   const typing = document.activeElement?.matches?.("textarea, input");
@@ -57,43 +95,31 @@ export function renderHud() {
   const focusedMin = document.activeElement?.dataset?.secretMin !== undefined;
   // The count lives in the top bar now; the list only needs words when it is empty.
   // Inside a floor (docs/floors.md): that floor's asks; the scope row over the list says what other floors hold.
-  const open = pick(S.open), tags = tagged();
+  const open = pick(S.open), tags = tagged(), staged = stagedAsk();
   const here = scope().all ? null : floorById(S, scope().floor);
   const head = open.length ? "" : here ? emptyFloorHTML(here) : `<div class="box"><h2>NOTHING NEEDS YOU</h2><div style="color:var(--muted);font-size:14px">Every worker is either at its desk or waiting on HQ or CI. Decisions and things only you can do land here.</div></div>`;
   const html = head + open.map((a) => {
-    const d = drafts.get(a.id) || {};
-    const kind = a.kind;
-    const want = a.secrets ?? [];
-    const opts = a.options.map((o) => `<button class="opt ${d.opt === o ? "sel" : ""}" data-opt="${esc(o)}">${esc(o)}${a.recommended === o ? ` <span class="pick">HQ PICK</span>` : ""}</button>`).join("");
-    return `<article class="box ask" data-ask="${a.id}" data-lane="${esc(a.lane || "")}" data-created="${a.created_at}" data-due="${a.due || ""}">
-      <div class="meta">
-        ${tags ? floorTagHTML(S, a.floor) : ""}${a.lane ? `<button class="tag lane" data-select="${esc(a.lane)}">${esc(a.lane)}</button>` : ""}
-        <span class="tag kind ${esc(kind)}">${esc(KIND_LABEL[kind] ?? kind.toUpperCase())}</span>
-        ${want.length ? `<span class="tag secret">SECRETS</span>` : ""}
-        ${a.link ? `<a class="tag" href="${esc(a.link)}" target="_blank" rel="noopener">OPEN LINK</a>` : ""}
-        <span class="due"></span>
-        <span class="timer"></span>
-      </div>
+    // An ask with a page shows it under its text (ask-page.js); on the stage, its answer row goes with it.
+    const page = S.askPages?.[a.id], onStage = page && staged === a.id;
+    return `<article class="box ask${page ? " haspage" : ""}" data-ask="${a.id}" data-lane="${esc(a.lane || "")}" data-created="${a.created_at}" data-due="${a.due || ""}">
+      ${metaHTML(a, tags, page)}
       <h3>${mdInline(a.title)}</h3>
       ${a.body ? `<div class="text md">${mdClip(a.body, `q${a.id}`)}</div>` : ""}
-      ${opts ? `<div class="menu">${opts}</div>` : ""}
-      ${want.length ? `<div class="asksec">${want.map((n) => `<label><span class="tag secret">${esc(n)}</span><input class="sin val" type="password" autocomplete="off" data-1p-ignore data-lpignore="true" data-bwignore placeholder="paste ${esc(n)}" data-secret="${esc(n)}"></label>`).join("")}
-        <label><span class="sk">READABLE FOR</span><input class="sin min" type="number" min="1" max="10080" step="1" autocomplete="off" data-secret-min value="${esc(d.minutes ?? 60)}"><span class="sk">MIN</span></label></div>` : ""}
-      ${composer(a.id, `<textarea rows="1" placeholder="${kind === "action" ? "Optional note for HQ" : a.options.length ? "Add detail, or your own answer" : "Your answer"}">${esc(d.text || "")}</textarea>`,
-        `${kind === "action" ? `<button class="notyet" type="button">NOT YET</button>` : ""}<button class="send ${kind !== "decision" ? "go" : ""}" ${canSend(a, d) ? "" : "disabled"}>${kind === "action" ? "DONE" : kind === "info" ? "OK" : "SEND"}</button>`)}
+      ${page ? pageSlotHTML(a, page, onStage) : ""}
+      ${onStage ? `<a class="onstage" href="#page/asks/${a.id}">ANSWER IT ON THE STAGE, UNDER ITS PAGE ▶</a>` : answerHTML(a)}
     </article>`;
   }).join("");
-  // Values being pasted are kept in memory only and put back as the input's value, never as markup.
   for (const id of secretDrafts.keys()) if (!S.open.some((a) => a.id === id)) secretDrafts.delete(id);
   for (const key of imageKeys()) if (/^\d+$/.test(key) && !S.open.some((a) => String(a.id) === key)) clearImages(key);
   // The page scrolls on a phone, the list itself on a desktop: whichever moves, what you look at stays put.
   const place = pageScrolls() ? keepPlace(hud, "data-ask") : keepScroll(hud, "data-ask");
-  if (!setHTML(hud, html)) return;
+  if (html === shownList) return;
+  shownList = html;
+  holdFrames(hud);
+  setHTML(hud, html);
+  fillFrames(hud);
   place();
-  for (const inp of hud.querySelectorAll("[data-secret]")) {
-    const v = secretDrafts.get(Number(inp.closest("[data-ask]").dataset.ask))?.[inp.dataset.secret];
-    if (v) inp.value = v;
-  }
+  restoreSecrets(hud);
   if (focused) {
     const q = `[data-ask="${focused}"]`;
     const ta = focusedSecret != null ? hud.querySelector(`${q} [data-secret="${CSS.escape(focusedSecret)}"]`) : focusedMin ? hud.querySelector(`${q} [data-secret-min]`) : hud.querySelector(`${q} textarea`);
@@ -102,6 +128,32 @@ export function renderHud() {
   tick();
   renderBelow();
 }
+let shownList = null;
+
+// The answer row on the stage, under an ask's page (#page/asks/ID: pages/index.js mounts the dock). Once the ask is
+// answered, the dock says what the answer was.
+let dock = null;
+on("askdock:mount", (el) => { dock = el; renderDock(); });
+function renderDock() {
+  if (!dock?.isConnected || !S) return;
+  const id = Number(dock.dataset.askdock), a = S.open.find((x) => x.id === id);
+  const typing = dock.contains(document.activeElement) && document.activeElement.matches("textarea, input");
+  const caret = typing ? document.activeElement.selectionStart : null;
+  const done = !a && (S.answered ?? []).find((x) => x.id === id);
+  const html = a
+    ? `<article class="ask dock" data-ask="${a.id}" data-lane="${esc(a.lane || "")}" data-created="${a.created_at}" data-due="${a.due || ""}">${metaHTML(a, tagged(), null)}<h3>${mdInline(a.title)}</h3>${answerHTML(a)}</article>`
+    : `<div class="dockdone"><span class="sk">${done ? (done.status === "withdrawn" ? "WITHDRAWN" : "ANSWERED") : "NOT OPEN"}</span>${done ? `<h3>${mdInline(done.title)}</h3>${done.answer ? `<div class="md">${mdClip(done.answer, `dock${id}`)}</div>` : ""}` : "<span>This question is not waiting on you.</span>"}</div>`;
+  if (!setHTML(dock, html)) return;
+  restoreSecrets(dock);
+  if (typing) {
+    const ta = dock.querySelector("textarea");
+    if (ta) { ta.focus({ preventScroll: true }); if (caret != null) try { ta.setSelectionRange(caret, caret); } catch {} }
+  }
+  tick();
+}
+// An ask's page went onto the stage or left it, or the screen crossed the phone width: the cards show it.
+onStage(() => { if (S) renderHud(); });
+onSmall(() => { if (S) renderHud(); });
 
 export function tick() {
   const now = Date.now();

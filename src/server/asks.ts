@@ -9,10 +9,13 @@ import { event } from "./events.ts";
 import { notifyHq } from "./hq-link.ts";
 import { commentAsk } from "./ledger.ts";
 import { floorOr, laneFloor } from "./floors.ts";
+import { askPageKey, hasAskPage, pageOfFields, setAskPage } from "./ask-pages.ts";
 
-// On its lane's floor, else the caller's (the first floor when no caller is known).
+// On its lane's floor, else the caller's (the first floor when no caller is known). With an HTML page (--file q.html,
+// or a body that is a page): ask-pages.ts.
 export function createAsk(body: any, callerFloor?: string) {
   if (!body.title) throw new Error("title is required");
+  const { page, body: text } = pageOfFields(body);
   const floor = laneFloor(body.lane) ?? floorOr(callerFloor);
   const wanted = [...new Set<string>((body.secrets ?? []).map(checkName))];
   const res = db
@@ -21,7 +24,7 @@ export function createAsk(body: any, callerFloor?: string) {
       body.lane ?? null,
       body.kind ?? "decision",
       body.title,
-      body.body ?? null,
+      text ?? null,
       body.options?.length ? JSON.stringify(body.options) : null,
       body.recommended ?? null,
       body.link ?? null,
@@ -30,8 +33,10 @@ export function createAsk(body: any, callerFloor?: string) {
       wanted.length ? JSON.stringify(wanted) : null,
       floor,
     );
+  const id = Number(res.lastInsertRowid);
+  if (page !== undefined) setAskPage(id, page);
   event("hq", `asked: ${body.title}`, body.lane, floor);
-  return Number(res.lastInsertRowid);
+  return id;
 }
 
 export function answerAsk(id: number, answer: string) {
@@ -40,7 +45,9 @@ export function answerAsk(id: number, answer: string) {
   if (ask.status !== "open") throw new Error(`ask ${id} is already ${ask.status}`);
   db.query("UPDATE asks SET status = 'answered', answer = ?, answered_at = ? WHERE id = ?").run(answer, Date.now(), id);
   event(OWNER, `answered "${ask.title}": ${answer}`, ask.lane, ask.floor);
-  notifyHq(`HUD answer #${id}${ask.lane ? ` (${ask.lane})` : ""}: "${ask.title}" -> ${answer}`, `ask:${id}`, ask.floor);
+  // An ask with a page: what the owner did in it (picks, rows, notes) is in the page's data, not in the answer.
+  const data = hasAskPage(id) ? ` (it has a page: what the owner did in it: hud page data ${askPageKey(id)})` : "";
+  notifyHq(`HUD answer #${id}${ask.lane ? ` (${ask.lane})` : ""}: "${ask.title}" -> ${answer}${data}`, `ask:${id}`, ask.floor);
 }
 
 // An ask that requests secrets is answered with their values: each one goes to the secret store, and the

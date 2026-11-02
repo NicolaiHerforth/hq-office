@@ -1,6 +1,6 @@
 // THE PAGE RUNTIME, server side: what an HTML page (pages.ts) keeps through the runtime the HUD injects into it
-// (src/client/page-runtime/runtime.js), per page. A page is named by its key: rooms/SLUG/files/NAME, rooms/SLUG/brief
-// or briefs/ID. The HUD's bridge (src/client/page-runtime/index.js) derives the key from the frame the page runs in and
+// (src/client/page-runtime/runtime.js), per page. A page is named by its key: rooms/SLUG/files/NAME, rooms/SLUG/brief,
+// briefs/ID or asks/ID (an ask's page, ask-pages.ts). The HUD's bridge (src/client/page-runtime/index.js) derives the key from the frame the page runs in and
 // calls the routes in routes/page-runtime.ts; the page itself never reaches the server.
 //   storage: the page's localStorage, inlined into the served page (page-runtime-tag.ts) so reads are synchronous.
 //   db: documents at slash paths, the shape of a Claude artifact's db (doc/collection, get, set, update, delete,
@@ -30,10 +30,10 @@ export const LIMITS = {
 // ---- page keys ----
 
 const SLUG = "[a-z0-9][a-z0-9-]{0,47}";
-const KEY_RE = new RegExp(`^(?:rooms/${SLUG}/(?:files/[^/\\\\\\0]{1,200}|brief)|briefs/\\d{1,9})$`);
+const KEY_RE = new RegExp(`^(?:rooms/${SLUG}/(?:files/[^/\\\\\\0]{1,200}|brief)|briefs/\\d{1,9}|asks/\\d{1,9})$`);
 export function checkPage(page: unknown): string {
   const p = String(page ?? "");
-  if (!KEY_RE.test(p) || p.includes("/files/.")) throw new Error("not a page: rooms/SLUG/files/NAME, rooms/SLUG/brief or briefs/ID");
+  if (!KEY_RE.test(p) || p.includes("/files/.")) throw new Error("not a page: rooms/SLUG/files/NAME, rooms/SLUG/brief, briefs/ID or asks/ID");
   return p;
 }
 

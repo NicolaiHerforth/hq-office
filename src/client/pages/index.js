@@ -1,6 +1,7 @@
 // HTML PAGES on the stage (src/server/pages.ts): a page a lane wrote, shown the way a Claude artifact would be, with no
 // account. #page/rooms/SLUG/files/NAME (a room's .html file), #page/rooms/SLUG/brief (a room's brief that is a page),
-// #page/briefs/ID (a floor's brief that is a page). It takes the right column at full width (the whole screen on a
+// #page/briefs/ID (a floor's brief that is a page), #page/asks/ID (an ask's page: the ask's answer row sits under it,
+// drawn by questions/questions.js into the dock this view mounts). It takes the right column at full width (the whole screen on a
 // phone), with BACK and OPEN IN NEW TAB. The page runs in an iframe sandboxed without allow-same-origin, and the
 // server sends it with a sandbox policy too: its scripts cannot reach the HUD, its data or its storage.
 //
@@ -21,13 +22,13 @@ view.setAttribute("aria-label", "Page");
 stage.append(view);
 
 const SLUG = "[a-z0-9][a-z0-9-]{0,47}";
-const PLACE = new RegExp(`^#page/(rooms/(${SLUG})/files/([^/?#]+)|rooms/(${SLUG})/brief|briefs/(\\d{1,9}))(?:\\?v=(\\d{1,15}))?$`);
+const PLACE = new RegExp(`^#page/(rooms/(${SLUG})/files/([^/?#]+)|rooms/(${SLUG})/brief|briefs/(\\d{1,9})|asks/(\\d{1,9}))(?:\\?v=(\\d{1,15}))?$`);
 // The page's address on the server, what to call it and, for a room's page, where its versions are; null for anything
 // else.
 export function pageOf(hash) {
   const m = hash.match(PLACE);
   if (!m) return null;
-  const v = m[6] ?? null, q = v ? `?v=${v}` : "";
+  const v = m[7] ?? null, q = v ? `?v=${v}` : "";
   if (m[3]) {
     let name = m[3];
     try { name = decodeURIComponent(name); } catch {}
@@ -36,7 +37,8 @@ export function pageOf(hash) {
     return { src: src + q, title: name, slug: m[2], v, latest: `#page${src}`, key: `rooms/${m[2]}/files/${name}`, versions: `/api/rooms/${m[2]}/versions?file=${encodeURIComponent(name)}` };
   }
   if (m[4]) return { src: `/rooms/${m[4]}/brief.html${q}`, title: `Brief of ${m[4]}`, slug: m[4], v, latest: `#page/rooms/${m[4]}/brief`, key: `rooms/${m[4]}/brief`, versions: `/api/rooms/${m[4]}/versions?brief=1` };
-  if (v) return null; // a floor's brief has no versions: each one is a brief of its own
+  if (v) return null; // a floor's brief has no versions: each one is a brief of its own, nor has an ask's page
+  if (m[6]) return { src: `/asks/${m[6]}.html`, title: `Question #${m[6]}`, key: `asks/${m[6]}`, ask: Number(m[6]), at: S?.askPages?.[m[6]]?.at };
   return { src: `/briefs/${m[5]}.html`, title: `Brief #${m[5]}`, key: `briefs/${m[5]}` };
 }
 // What a page may ask for from a click, as an artifact may: copying to the clipboard, and going full screen.
@@ -59,8 +61,11 @@ function route() {
   view.hidden = false;
   stage.classList.add("inpage");
   document.documentElement.classList.add("pageopen");
-  setHTML(view, `<div class="pvbar"><button class="btn-s" type="button" data-page-back>◀ BACK</button><b class="pvtitle">${esc(p.title)}</b><span class="pvvbtn"></span><button class="btn-s" type="button" data-comments-toggle="${esc(p.key)}">COMMENTS</button><button class="btn-s wideonly" type="button" data-view-full>FULL SCREEN</button><a class="btn-s" href="${esc(p.src)}" target="_blank" rel="noopener">OPEN IN NEW TAB</a><div class="pvvers" hidden></div></div><div class="pvold"${p.v ? "" : " hidden"}></div>${frameHTML(p.src, p.title)}<aside class="cmount" data-comments="${esc(p.key)}"></aside>`);
-  emit("comments:mount", view.querySelector(".cmount"));
+  // An ask's page has its answer row docked under it (questions/questions.js) where other pages have comments.
+  setHTML(view, `<div class="pvbar"><button class="btn-s" type="button" data-page-back>◀ BACK</button><b class="pvtitle">${esc(p.title)}</b><span class="pvvbtn"></span>${p.ask ? "" : `<button class="btn-s" type="button" data-comments-toggle="${esc(p.key)}">COMMENTS</button>`}<button class="btn-s wideonly" type="button" data-view-full>FULL SCREEN</button><a class="btn-s" href="${esc(p.src)}" target="_blank" rel="noopener">OPEN IN NEW TAB</a><div class="pvvers" hidden></div></div><div class="pvold"${p.v ? "" : " hidden"}></div>${frameHTML(p.src, p.title)}${p.ask ? `<aside class="box askdock" data-askdock="${p.ask}" aria-label="Answer"></aside>` : `<aside class="cmount" data-comments="${esc(p.key)}"></aside>`}`);
+  if (p.ask) emit("askdock:mount", view.querySelector(".askdock"));
+  else emit("comments:mount", view.querySelector(".cmount"));
+  emit("page:stage", p);
   renderVersions();
   if (p.versions) loadVersions(p);
 }
@@ -73,6 +78,7 @@ function close() {
   stage.classList.remove("inpage");
   document.documentElement.classList.remove("pageopen");
   setHTML(view, "");
+  emit("page:stage", null);
 }
 
 // ---- versions ----
@@ -110,6 +116,13 @@ function renderVersions() {
 // A new version, or one pruned: a room's change shows in its rev, and the versions are read again.
 on("state", () => {
   const p = shown;
+  // An ask's page replaced in place (hud update ID --file) loads again.
+  if (p?.ask) {
+    const at = S?.askPages?.[p.ask]?.at;
+    if (at && p.at && at !== p.at) { const f = view.querySelector(".pageframe"); if (f) f.src = f.getAttribute("src"); }
+    if (at) p.at = at;
+    return;
+  }
   if (!p?.versions || !p.data) return;
   const rev = S?.rooms?.find((x) => x.slug === p.slug)?.rev;
   if (rev != null && rev !== p.rev) { p.rev = rev; loadVersions(p); }

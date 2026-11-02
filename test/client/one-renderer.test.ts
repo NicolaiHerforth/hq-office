@@ -32,6 +32,9 @@ const ALLOW = [
   { file: "src/client/card/card.js", has: '<pre class="agterm">${esc(t.text)', why: "an agent's terminal output, shown verbatim in a terminal box, not markdown" },
   { file: "src/client/rooms/new.js", has: 'value="${esc(form.title)}"', why: "the owner's own room title, put back into its input" },
   { file: "src/client/rooms/new.js", has: '>${esc(form.text)}</textarea>', why: "the owner's own first message, put back into its textarea" },
+  { file: "src/client/embeds/index.js", has: '? esc(c.title) :', why: "a card of a lane or a floor: its title is the lane's or the floor's name, not text anyone wrote" },
+  { file: "src/client/embeds/model.js", has: '${r.last.text}', why: "the card model's data, not markup: embeds/index.js renders the preview with mdInline" },
+  { file: "src/client/embeds/model.js", has: '${room.title}', why: "the card model's data, not markup: embeds/index.js renders the preview with mdInline" },
 ];
 
 test("the old renderers are gone and nothing imports them", () => {

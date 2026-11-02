@@ -1,0 +1,27 @@
+/* A card of an HQ thing inside rendered text (embeds/index.js): a block the width of the text, at most 560 px, its kind
+   and status chips on top, the title, one line under it, a picture on the left for an image. Tokens only. */
+.md .hudcard, .hudcard { display: flex; gap: 10px; align-items: stretch; max-width: 560px; margin: 6px 0; padding: 8px 10px; border: 2px solid var(--edge-2); border-radius: 8px; background: var(--field); color: var(--ink); text-decoration: none; overflow-wrap: anywhere; font-size: 14px; line-height: 1.35; }
+a.hudcard:hover, a.hudcard:focus-visible { border-color: var(--edge); }
+a.hudcard:focus-visible { outline: 3px solid var(--blue); outline-offset: 1px; }
+.hudcard.other { border-left: 6px solid var(--fc); }
+.hudcard.k-floor { border-left: 6px solid var(--fc, var(--edge-2)); }
+.hudcard .hcbody { display: grid; gap: 2px; min-width: 0; flex: 1; }
+.hudcard .hchead { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+.hudcard .hcword { font: 8px/1.6 var(--pixel); letter-spacing: .04em; color: var(--muted); }
+.hudcard .hcfloor { padding: 0 6px; border-radius: 4px; background: var(--fc); color: var(--fi); font-size: 11px; font-weight: 800; }
+.hudcard .hchip { padding: 0 6px; border-radius: 4px; border: 1px solid var(--edge-2); font-size: 11px; font-weight: 800; line-height: 1.5; letter-spacing: .02em; }
+.hudcard .hchip.st { border-color: transparent; color: var(--on-fill); }
+.hudcard .hchip.new { border-color: var(--blue-text); color: var(--blue-text); }
+.hudcard .hchip.hot { border-color: var(--red); background: var(--red); color: var(--on-fill); }
+.hudcard .hchip.ok { border-color: var(--green); background: var(--green); color: var(--on-fill); }
+.hudcard .hchip.muted { color: var(--muted); }
+.hudcard .hchip.lane { color: var(--ink); }
+.hudcard .hctitle { font-weight: 800; color: var(--ink); }
+.hudcard .hcprev { color: var(--muted); font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hudcard .hcprev .mdc { font-size: .9em; }
+.hudcard .hcthumb { flex: 0 0 64px; height: 48px; border-radius: 4px; overflow: hidden; border: 1px solid var(--edge-2); background: var(--img-bg); }
+.hudcard .hcthumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.hudcard.loading, .hudcard.gone { border-style: dashed; border-color: var(--dim-edge); }
+.hudcard.gone .hctitle { color: var(--muted); font-weight: 700; }
+/* a message a question card jumped to (an answered question, in MESSAGES) */
+.msg.flash { animation: flash .9s ease 2; }
