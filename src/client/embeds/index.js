@@ -185,7 +185,7 @@ function route() {
   if (p) act(p);
 }
 // A <hud-card> in a page, clicked (page-runtime/index.js): what a click on the card in the HUD does.
-on("page:open", ({ page, ref }) => {
+on("page:open", ({ page, ref, frame }) => {
   const p = parseRef(ref);
   if (!p || !allowedIn(page, p.ref)) return;
   if (document.fullscreenElement) document.exitFullscreen?.().catch(() => {});
@@ -193,7 +193,7 @@ on("page:open", ({ page, ref }) => {
   if (document.activeElement?.tagName === "IFRAME") document.activeElement.blur();
   const to = parseStage(`#${p.ref}`);
   if (ACTION.test(`#${p.ref}`)) act(p);
-  else if (to.room || to.side) openStage(to); // the room or the side beside it stays (core/stage.js)
+  else if (to.room || to.side) openStage(to, frame); // the room or the side beside it stays (core/stage.js)
   else location.hash = `#${p.ref}`;
 });
 addEventListener("hashchange", route);

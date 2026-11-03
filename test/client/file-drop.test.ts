@@ -22,6 +22,12 @@ const until = async (expr: string, ms = 10_000) => {
   throw new Error(`timed out waiting for ${expr}`);
 };
 const state = async () => (await fetch(`${server.base}/api/state`)).json();
+// A reload, and then the new document: location.reload() returns before the page goes, so a check made in between
+// can pass on the old one (which has everything the check looks for) and what follows reads a blank new one.
+const reload = async () => {
+  await page.evaluate(`window.__old = true; location.reload()`);
+  await until(`!window.__old`);
+};
 const load = async (hash = "") => {
   await page.s("Page.navigate", { url: "about:blank" });
   await page.s("Page.navigate", { url: `${server.base}/${hash}` });
@@ -253,7 +259,7 @@ describe.skipIf(!chromeFound)("files on every send box", () => {
   test("a draft keeps its files, with name and size, through a reload; sending waits for an upload", async () => {
     await page.evaluate(`__drop(".box.tell .head", [["kept.csv", "text/csv", 2048]])`);
     await allDone("note", 1);
-    await page.evaluate(`location.reload()`);
+    await reload();
     await until(`!!document.querySelector('[data-chips="note"] .chip.file.done')`);
     expect(await tray("note")).toEqual([{ state: "done", kind: "file", name: "kept.csv", size: "2.0 KB", thumb: false, rm: true }]);
     await page.evaluate(`document.getElementById("compose").requestSubmit()`);

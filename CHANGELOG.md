@@ -3,6 +3,13 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.37.0] - 2026-11-03
+### Changed
+
+- **BACK from a brief opened in a brief returns to the brief you came from.** A brief or a page opened from a brief (a
+  card or a link in it) now adds a step: BACK, Esc and the browser's back return to the brief you came from, then to
+  where you started. NEWER and OLDER still step through the list.
+
 ## [0.36.2] - 2026-11-03
 ### Fixed
 

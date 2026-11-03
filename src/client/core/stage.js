@@ -49,16 +49,18 @@ function moved() {
 
 // One history step per thing opened (a room, a side, a side of another kind over a side: a page from a brief), so the
 // browser's back closes it; moving within one (room to room, brief to brief, version to version) replaces the step.
+// A side opened from inside a brief (a card or a link in it, marked data-trail) adds a step too, so BACK returns to
+// it; NEWER and OLDER replace.
 // Each step remembers the address it was opened from, this document and the history's length then: up() goes back
 // when that is where it leads, in this document (back past a reload loads the page again), and nothing has added
 // steps since (a page that navigates in its frame adds its own, and back would only undo one of those). Else, or when
 // back does not arrive (the browser keeps only so many steps, so the length can stay the same), it replaces.
 const DOC = Math.random().toString(36).slice(2);
 const kind = (side) => side?.split("/")[0] ?? null;
-export function go(next) {
+export function go(next, trail = false) {
   const cur = current(), to = { room: next.room ?? null, side: next.side ?? null };
   const url = location.pathname + location.search + stageHash(to);
-  if ((to.room && !cur.room) || (to.side && kind(to.side) !== kind(cur.side))) {
+  if ((to.room && !cur.room) || (to.side && kind(to.side) !== kind(cur.side)) || (trail && to.side && to.side !== cur.side)) {
     history.pushState(null, "", url);
     history.replaceState({ hqFrom: stageHash(cur), hqLength: history.length, hqDoc: DOC }, "", url);
   } else history.replaceState(history.state, "", url);
@@ -86,12 +88,13 @@ export function up(next) {
   history.back();
   setTimeout(() => { if (!arrived && location.hash !== to) replace(); }, 400);
 }
-// A room keeps the side when split/ says so; a side keeps the room. A link that names both is taken as it is.
-export function open(to) {
-  const cur = current();
-  if (to.room && to.side) go(to);
-  else if (to.room) go({ room: to.room, side: keepsSide(to.room) ? cur.side : null });
-  else if (to.side) go({ room: cur.room, side: to.side });
+// A room keeps the side when split/ says so; a side keeps the room. A link that names both is taken as it is. from is
+// the element the move came from (the link, the card, the page's frame), when there is one.
+export function open(to, from) {
+  const cur = current(), trail = !!from?.closest?.("[data-trail]");
+  if (to.room && to.side) go(to, trail);
+  else if (to.room) go({ room: to.room, side: keepsSide(to.room) ? cur.side : null }, trail);
+  else if (to.side) go({ room: cur.room, side: to.side }, trail);
 }
 // Closing a side returns to the side it was opened from in the same room (the brief a page was opened from), else to
 // what is under it.
@@ -125,7 +128,7 @@ document.addEventListener("click", (e) => {
   const to = parseStage(a.getAttribute("href"));
   if (!to.room && !to.side) return;
   e.preventDefault();
-  open(to);
+  open(to, a);
 });
 addEventListener("popstate", moved);
 addEventListener("hashchange", moved);

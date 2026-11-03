@@ -371,11 +371,13 @@ test.skipIf(!chromeFound)("a brief that is a page sits beside the room too, and 
   await until(`location.hash === "#room/ope-12" && ${roomAlone}`);
 }, 30_000);
 
-test.skipIf(!chromeFound)("floors: a brief from another floor opens alone in its floor and BACK returns to the room; in the building the same, once that brief has loaded", async () => {
+test.skipIf(!chromeFound)("floors: a brief from another floor, opened from a card in a brief, opens alone in its floor; BACK returns to the brief it came from, then to the room; from the building's list, BACK returns to the room", async () => {
   await roomThenBrief();
   await until(`!!document.querySelector('.briefview .hudcard[data-ref="brief/${crmBrief}"]:not(.loading)')`);
   await click(`.briefview .hudcard[data-ref="brief/${crmBrief}"]`);
   await until(`location.hash === "#room/ope-12+brief/${crmBrief}" && JSON.parse(sessionStorage.getItem("hq-scope")).floor === "crm" && ${shows(".briefview .bbody")} && !(${split})`);
+  await click("[data-brief-back]");
+  await until(`location.hash === "#room/ope-12+brief/${brief}" && JSON.parse(sessionStorage.getItem("hq-scope")).floor === "hq" && ${side(".briefview .bbody")}`);
   await click("[data-brief-back]");
   await until(`location.hash === "#room/ope-12" && ${roomAlone}`);
   await click("[data-scope-out]");
