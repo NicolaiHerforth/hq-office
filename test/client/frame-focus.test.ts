@@ -1,7 +1,8 @@
-// A page in a sandboxed frame (an ask's page, a room's page, a page brief) that calls focus() when it loads does not
-// take the keyboard from a HUD text box the owner is typing in: what they type and paste still lands there. Only a
-// click into the frame moves the keyboard into it. Covered: a new ask arriving, a room page reloading on a new
-// version, and a page brief beside a room reloading when the screen turns dark. Needs Chrome.
+// A page in a sandboxed frame (an ask's page, a room's page, a page brief) that calls focus(), opens a dialog or a
+// popover, or has an autofocus field when it loads does not take the keyboard from a HUD text box the owner is typing
+// in: what they type and paste still lands there. Only a click into the frame moves the keyboard into it, and a
+// page's modal dialog still opens as a modal. Covered: a new ask arriving, a room page reloading on a new version,
+// and a page brief beside a room reloading when the screen turns dark. Needs Chrome.
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -19,6 +20,19 @@ const f = document.getElementById("f");
 f.addEventListener("input", () => parent.postMessage({ typedInFrame: f.value }, "*"));
 f.focus();
 parent.postMessage({ grabbed: ${n} }, "*");
+</script></body></html>`;
+// The ways a page moves the keyboard as it loads without calling focus(); each says so once the browser has done it.
+const LOADS_WITH: Record<string, string> = {
+  "a modal dialog": `<dialog id="d"><input id="f"></dialog><script>d.showModal();</script>`,
+  "a modal dialog with an autofocus field": `<dialog id="d"><p>Pick</p><input><input id="f" autofocus></dialog><script>d.showModal();</script>`,
+  "a dialog opened with show()": `<dialog id="d"><input id="f" autofocus></dialog><script>d.show();</script>`,
+  "an autofocus field": `<input id="f" autofocus>`,
+  "an open dialog with an autofocus field": `<dialog open><input id="f" autofocus></dialog>`,
+  "a popover with an autofocus field": `<div popover id="p"><input id="f" autofocus></div><script>p.showPopover();</script>`,
+};
+const loadsWith = (n: number, body: string) => `<!doctype html><html><body>${body}<script>
+document.getElementById("f").addEventListener("input", (e) => parent.postMessage({ typedInFrame: e.target.value }, "*"));
+addEventListener("load", () => setTimeout(() => parent.postMessage({ grabbed: ${n} }, "*"), 300));
 </script></body></html>`;
 
 let chrome: Awaited<ReturnType<typeof startChrome>>;
@@ -74,14 +88,37 @@ test.skipIf(!chromeFound)("typing in TELL HQ when a new ask arrives whose page f
   await click("#noteText");
   await typeAndPaste("before ", "");
   const before = await grabs();
-  await post("/api/asks", { lane: "pm", kind: "decision", title: "Which tier?", body: GRABBY(2) });
-  await until(`window.__grabs.includes(2)`);
-  expect(await grabs()).toBeGreaterThan(before);
-  await typeAndPaste("typed ", "pasted");
-  expect(await ev(`document.getElementById("noteText").value`)).toBe("before typed pasted");
-  expect(await hasKeyboard("#noteText")).toBe(true);
-  expect(errors).toEqual([]);
+  const { id } = await post("/api/asks", { lane: "pm", kind: "decision", title: "Which tier?", body: GRABBY(2) });
+  try {
+    await until(`window.__grabs.includes(2)`);
+    expect(await grabs()).toBeGreaterThan(before);
+    await typeAndPaste("typed ", "pasted");
+    expect(await ev(`document.getElementById("noteText").value`)).toBe("before typed pasted");
+    expect(await hasKeyboard("#noteText")).toBe(true);
+    expect(errors).toEqual([]);
+  } finally {
+    await post(`/api/asks/${id}/withdraw`);
+  }
 }, 30_000);
+
+Object.entries(LOADS_WITH).forEach(([way, body], i) => {
+  test.skipIf(!chromeFound)(`typing in TELL HQ when a new ask arrives whose page loads with ${way}: the typing and a paste land in TELL HQ`, async () => {
+    const n = 10 + i;
+    await ev(`document.getElementById("noteText").value = "", true`);
+    await click("#noteText");
+    await typeAndPaste("before ", "");
+    const { id } = await post("/api/asks", { lane: "pm", kind: "decision", title: `Loads with ${way}`, body: loadsWith(n, body) });
+    try {
+      await until(`window.__grabs.includes(${n})`);
+      await typeAndPaste("typed ", "pasted");
+      expect(await ev(`document.getElementById("noteText").value`)).toBe("before typed pasted");
+      expect(await hasKeyboard("#noteText")).toBe(true);
+      expect(errors).toEqual([]);
+    } finally {
+      await post(`/api/asks/${id}/withdraw`);
+    }
+  }, 30_000);
+});
 
 test.skipIf(!chromeFound)("typing in a room's send box when the room's page reloads with a new version: the typing and a paste land in the send box", async () => {
   await ev(`location.hash = "#room/pricing+page/rooms/pricing/files/grab.html", true`);
@@ -121,5 +158,25 @@ test.skipIf(!chromeFound)("a click into a page's own field still gives it the ke
   for (const type of ["mousePressed", "mouseReleased"]) await page.s("Input.dispatchMouseEvent", { type, x, y, button: "left", clickCount: 1 });
   await page.s("Input.insertText", { text: "in the page" });
   await until(`window.__typed.at(-1) === "in the page"`);
+  expect(errors).toEqual([]);
+}, 30_000);
+
+test.skipIf(!chromeFound)("a page's modal dialog still opens as a modal, and a click into its field types there", async () => {
+  const modal = `<!doctype html><html><body><dialog id="d"><input id="f" style="width:60vw;height:60vh"></dialog><script>
+d.showModal();
+const f = document.getElementById("f");
+f.addEventListener("input", () => parent.postMessage({ typedInFrame: f.value }, "*"));
+parent.postMessage({ modal: d.matches(":modal"), inert: d.inert }, "*");
+</script></body></html>`;
+  await ev(`window.__modal = null; addEventListener("message", (e) => { if ("modal" in (e.data ?? {})) window.__modal = e.data; }), true`);
+  await fetch(`${server.base}/api/rooms/pricing/files?${new URLSearchParams({ name: "modal.html", title: "modal.html", as: "pm" })}`, { method: "POST", headers: { "content-type": "text/html", "x-hud": "1" }, body: modal });
+  await ev(`location.hash = "#page/rooms/pricing/files/modal.html", true`);
+  await until(`!!window.__modal`);
+  expect(JSON.parse(await ev(`JSON.stringify(window.__modal)`))).toEqual({ modal: true, inert: false });
+  const [x, y] = await ev(`(() => { const b = document.querySelector(".pageview:not([hidden]) iframe.pageframe").getBoundingClientRect(); return [b.x + b.width / 2, b.y + b.height / 2]; })()`);
+  await ev(`window.__typed = [], true`);
+  for (const type of ["mousePressed", "mouseReleased"]) await page.s("Input.dispatchMouseEvent", { type, x, y, button: "left", clickCount: 1 });
+  await page.s("Input.insertText", { text: "in the dialog" });
+  await until(`window.__typed.at(-1) === "in the dialog"`);
   expect(errors).toEqual([]);
 }, 30_000);

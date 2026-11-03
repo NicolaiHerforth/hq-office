@@ -3,6 +3,14 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.38.3] - 2026-11-03
+### Fixed
+
+- **A page that opens a dialog as it loads no longer takes the keyboard either.** 0.38.2 stopped a page from putting
+  the cursor in its own field. A page that opened a dialog or a popover as it loaded still took the keyboard from
+  TELL HQ, an answer or a room's send box, and what you typed or pasted next went into the page. The dialog still
+  opens; the keyboard moves into it only when you click it.
+
 ## [0.38.2] - 2026-11-03
 ### Fixed
 
