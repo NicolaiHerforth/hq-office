@@ -67,7 +67,20 @@ export function go(next) {
 export function up(next) {
   const to = stageHash({ room: next.room ?? null, side: next.side ?? null }), st = history.state;
   const replace = () => { history.replaceState(null, "", location.pathname + location.search + to); moved(); };
-  if (st?.hqFrom !== to || st.hqDoc !== DOC || st.hqLength !== history.length) { replace(); return; }
+  if (st?.hqFrom !== to || st.hqDoc !== DOC) { replace(); return; }
+  // Where the Navigation API is, it names the step before this one in this document, a frame's own steps aside: back
+  // goes there for certain, however long the browser takes. A timer would have to guess, and a back that lands after
+  // it gave up undoes whatever was opened in the meantime.
+  const nav = window.navigation;
+  if (nav?.currentEntry) {
+    const prev = nav.entries()[nav.currentEntry.index - 1];
+    if (!prev?.sameDocument || new URL(prev.url).hash !== to) { replace(); return; }
+    const { committed, finished } = nav.back();
+    committed.catch(() => {}); // a newer step took over: nothing to undo
+    finished.catch(() => {});
+    return;
+  }
+  if (st.hqLength !== history.length) { replace(); return; }
   let arrived = false;
   addEventListener("popstate", () => { arrived = true; }, { once: true }); // and moved() routes
   history.back();

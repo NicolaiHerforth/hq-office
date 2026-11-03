@@ -3,6 +3,33 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.36.0] - 2026-11-03
+### Changed
+
+- **Every release runs the Parity Lab.** `scripts/release.ts` now opens the release's own Parity Lab page in Chrome
+  after its tests, and stops the release when fewer than all 21 checks pass. It needs Chrome and the network, and
+  says so plainly when Chrome is missing.
+- **The top bar stays one calm row** at every width from 1151 px up, however busy it is. No box wraps its text any
+  more (before, HQ OFFICE broke onto two lines and the bar grew taller when SUBS, a MACHINES alarm and HQ QUEUE were
+  all showing). When the row is full it makes room one step at a time, the least important first: the title becomes
+  **HQ**, SUBS shows only how many have room, MACHINES keeps only the square of the machine it names, the labels get
+  short (STALLED, QUEUE), MENU becomes its arrow, BANK moves to the top of MENU, and last MACHINES shows only the
+  number (the name is in its tooltip). Every count and every alarm stays in the bar, and WAITING ON YOU never
+  changes. A bar with room looks exactly as before, and phones keep their own layout.
+
+### Fixed
+
+- **A page no longer goes quiet when the HUD answers late.** A page in the HUD that asked for `claude.use("db")` (or
+  any other part of the runtime) while the HUD was still busy, in a cold browser or on a loaded machine, got `null`
+  after 10 seconds and gave up for good. It now keeps asking until the HUD answers, and says in the browser's console
+  when it has waited more than 10 seconds.
+- **BACK no longer closes what you open right after it.** On a busy machine, a page or brief opened just after
+  pressing BACK in another one could close again by itself a moment later. BACK now steps back for certain in
+  browsers with the Navigation API (Chrome, Edge and others that have it), however long the browser takes.
+- **NOTHING MOVING no longer stretches the top bar.** When the office stalled, the WORKING box turned red and stacked
+  its counts in a column, which made the whole bar taller. It now stays one row with an amber (later red) border, as
+  intended.
+
 ## [0.35.0] - 2026-11-02
 ### Added
 

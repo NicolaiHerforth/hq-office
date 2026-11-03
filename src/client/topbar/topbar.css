@@ -40,12 +40,28 @@
 .health.bad .v { color: var(--red-text); }
 .health.off .v { color: var(--amber-text); }
 /* NOTHING MOVING in the whole office: as loud as WAITING ON YOU, amber, then red after 20 minutes */
-.strip.stall { border-color: var(--amber); }
-.strip.stall > div:first-child .k, .strip.stall > div:first-child .v { color: var(--amber-strong-2); }
-.strip.stall.late { border-color: var(--red); }
-.strip.stall.late > div:first-child .k, .strip.stall.late > div:first-child .v { color: var(--red-text); }
-/* 1151 to 1300 px: no label wraps */
-@media (min-width: 1151px) and (max-width: 1300px) {
-  .top .right .k, .top .right .v { white-space: nowrap; }
-  .strip { gap: 12px; }
+.strip.nomove { border-color: var(--amber); }
+.strip.nomove > div:first-child .k, .strip.nomove > div:first-child .v { color: var(--amber-strong-2); }
+.strip.nomove.late { border-color: var(--red); }
+.strip.nomove.late > div:first-child .k, .strip.nomove.late > div:first-child .v { color: var(--red-text); }
+/* 1151 px and up: one row, and no box wraps its text. A full row turns on fit.js's steps instead (data-fit on .top);
+   the short form of a label shows only in its step. */
+.top .short { display: none; }
+@media (min-width: 1151px) {
+  .top .right > * { flex-shrink: 0; }
+  .top .right .k, .top .right .v, .top .title b { white-space: nowrap; }
 }
+/* 1: the title becomes the mark HQ */
+.top[data-fit~="1"] .title { padding-inline: 12px; }
+.top[data-fit~="1"] .title .long { display: none; }
+.top[data-fit~="1"] .title .short { display: inline; }
+/* 3: MACHINES keeps only the square of the machine its word names */
+.top[data-fit~="3"] #machines .v i:not(.w) { display: none; }
+/* 4: short labels, and a tighter strip */
+.top[data-fit~="4"] .strip { gap: 12px; }
+.top[data-fit~="4"] .strip .long { display: none; }
+.top[data-fit~="4"] .strip .short { display: inline; }
+/* 6: BANK leaves the bar for the top of MENU (menu.css) */
+.top[data-fit~="6"] .strip > div:has(> #sBank) { display: none; }
+/* 7: MACHINES drops the name; the tooltip has it */
+.top[data-fit~="7"] #machines .long { display: none; }

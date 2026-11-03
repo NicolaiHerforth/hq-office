@@ -21,18 +21,19 @@
       <span class="old" id="sOld"><span class="k">OLDEST WAIT</span><span class="v">-</span></span>
     </div>
     <div class="right">
-      <div class="box title"><b>HQ OFFICE</b></div>
+      <div class="box title"><b class="long">HQ OFFICE</b><b class="short">HQ</b></div>
       <div class="box strip">
         <div><span class="k">WORKING</span><span class="v" id="sMove">0</span></div>
         <div><span class="k">ON HQ</span><span class="v" id="sHq">0</span></div>
         <div><span class="k">₽ BANK</span><span class="v" id="sBank">0</span></div>
-        <div id="sQueueCell" hidden><span class="k">HQ QUEUE</span><span class="v" id="sQueue">0</span></div>
+        <div id="sQueueCell" hidden><span class="k"><span class="long">HQ </span>QUEUE</span><span class="v" id="sQueue">0</span></div>
       </div>
       <div class="spacer"></div>
       <div class="box health" id="machines"><span class="k">MACHINES</span><span class="v">-</span></div>
       <div class="btns menuwrap">
-        <button class="btn menubtn" id="menuBtn" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="menuDrop"><i class="mdot" id="menuDot" hidden></i>MENU <span aria-hidden="true">▾</span></button>
+        <button class="btn menubtn" id="menuBtn" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="menuDrop" aria-label="Menu"><i class="mdot" id="menuDot" hidden></i><span class="long">MENU</span><span aria-hidden="true">▾</span></button>
         <div class="box menudrop" id="menuDrop" role="menu" hidden>
+          <div class="mbank" role="none"><span>₽ BANK</span><b id="mBank">0</b></div>
           <button class="mi" id="secretsBtn" type="button" role="menuitem"><span>SECRETS</span><small id="secretsSay"></small></button>
           <button class="mi" id="settingsBtn" type="button" role="menuitem">SETTINGS</button>
           <button class="mi" id="alerts" type="button" role="menuitem">SOUND OFF</button>

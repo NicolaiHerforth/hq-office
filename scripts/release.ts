@@ -11,6 +11,9 @@
 //   --remote   where to clone it from (default: "repository" in package.json)
 //   --push     push the branch and the tag, and create the GitHub release with the changelog section as its notes
 //
+// After bun test, the export's Parity Lab (scripts/parity-lab/harness.ts) must pass at least PARITY_BAR checks, with
+// a stub model command for HUD_SAMPLE_CMD. It needs Chrome and the network (three checks load from CDNs).
+//
 // Files of this installation, never published, looked up in this working tree and then in the main one:
 //   .release-denylist  one regular expression per line, matched case-insensitively against every line and path of
 //                      the export; any match fails the release. "!TEXT" allows that exact text. "#" starts a comment.
@@ -20,6 +23,7 @@
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
+import { findChrome } from "./room-hash.ts";
 
 const ALWAYS_EXCLUDED = ["AGENTS.local.md"];
 
@@ -55,6 +59,10 @@ const version = args.shift()?.replace(/^v/, "");
 if (!version || args.length) fail("usage: bun scripts/release.ts X.Y.Z [--ref REF] [--public DIR] [--remote URL] [--push]");
 if (!/^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/.test(version)) fail(`"${version}" is not a version like 0.2.0`);
 const tag = `v${version}`;
+const PARITY_BAR = 21; // every check in scripts/parity-lab/template.html
+const chrome = findChrome();
+if (!chrome) fail("the Parity Lab needs Chrome and none was found; install it or set CHROME_BIN");
+if (!existsSync(chrome)) fail(`the Parity Lab needs Chrome: CHROME_BIN is ${chrome}, which does not exist`);
 
 // Everyone who wrote or co-wrote a commit since the previous release (this repo's previous v* tag), except the
 // owner and AI co-author lines: the public repo gets one commit per release, so they are credited on it.
@@ -188,6 +196,14 @@ const testEnv: Record<string, string | undefined> = { ...process.env };
 for (const key of Object.keys(testEnv)) if (key.startsWith("PIXEL_") || key.startsWith("HUD_")) delete testEnv[key];
 console.log("bun test in the export:");
 run([process.execPath, "test"], { cwd: CHECK, inherit: true, env: testEnv });
+
+// ---- Parity Lab: the export's pages still do what an artifact's do ----
+
+const MODEL = join(TMP, "stub-model.sh");
+writeFileSync(MODEL, "#!/bin/sh\ncat > /dev/null\nprintf 'A fixed answer from the release check.'\n");
+console.log(`\nParity Lab in the export (at least ${PARITY_BAR} checks must pass):`);
+const parity = run([process.execPath, "scripts/parity-lab/harness.ts", "--expect", String(PARITY_BAR), "--out", join(TMP, "parity")], { cwd: CHECK, inherit: true, soft: true, env: { ...testEnv, CHROME_BIN: chrome, HUD_SAMPLE_CMD: `sh ${MODEL}` } });
+if (!parity.ok) fail(`the Parity Lab passed fewer than ${PARITY_BAR} checks in the export (each check is listed above)`);
 
 // ---- the public clone ----
 

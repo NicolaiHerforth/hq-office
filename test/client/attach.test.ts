@@ -210,6 +210,8 @@ describe.skipIf(!chromeFound)("attach", () => {
 
   test("an ask keeps its images through a re-render and a reload, and sends them with the answer", async () => {
     const card = `[data-ask="${askId}"]`;
+    // the previous test may leave the list mid-redraw: wait for the card's attach button before picking
+    await until(`!!document.querySelector('${card} [data-attach]')`);
     await page.evaluate(`(async () => __pick('${card} [data-attach]', [await __img(200, 100, { name: "proof.png" })]))()`);
     await until(`document.querySelectorAll('${card} .chip.done').length === 1`);
     // An image is enough to send a decision without an option.

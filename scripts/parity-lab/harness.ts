@@ -18,7 +18,7 @@
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { newSession, spawnServer, startChrome, treeOf } from "../room-hash.ts";
+import { findChrome, newSession, spawnServer, startChrome, treeOf } from "../room-hash.ts";
 import { fakeHerdr } from "../../test/fake-herdr.ts";
 
 const REPO = resolve(import.meta.dir, "..", "..");
@@ -43,12 +43,17 @@ const SKELETON = `<!doctype html><html lang="en"><head><meta charset="utf-8"><me
 const text = readFileSync(PAGE, "utf8").replace("__PACE__", () => JSON.stringify(pace()));
 const html = /^\s*(?:<!doctype|<html[\s>])/i.test(text) ? text : `${SKELETON}${text}</body></html>`;
 
+const CHROME = findChrome();
+if (!CHROME || !existsSync(CHROME)) {
+  console.log(CHROME ? `no Chrome at CHROME_BIN=${CHROME}: the Parity Lab needs one` : "no Chrome found: the Parity Lab needs one (set CHROME_BIN)");
+  process.exit(1);
+}
 const tree = ref ? await treeOf(ref, REPO) : { dir: REPO, done: () => {} };
 const DATA = mkdtempSync(join(tmpdir(), "parity-lab-data-"));
 const herdr = fakeHerdr(DATA, [{ name: "hq", agent_status: "idle", pane_id: "w1:p1", agent: "claude" }]);
 const server = await spawnServer({ cwd: tree.dir, env: { ...process.env, HUD_HOST: "127.0.0.1", HUD_DATA_DIR: DATA, HERDR_BIN: herdr.bin, HUD_MACHINES: "local", HUD_LOCAL_MACHINE: "local", HUD_HQ_AGENT: "hq", HUD_HQ_HINT: "0", HUD_HQ_RENAME: "0", HUD_GH_BIN: "false" } });
-const chrome = await startChrome();
-let passed = -1, via = "";
+const chrome = await startChrome().catch(async (e) => { await server.stop(); tree.done(); throw e; });
+let passed = -1, via = "", dropped = 0;
 try {
   const post = (p: string, b: object, h: object = {}) => fetch(`${server.base}${p}`, { method: "POST", headers: { "content-type": "application/json", "x-hud": "1", ...h }, body: JSON.stringify(b) }).then((r) => r.json());
   await post("/api/sync", {});
@@ -88,7 +93,7 @@ try {
     passed = all.filter(([, v]) => v.state === "pass").length;
     const waiting = all.filter(([, v]) => v.state !== "pass" && v.state !== "fail").map(([k]) => k);
     console.log(`${passed} of ${all.length} checks pass${waiting.length ? ` (${waiting.join(", ")} not judged)` : ""}`);
-    if (via) console.log(`clicks: real mouse input; buttons found through ${via}`);
+    if (via) console.log(`clicks: real mouse input; buttons found through ${via}${dropped ? `; ${dropped} given again after Chrome dropped them` : ""}`);
     if (existsSync(join(DOWNLOADS, "parity-test.txt"))) console.log(`file saved: ${join(DOWNLOADS, "parity-test.txt")}`);
   } else console.log("no results posted");
   await snap("brief-light.png");
@@ -128,6 +133,19 @@ try {
     const [fx, fy] = await page.evaluate(`(() => { const f = document.querySelector(".briefview .pageframe"); const r = f.getBoundingClientRect(); return [r.left + f.clientLeft, r.top + f.clientTop]; })()`);
     return [fx + bx, fy + by];
   }
+  // A real click on a button inside the frame. Headless Chrome now and then drops synthetic input to a frame (as
+  // test/client/page-runtime-walk.test.ts saw): only when the page's own count shows no click arrived is it given again.
+  async function clickFrame(button: string) {
+    await inFrame(`(() => { const d = document.documentElement; if (!d.dataset.labClicks) { d.dataset.labClicks = "0"; document.addEventListener("click", () => { d.dataset.labClicks = String(Number(d.dataset.labClicks) + 1); }, true); } })()`);
+    const count = () => inFrame(`Number(document.documentElement.dataset.labClicks)`);
+    const was = await count();
+    for (let tries = 0; tries < 3; tries++) {
+      if (tries) { dropped++; await Bun.sleep(300); }
+      await click(await frameButton(button));
+      if (await until(async () => (await count()) > was, 1000)) return;
+    }
+    console.log(`${button}: three clicks never reached the page`);
+  }
   // (function declarations: clicks() runs above, before any constant down here exists)
   function judged(check: string) { return page.evaluate(`window.__parity?.checks?.${check}?.state !== "wait"`); }
   async function until(what: () => Promise<boolean>, ms = 8000) {
@@ -137,12 +155,12 @@ try {
   async function clicks() {
     for (const [button, check] of [["tCopy", "copy"], ["tFull", "full"]]) {
       await Bun.sleep(300); // the frame has scrolled
-      await click(await frameButton(button));
+      await clickFrame(button);
       if (!(await until(() => judged(check)))) console.log(`${check}: the page did not answer the click`);
     }
     await until(() => page.evaluate(`!document.fullscreenElement`)); // the page leaves fullscreen by itself
     // Saving a file: the page asks the HUD, the HUD asks its viewer (SAVE), then the browser saves it.
-    await click(await frameButton("tSave"));
+    await clickFrame("tSave");
     if (await until(() => page.evaluate(`!!document.querySelector(".pr-save .pr-yes")`))) {
       await click(await page.evaluate(`(() => { const r = document.querySelector(".pr-save .pr-yes").getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`));
     } else console.log("save: the HUD did not ask to save the file");

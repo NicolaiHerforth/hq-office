@@ -168,6 +168,23 @@ test.skipIf(!chromeFound)("a page card › the page › BACK › the brief; agai
   await until(`location.hash === "#brief/${brief}" && ${shows(".briefview")} && document.querySelector(".pageview").hidden`);
 }, 30_000);
 
+test.skipIf(!chromeFound)("a browser slow to go back: BACK, then a card at once, and the page it opens stays open", async () => {
+  await load(`#brief/${brief}`);
+  await briefReady();
+  await click(card("page/rooms/ope-12/files/plan.html"));
+  await until(`location.hash === "#page/rooms/ope-12/files/plan.html" && ${shows(".pageview .pageframe")}`);
+  // a busy browser: going back takes 1.5 s, by either API
+  await ev(`(() => { const late = (o, k) => { const f = o[k].bind(o); o[k] = (...a) => { setTimeout(() => f(...a), 1500); return { committed: Promise.resolve(), finished: Promise.resolve() }; }; }; late(history, "back"); if (window.navigation) late(navigation, "back"); return true; })()`);
+  await click("[data-page-back]");
+  await until(`location.hash === "#brief/${brief}" && ${shows(".briefview")}`);
+  await briefReady();
+  await click(card("page/rooms/ope-12/files/plan.html"));
+  await until(`${shows(".pageview .pageframe")}`);
+  await Bun.sleep(2000); // any back still on its way has landed
+  expect(await ev(`location.hash`)).toBe("#page/rooms/ope-12/files/plan.html");
+  expect(await ev(shows(".pageview .pageframe"))).toBe(true);
+}, 30_000);
+
 test.skipIf(!chromeFound)("an image card opens the file in a new tab; the HUD stays on the brief", async () => {
   await load(`#brief/${brief}`);
   await briefReady();
