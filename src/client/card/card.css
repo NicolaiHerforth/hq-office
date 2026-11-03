@@ -4,7 +4,7 @@
 .card.in { animation: agin .18s ease-out; }
 @keyframes agin { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
 @media (prefers-reduced-motion: reduce) { .card.in { animation: none; } }
-@media (max-width: 1150px) { .card { position: fixed; z-index: 45; top: auto; left: max(8px, env(safe-area-inset-left, 0px)); right: max(8px, env(safe-area-inset-right, 0px)); bottom: calc(8px + env(safe-area-inset-bottom, 0px)); width: auto; max-height: 85vh; max-height: 85svh; } }
+@media (max-width: 1150px) { .card { position: fixed; z-index: 45; top: auto; left: max(8px, env(safe-area-inset-left, 0px)); right: max(8px, env(safe-area-inset-right, 0px)); bottom: calc(8px + env(safe-area-inset-bottom, 0px)); width: auto; height: 85vh; height: 85svh; } } /* a sheet at its final height from the start: its ✕ never moves as the lane's live view comes */
 .card > .row { margin-top: 0; }
 .card h4 { margin: 0; display: flex; align-items: center; gap: 8px; font: 8px/1 var(--pixel); letter-spacing: 1px; color: var(--muted); }
 .card h4 em { margin-left: auto; font: 12px/1 var(--text); font-style: normal; letter-spacing: 0; }

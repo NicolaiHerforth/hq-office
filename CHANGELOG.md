@@ -3,6 +3,12 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.36.2] - 2026-11-03
+### Fixed
+
+- **On a phone, a lane's ✕ stays where your thumb is.** A lane's sheet used to grow as its live view came in, so its
+  ✕ moved up a moment after it opened. The sheet now opens at its full height, and what it shows scrolls inside it.
+
 ## [0.36.1] - 2026-11-03
 ### Fixed
 

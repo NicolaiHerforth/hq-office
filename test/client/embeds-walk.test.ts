@@ -319,6 +319,24 @@ test.skipIf(!chromeFound)("an address typed in: #lane/NAME opens the drawer and 
   await until(`${shows(`.ask[data-ask="${open}"]`)} && location.hash === ""`);
 }, 30_000);
 
+test.skipIf(!chromeFound)("phone: a lane's drawer opens at its final height; its ✕ stays put when the lane's live view comes", async () => {
+  // the lane's live view (terminal, what it said, its work) takes 1.5 s: a busy server
+  const { identifier } = await page.s("Page.addScriptToEvaluateOnNewDocument", { source: `{ const f = window.fetch.bind(window); window.fetch = (u, ...a) => /\\/api\\/lanes\\/[^/]+\\/live/.test(String(u)) ? new Promise((ok) => setTimeout(ok, 1500)).then(() => f(u, ...a)) : f(u, ...a); }` });
+  try {
+    await load(`#brief/${brief}`, 390, 844, true);
+    await briefReady();
+    await tap(card("lane/api-auth"));
+    await until(`${shows("#card")} && document.querySelector("#card h3").textContent === "api-auth"`);
+    const x = `JSON.stringify(document.querySelector("[data-card-close]").getBoundingClientRect())`;
+    await Bun.sleep(400); // the drawer has slid in
+    const before = await ev(x);
+    await Bun.sleep(2000); // the live view has come
+    expect(await ev(x)).toBe(before);
+  } finally {
+    await page.s("Page.removeScriptToEvaluateOnNewDocument", { identifier });
+  }
+}, 30_000);
+
 test.skipIf(!chromeFound)("phone: a lane card's drawer is a sheet over the brief; ✕; a room card fills the screen; BACK TO OFFICE", async () => {
   await load(`#brief/${brief}`, 390, 844, true);
   await briefReady();
