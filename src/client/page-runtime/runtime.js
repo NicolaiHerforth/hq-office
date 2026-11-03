@@ -26,6 +26,20 @@
   const framed = window.parent !== window && !!PAGE;
   const error = (code, message) => Object.assign(new Error(message), { code });
 
+  // ---- the keyboard stays where the owner put it ----
+  // A framed page moves focus only while its frame has the keyboard, or just after a press inside it: a focus() as it
+  // loads (a new ask, a new version, the theme's reload) would take the keyboard from the HUD's text box the owner
+  // is typing in, and what they type or paste next would land in the page.
+  if (window.parent !== window) {
+    const may = () => document.hasFocus() || !!navigator.userActivation?.isActive;
+    for (const proto of [HTMLElement.prototype, SVGElement.prototype]) {
+      const focus = proto.focus;
+      proto.focus = function (options) { if (may()) focus.call(this, options); };
+    }
+    const focusWindow = window.focus;
+    window.focus = function () { if (may()) focusWindow.call(window); };
+  }
+
   // ---- the line to the HUD ----
   let port = null;
   const outbox = [];

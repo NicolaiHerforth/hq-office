@@ -3,6 +3,15 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.38.2] - 2026-11-03
+### Fixed
+
+- **A page no longer takes the keyboard from the box you are typing in.** A page in the HUD (an ask's page, a room's
+  page, a page brief) that put the cursor in one of its own fields as it loaded took the keyboard from TELL HQ, an
+  answer or a room's send box. This happened when a new ask arrived, a room page got a new version, or the screen
+  turned dark, and what you typed or pasted next went into the page. A page now gets the keyboard only when you
+  click into it.
+
 ## [0.38.1] - 2026-11-03
 ### Fixed
 
