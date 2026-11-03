@@ -34,6 +34,8 @@ function mount(el) {
     <div class="cthread" tabindex="-1"><div class="empty">LOADING…</div></div>
     <div class="csend"><div class="cquote"></div><div class="creply"></div>${composer(boxKey(el.dataset.comments), `<textarea rows="1" placeholder="Comment on this. ⌘↩ sends.">${esc(draft(el.dataset.comments).text)}</textarea>`, `<button class="send go" type="button" data-csend>SEND</button>`)}</div>`;
   watchJump(el);
+  // Open or closed from the start: a thread that showed until its comments came, then closed, moved the page beside it.
+  el.hidden = !showThread();
   load(el, true);
 }
 const live = () => { for (const el of mounts) if (!el.isConnected) mounts.delete(el); return [...mounts]; };

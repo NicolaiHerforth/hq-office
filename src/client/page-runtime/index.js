@@ -10,6 +10,7 @@
 // with the page's key from its frame, so it resolves only references its author wrote (embeds/pages.js).
 import { CONFIG, S } from "../core/state.js";
 import { emit, on } from "../core/bus.js";
+import { navigateFrame } from "../pages/frame-nav.js";
 
 const CAPS = ["db", "user", "downloads", "artifact", "self", "room", "comments"];
 const MAX_MESSAGE = 1_100_000; // characters in one message from a page (a document is at most 256 KiB)
@@ -256,7 +257,7 @@ function reload(c) {
   setTimeout(() => {
     if (!lines.has(c) || !c.frame.isConnected) return;
     drop(c);
-    c.frame.src = c.frame.getAttribute("src");
+    navigateFrame(c.frame);
   }, 300);
 }
 on("state", (s) => {

@@ -11,6 +11,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { findChrome, type newSession, spawnServer, startChrome } from "../../scripts/room-hash.ts";
+import { aimed, clickLog, settled as stillAt } from "../walk-diag.ts";
 import { fakeHerdr } from "../fake-herdr.ts";
 
 const ROOT = join(import.meta.dir, "..", "..");
@@ -65,11 +66,11 @@ const ev = (e: string, p = page) => p.evaluate(e);
 const post = (p: string, b: object = {}, h: object = {}) => fetch(`${server.base}${p}`, { method: "POST", headers: { "content-type": "application/json", "x-hud": "1", ...h }, body: JSON.stringify(b) }).then((r) => r.json());
 const upload = (name: string, body: string) => fetch(`${server.base}/api/rooms/pricing/files?${new URLSearchParams({ name, title: name, as: "pm" })}`, { method: "POST", headers: { "content-type": "text/html", "x-hud": "1" }, body }).then((r) => r.json());
 const hud = (args: string[], pane: string) => Bun.spawnSync([process.execPath, join(ROOT, "hud.ts"), ...args], { env: { ...process.env, HUD_URL: server.base, HERDR_PANE_ID: pane, HUD_LOCAL_MACHINE: "local" }, stdout: "pipe", stderr: "pipe" });
-async function until(what: () => Promise<unknown>, label: string, ms = 10_000) {
+async function until(what: () => Promise<unknown>, label: string, ms = 10_000, p?: Session) {
   for (const end = Date.now() + ms; Date.now() < end; await Bun.sleep(60)) if (await what().catch(() => false)) return;
-  throw new Error(`timed out: ${label}`);
+  throw new Error(`timed out: ${label}${p ? await clickLog((e) => ev(e, p)) : ""}`);
 }
-const untilHud = (expr: string, ms?: number, p = page) => until(() => ev(expr, p), expr, ms);
+const untilHud = (expr: string, ms?: number, p = page) => until(() => ev(expr, p), expr, ms, p);
 
 // ---- input, as a person gives it ----
 type Session = Awaited<ReturnType<typeof newSession>> & { id: string };
@@ -80,15 +81,18 @@ async function toFront(p: Session) {
   await p.s("Page.bringToFront");
   front = p;
 }
-async function clickAt([x, y]: number[], p: Session = page) {
+async function clickAt([x, y]: number[], p: Session = page, what = "a point") {
   await toFront(p);
+  await aimed((e) => ev(e, p), what, x, y, "aim");
   await p.s("Input.dispatchMouseEvent", { type: "mouseMoved", x, y });
   for (const type of ["mousePressed", "mouseReleased"]) await p.s("Input.dispatchMouseEvent", { type, x, y, button: "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
+  await aimed((e) => ev(e, p), what, x, y, "pressed");
 }
 async function click(selector: string, p: Session = page) {
   await untilHud(`(() => { const el = document.querySelector(${JSON.stringify(selector)}); if (!el) return false; const r = el.getBoundingClientRect(); return r.width > 0 && r.height > 0; })()`, 10_000, p);
+  await stillAt((e) => ev(e, p), selector);
   const xy = await ev(`(() => { const el = document.querySelector(${JSON.stringify(selector)}); el.scrollIntoView({ block: "nearest" }); const r = el.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`, p);
-  await clickAt(xy, p);
+  await clickAt(xy, p, selector);
 }
 async function key(k: string, p: Session = page) {
   await toFront(p);
@@ -121,7 +125,7 @@ async function inFrame(expression: string, p: Session = page) {
   if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception?.description ?? r.exceptionDetails.text);
   return r.result.value;
 }
-const untilFrame = (expr: string, ms?: number, p: Session = page) => until(() => inFrame(expr, p), `in the frame: ${expr}`, ms);
+const untilFrame = (expr: string, ms?: number, p: Session = page) => until(() => inFrame(expr, p), `in the frame: ${expr}`, ms, p);
 const text = (id: string, p: Session = page) => inFrame(`document.getElementById(${JSON.stringify(id)})?.textContent ?? ""`, p);
 // The frame has stopped moving: the same place for 4 checks 50 ms apart. Input sent while it is still being laid
 // out can reach the HUD instead of the frame, which no hand is quick enough to do.
@@ -206,7 +210,10 @@ async function session(targetId?: string): Promise<Session> {
     if (m.method === "Runtime.exceptionThrown") errors.push(m.params.exceptionDetails.exception?.description ?? m.params.exceptionDetails.text);
     if (m.method === "Runtime.consoleAPICalled" && m.params.type === "error") errors.push(m.params.args.map((a: any) => a.value ?? a.description).join(" "));
   });
-  for (const d of ["Page", "Runtime"]) await s(`${d}.enable`);
+  for (const d of ["Page", "Runtime", "Network"]) await s(`${d}.enable`);
+  // Web fonts come over the network at their own time and widen the text they replace: a click aimed just before
+  // lands beside its target. The walks run without them.
+  await s("Network.setBlockedURLs", { urls: ["*fonts.googleapis.com*", "*fonts.gstatic.com*"] });
   await s("Emulation.setFocusEmulationEnabled", { enabled: true });
   await s("Target.setAutoAttach", { autoAttach: true, waitForDebuggerOnStart: false, flatten: true });
   const evaluate = async (expression: string) => {
