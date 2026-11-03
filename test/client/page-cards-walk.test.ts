@@ -8,7 +8,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { findChrome, newSession, spawnServer, startChrome } from "../../scripts/room-hash.ts";
-import { aimed, clickLog } from "../walk-diag.ts";
+import { aimed, clickLog, did } from "../walk-diag.ts";
 import { fakeHerdr } from "../fake-herdr.ts";
 
 const ROOT = join(import.meta.dir, "..", "..");
@@ -47,6 +47,7 @@ async function key(k: "Escape") {
   for (const type of ["keyDown", "keyUp"]) await page.s("Input.dispatchKeyEvent", { type, key: k, code: k, windowsVirtualKeyCode: 27 });
 }
 async function back() {
+  await did(ev, "back");
   const h = await page.s("Page.getNavigationHistory");
   await page.s("Page.navigateToHistoryEntry", { entryId: h.entries[h.currentIndex - 1].id });
 }
@@ -206,6 +207,23 @@ test.skipIf(!chromeFound)("a brief's page: a card for each reference its author 
 test.skipIf(!chromeFound)("a room card in the page › the room beside it › the browser's back › the brief's page with its cards", async () => {
   await clickCard(BRIEF_FRAME(), "room/ope-12");
   await until(`location.hash === "#room/ope-12+brief/${brief}" && ${shows("#roomView")} && ${shows(".briefview .pageframe")}`);
+  await back();
+  await until(`location.hash === "#brief/${brief}" && ${shows(".briefview .pageframe")}`);
+  await cardsReady(BRIEF_FRAME(), 7);
+}, 30_000);
+
+test.skipIf(!chromeFound)("a click held down while the page's cards are read again still opens the room", async () => {
+  const [x, y] = await pointAt(BRIEF_FRAME(), "room/ope-12");
+  await ev(`performance.clearResourceTimings(), true`);
+  await aimed(ev, "room/ope-12 held", x, y, "aim");
+  await page.s("Input.dispatchMouseEvent", { type: "mouseMoved", x, y });
+  await page.s("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount: 1 });
+  await post("/api/updates", { title: "Tokens rotated on staging" });
+  await until(`performance.getEntriesByType("resource").some((e) => e.name.includes("/api/refs"))`);
+  await Bun.sleep(200);
+  await page.s("Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount: 1 });
+  await aimed(ev, "room/ope-12 held", x, y, "pressed");
+  await until(`location.hash === "#room/ope-12+brief/${brief}" && ${shows("#roomView")}`);
   await back();
   await until(`location.hash === "#brief/${brief}" && ${shows(".briefview .pageframe")}`);
   await cardsReady(BRIEF_FRAME(), 7);

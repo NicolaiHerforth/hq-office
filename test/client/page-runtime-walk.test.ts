@@ -11,7 +11,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { findChrome, type newSession, spawnServer, startChrome } from "../../scripts/room-hash.ts";
-import { aimed, clickLog, settled as stillAt } from "../walk-diag.ts";
+import { aimed, clickLog, did, settled as stillAt } from "../walk-diag.ts";
 import { fakeHerdr } from "../fake-herdr.ts";
 
 const ROOT = join(import.meta.dir, "..", "..");
@@ -103,6 +103,7 @@ async function key(k: string, p: Session = page) {
   await p.s("Input.dispatchKeyEvent", { type: "keyUp", ...code });
 }
 async function browserBack(dir = -1, p: Session = page) {
+  await did((e) => ev(e, p), dir < 0 ? "back" : "forward");
   const h = await p.s("Page.getNavigationHistory");
   await p.s("Page.navigateToHistoryEntry", { entryId: h.entries[h.currentIndex + dir].id });
 }
@@ -198,7 +199,8 @@ async function selectAndComment(id: string, p: Session = page) {
   await clickAt(await framePoint(r, p), p, "COMMENT in the frame");
   await aimed(inFrameOf(p), "COMMENT", r[0], r[1], "pressed");
 }
-const runtimeOn = (p: Session = page) => untilFrame(`document.body.dataset.runtime === "on" && /votes$/.test(document.getElementById("votes").textContent)`, 15_000, p);
+// On, and its first snapshot shown: the count, not the page's starting "no votes".
+const runtimeOn = (p: Session = page) => untilFrame(`document.body.dataset.runtime === "on" && /^\\d+ votes$/.test(document.getElementById("votes").textContent)`, 15_000, p);
 async function vote(p: Session = page) {
   const before = parseInt(await text("votes", p)) || 0;
   const t0 = await inFrame(`performance.timeOrigin`, p);
@@ -284,6 +286,26 @@ test.skipIf(!chromeFound)("brief view: in from BRIEFS, a vote, COMMENTS and COMM
   await selectAndComment("quote");
   await untilHud(`document.querySelector('aside.cmount[data-comments="briefs/${brief}"]')?.textContent.includes("Tier two costs forty a month.")`);
 }, 90_000);
+
+// The page says it is on before its first snapshot arrives: a walk that reads the count then counts from "no votes".
+test.skipIf(!chromeFound)("a slow first snapshot: the walk reads the count only once the page shows it", async () => {
+  const held = (m: any) => {
+    if (m.sessionId !== page.id || m.method !== "Fetch.requestPaused") return;
+    const go = () => page.s("Fetch.continueRequest", { requestId: m.params.requestId }).catch(() => {});
+    if (String(m.params.request.postData).includes('"op":"query"')) setTimeout(go, 1500);
+    else go();
+  };
+  chrome.cdp.listeners.push(held);
+  await page.s("Fetch.enable", { patterns: [{ urlPattern: "*/api/page-runtime/db*" }] });
+  try {
+    await open(`#brief/${brief}`);
+    await runtimeOn();
+    expect(await text("votes")).toBe("1 votes");
+  } finally {
+    await page.s("Fetch.disable");
+    chrome.cdp.listeners.splice(chrome.cdp.listeners.indexOf(held), 1);
+  }
+}, 60_000);
 
 test.skipIf(!chromeFound)("brief view: FULL SCREEN then BACK, then Esc, then the browser's back; the HUD answers and the page works after each", async () => {
   await open(`#brief/${brief}`);

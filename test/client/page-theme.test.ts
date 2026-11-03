@@ -14,17 +14,20 @@ const ROOT = join(import.meta.dir, "..", "..");
 const chromeFound = !!findChrome();
 const dir = mkdtempSync(join(tmpdir(), "hq-page-theme-"));
 const herdr = fakeHerdr(dir, [{ name: "hq", agent_status: "idle", pane_id: "w1:p1", agent: "claude" }, { name: "pm", agent_status: "idle", pane_id: "w1:p2", agent: "claude" }]);
-// A page written for artifacts: dark under :root[data-theme=dark]. It says how it looks.
+// A page written for artifacts: dark under :root[data-theme=dark]. It says how it looks, and at which address.
 const PAGE = `<!doctype html><html><head><style>
 :root { background: rgb(250, 250, 250); }
 :root[data-theme="dark"] { background: rgb(1, 1, 1); }
 </style></head><body><h1>Theme</h1><script>
 const s = getComputedStyle(document.documentElement);
-parent.postMessage({ look: { theme: document.documentElement.dataset.theme ?? null, scheme: s.colorScheme, bg: s.backgroundColor } }, "*");
+parent.postMessage({ look: { theme: document.documentElement.dataset.theme ?? null, scheme: s.colorScheme, bg: s.backgroundColor }, at: location.pathname + location.search }, "*");
 </script></body></html>`;
+// The same page reporting a moment after it loads, and again as it leaves: a document the frame has moved on from is
+// still heard, before the new one reports.
+const LEAVING = PAGE.replace("parent.postMessage(", "const report = () => parent.postMessage(").replace(`"*");\n</script>`, `"*");\nsetTimeout(report, 300); addEventListener("pagehide", report);\n</script>`);
 // Fragments, as artifacts may be: one that only sets a light background, and one that opts into dark itself. Each
 // says how its text looks.
-const REPORT = `<script>const s = getComputedStyle(document.documentElement); parent.postMessage({ look: { theme: document.documentElement.dataset.theme ?? null, scheme: s.colorScheme, text: getComputedStyle(document.querySelector("p")).color } }, "*");</script>`;
+const REPORT = `<script>const s = getComputedStyle(document.documentElement); parent.postMessage({ look: { theme: document.documentElement.dataset.theme ?? null, scheme: s.colorScheme, text: getComputedStyle(document.querySelector("p")).color }, at: location.pathname + location.search }, "*");</script>`;
 const LIGHT_FRAGMENT = `<style>body { background: #fafafa }</style><p>Readable on any screen</p>${REPORT}`;
 const DARK_FRAGMENT = `<style>:root[data-theme="dark"] body { background: #111 }</style><p>Dark when the HUD is</p>${REPORT}`;
 const LIGHT = { theme: "light", scheme: "light", bg: "rgb(250, 250, 250)" };
@@ -47,15 +50,17 @@ async function load(hash = "") {
   await page.s("Page.navigate", { url: "about:blank" });
   await page.s("Page.navigate", { url: `${server.base}/${hash}` });
   await until(`!!document.getElementById("lastNote")?.innerHTML`);
-  await ev(`window.__look = null; addEventListener("message", (e) => { if (e.data?.look) window.__look = e.data.look; }), true`);
+  await ev(`window.__looks = []; addEventListener("message", (e) => { if (e.data?.look) window.__looks.push(e.data); }), true`);
   await until(`!!${frame}`);
 }
-// The frame's page once it has loaded at SRC (loaded again first, so its report is not missed).
+// The frame's page once it has loaded at SRC (loaded again first, so its report is not missed). Only a report from SRC
+// counts: a document the frame has moved on from can still be heard after the reload is asked for.
 async function lookAt(src: string) {
   await until(`${frame}.getAttribute("src") === "${src}"`);
-  await ev(`(() => { window.__look = null; const f = ${frame}; f.src = f.getAttribute("src"); return true; })()`);
-  await until(`!!window.__look`);
-  return ev(`window.__look`);
+  await ev(`(() => { window.__from = window.__looks.length; const f = ${frame}; f.src = f.getAttribute("src"); return true; })()`);
+  const at = `window.__looks.slice(window.__from).find((l) => l.at === ${JSON.stringify(src)})`;
+  await until(`!!${at}`);
+  return ev(`${at}.look`);
 }
 let brief = 0;
 
@@ -66,7 +71,7 @@ beforeAll(async () => {
   await post("/api/sync");
   await post("/api/rooms", { slug: "plans", title: "Plans", owner: "pm" });
   await fetch(`${server.base}/api/rooms/plans/files?name=theme.html&as=pm`, { method: "POST", headers: { "x-hud": "1" }, body: PAGE });
-  for (const [name, body] of [["light.html", LIGHT_FRAGMENT], ["dark.html", DARK_FRAGMENT]]) await fetch(`${server.base}/api/rooms/plans/files?name=${name}&as=pm`, { method: "POST", headers: { "x-hud": "1" }, body });
+  for (const [name, body] of [["light.html", LIGHT_FRAGMENT], ["dark.html", DARK_FRAGMENT], ["leaving.html", LEAVING]]) await fetch(`${server.base}/api/rooms/plans/files?name=${name}&as=pm`, { method: "POST", headers: { "x-hud": "1" }, body });
   brief = (await post("/api/briefs", { title: "Themed page", body: PAGE }, { "x-hud-pane": "w1:p1", "x-hud-machine": "local" })).id;
   chrome = await startChrome();
   page = await newSession(chrome.cdp, errors);
@@ -101,6 +106,15 @@ test.skipIf(!chromeFound)("the root's data-theme wins over the screen, and a cha
   expect(await lookAt(`/briefs/${brief}.html?theme=light`)).toEqual(LIGHT);
   await ev(`document.documentElement.dataset.theme = "dark"`);
   expect(await lookAt(`/briefs/${brief}.html?theme=dark`)).toEqual(DARK);
+}, 30_000);
+
+test.skipIf(!chromeFound)("a report from the frame's earlier document is not taken for the new one's", async () => {
+  await screen(false);
+  await load("#page/rooms/plans/files/leaving.html");
+  expect(await lookAt("/rooms/plans/files/leaving.html?theme=light")).toEqual(LIGHT);
+  await ev(`document.documentElement.dataset.theme = "dark"`);
+  expect(await lookAt("/rooms/plans/files/leaving.html?theme=dark")).toEqual(DARK);
+  await ev(`delete document.documentElement.dataset.theme`);
 }, 30_000);
 
 test.skipIf(!chromeFound)("on a dark screen a fragment with a light background stays readable; one that opts into dark goes dark", async () => {
