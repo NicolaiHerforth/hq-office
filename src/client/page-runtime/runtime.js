@@ -38,6 +38,15 @@
     }
     const focusWindow = window.focus;
     window.focus = function () { if (may()) focusWindow.call(window); };
+    // A dialog or popover opening focuses what is in it without a focus() call: opened inert, it finds nothing to focus.
+    const quietly = (open) => function (...args) {
+      if (may()) return open.apply(this, args);
+      const inert = this.inert;
+      this.inert = true;
+      try { return open.apply(this, args); } finally { this.inert = inert; }
+    };
+    for (const [proto, names] of [[HTMLDialogElement.prototype, ["show", "showModal"]], [HTMLElement.prototype, ["showPopover", "togglePopover"]]])
+      for (const name of names) if (proto[name]) proto[name] = quietly(proto[name]);
   }
 
   // ---- the line to the HUD ----
