@@ -2,7 +2,8 @@
 // runs unchanged in the brief view and in the room page view: its storage is kept per page across loads, its db writes
 // are kept and read back by hud page data, and a write from elsewhere reaches its onSnapshot live. It still cannot read
 // the HUD's document or fetch its data. The HUD takes a hello only from a page frame, for the page that frame shows:
-// a hello naming another page, or from a frame inside the page, gets no answer. A page is held to 60 calls a second.
+// a hello naming another page, or from a frame inside the page, gets no answer, and one before the HUD has its state
+// is answered once it has. A page is held to 60 calls a second.
 // downloads.save asks the owner first.
 // Opened on its own (OPEN IN NEW TAB) the page reads its stored keys and use() gives null. Needs Chrome; skipped
 // without it. The Mermaid check also needs the network (jsdelivr) and is skipped without it.
@@ -165,6 +166,13 @@ const report = () => parent.postMessage({ probe: JSON.parse(JSON.stringify(out))
 const LATE = `<!doctype html><html><head></head><body><script>
 claude.use("db").then((db) => parent.postMessage({ probe: { doc: new URLSearchParams(location.search).get("doc"), db: !!db } }, "*"));
 </script></body></html>`;
+// A page that asks what it may use and who is viewing it.
+const EARLY = `<!doctype html><html><head></head><body><script>
+(async () => {
+  const sample = await claude.use("sample"), user = await claude.use("user");
+  parent.postMessage({ probe: { doc: new URLSearchParams(location.search).get("doc"), sample: typeof sample, name: (await user?.me())?.name } }, "*");
+})();
+</script></body></html>`;
 // A stand-in for HUD_SAMPLE_CMD: it answers slowly, and in JSON when asked.
 const MODEL = join(dir, "model.sh");
 writeFileSync(MODEL, `#!/bin/sh
@@ -236,6 +244,7 @@ beforeAll(async () => {
   await upload("ask.html", ASK);
   await upload("quote.html", QUOTE);
   await upload("late.html", LATE);
+  await upload("early.html", EARLY);
   brief = (await post("/api/briefs", { title: "Votes", body: APP }, { "x-hud-pane": "w1:p1", "x-hud-machine": "local" })).id;
   pollBrief = (await post("/api/briefs", { title: "Poll", body: POLL }, { "x-hud-pane": "w1:p1", "x-hud-machine": "local" })).id;
   chrome = await startChrome();
@@ -261,9 +270,13 @@ const artifactPage = async (key: string) => {
     got: { picks: ["db"], at: 1 }, badPath: "TypeError", updateMissing: "invalid_argument",
     sizes: [1], changes: ["added:owner"],
   });
+  // the page's own write reaches the HUD's state later and makes it fetch again: the page hears no snapshot for that
+  const own = (await (await fetch(`${server.base}/api/state`)).json()).pageData[key];
+  await until(`import("/src/client/core/state.js").then((m) => m.S.pageData?.[${JSON.stringify(key)}] === ${own})`);
   // a write from elsewhere (another view, the same as the bridge sends it) reaches the open page live
   await post("/api/page-runtime/db", { page: key, op: "set", path: "votes/hq", data: { picks: ["mermaid"], at: 2 } });
   await until(`window.__probe?.sizes?.at(-1) === 2`);
+  expect(await ev(`window.__probe.sizes`)).toEqual([1, 2]);
   expect(await ev(`window.__probe.changes`)).toEqual(["added:hq"]);
   // its storage is kept: the next load reads it synchronously
   expect((await reloadFrame()).before).toBe(String(visits + 1));
@@ -370,6 +383,22 @@ test.skipIf(!chromeFound)("sample: the owner allows the page once, and the answe
   await until(`!!window.__probe?.json`, 10_000);
   expect(await ev(`window.__probe`)).toMatchObject({ first: "not_granted", json: "not_granted" });
 }, 60_000);
+
+test.skipIf(!chromeFound)("a page that says hello before the HUD has its state is answered once it has: it gets sample and the owner's name", async () => {
+  const held = (m: any) => {
+    if (m.method === "Fetch.requestPaused") setTimeout(() => chrome.cdp.send("Fetch.continueRequest", { requestId: m.params.requestId }, m.sessionId).catch(() => {}), 2000);
+  };
+  chrome.cdp.listeners.push(held);
+  await page.s("Fetch.enable", { patterns: [{ urlPattern: "*/api/state*" }, { urlPattern: "*/api/stream*" }] });
+  try {
+    await load("#page/rooms/pricing/files/early.html");
+    await until(`!!window.__probe`, 10_000);
+    expect(await ev(`window.__probe`)).toMatchObject({ sample: "function", name: "Tester" });
+  } finally {
+    await page.s("Fetch.disable");
+    chrome.cdp.listeners.splice(chrome.cdp.listeners.indexOf(held), 1);
+  }
+}, 30_000);
 
 test.skipIf(!chromeFound)("comments: the page opens its thread in the HUD with a quote (an element, a range); a selection shows COMMENT", async () => {
   const key = "rooms/pricing/files/quote.html";

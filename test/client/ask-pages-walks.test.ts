@@ -7,7 +7,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { findChrome, newSession, spawnServer, startChrome } from "../../scripts/room-hash.ts";
-import { aimed, clickLog, settled } from "../walk-diag.ts";
+import { aimed, clickLog, settled, did } from "../walk-diag.ts";
 import { fakeHerdr } from "../fake-herdr.ts";
 
 const ROOT = join(import.meta.dir, "..", "..");
@@ -63,6 +63,7 @@ async function key(k: string, modifiers = 0) {
 }
 const type = (text: string) => page.s("Input.insertText", { text });
 async function browserBack() {
+  await did(ev, "back");
   const h = await page.s("Page.getNavigationHistory");
   await page.s("Page.navigateToHistoryEntry", { entryId: h.entries[h.currentIndex - 1].id });
 }
@@ -164,6 +165,7 @@ test.skipIf(!chromeFound)("OPEN PAGE then the browser's back, and forward again"
   await onStage(A);
   await browserBack();
   await cardWhole(A, "Keep them");
+  await did(ev, "forward");
   const h = await page.s("Page.getNavigationHistory");
   await page.s("Page.navigateToHistoryEntry", { entryId: h.entries[h.currentIndex + 1].id });
   await onStage(A);

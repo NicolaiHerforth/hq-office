@@ -7,7 +7,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { findChrome, newSession, spawnServer, startChrome } from "../../scripts/room-hash.ts";
-import { aimed, clickLog, settled } from "../walk-diag.ts";
+import { aimed, clickLog, settled, did } from "../walk-diag.ts";
 import { fakeHerdr } from "../fake-herdr.ts";
 
 const ROOT = join(import.meta.dir, "..", "..");
@@ -76,6 +76,7 @@ async function key(k: "Escape") {
 }
 // The browser's back button.
 async function back() {
+  await did(ev, "back");
   const h = await page.s("Page.getNavigationHistory");
   await page.s("Page.navigateToHistoryEntry", { entryId: h.entries[h.currentIndex - 1].id });
 }

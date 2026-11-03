@@ -62,6 +62,8 @@ addEventListener("message", (e) => {
   if (!d || d["hud-page"] !== "hello" || e.origin !== "null") return;
   const port = e.ports?.[0];
   if (!port) return;
+  // Before its first state the HUD cannot say what the page may use or who the owner is: the page asks again.
+  if (!S) { port.close(); return; }
   const frame = [...document.querySelectorAll("iframe")].find((f) => f.contentWindow === e.source);
   const page = frame && sandboxed(frame) ? pageKey(frame.getAttribute("src")) : null;
   if (!page || d.page !== page) { port.close(); return; }
@@ -152,12 +154,17 @@ async function handle(c, d) {
 }
 
 // ---- subscriptions: fetched once, then again whenever the page's data moves ----
+// A fetch that finds what the page was last sent sends nothing: the page's own write, or one elsewhere in the page's
+// data, moves the version without changing what this subscription sees.
 async function run(c, id) {
   const s = c.subs.get(id);
   if (!s) return;
   try {
     const value = await rpc("/api/page-runtime/db", s.kind === "doc" ? { page: c.page, op: "get", path: s.path } : { page: c.page, op: "query", path: s.path, query: s.query });
-    if (c.subs.get(id) === s) c.port.postMessage({ snap: id, value });
+    const text = JSON.stringify(value);
+    if (c.subs.get(id) !== s || s.sent === text) return;
+    s.sent = text;
+    c.port.postMessage({ snap: id, value });
   } catch (e) {
     if (c.subs.get(id) !== s) return;
     c.subs.delete(id);

@@ -1,7 +1,9 @@
 // What a walk's last clicks and taps did, for the message of a step that timed out: every mousedown, mouseup and click and the
 // element it reached, what was under the point just before and after each press, layout shifts and what moved,
 // popstate and hashchange, and the Navigation API's navigations. A click that missed, or a step undone by a late
-// navigation, then says so in the run that caught it.
+// navigation, then says so in the run that caught it. The walk's own steps are in it too: named keys (Escape, Enter),
+// how the document was loaded (a reload, the browser's back), and did() for a step the page cannot tell from a
+// person's (the browser's back or forward sent through CDP), so none of them reads as the page moving by itself.
 type Evaluate = (expression: string) => Promise<any>;
 
 const WATCH = `(() => {
@@ -13,6 +15,8 @@ const WATCH = `(() => {
     + ["ref", "qtab", "room"].filter((k) => n.dataset?.[k]).map((k) => "[" + k + "=" + n.dataset[k] + "]").join("");
   window.__walkName = name;
   const add = (e) => { log.push({ t: t(), ...e }); if (log.length > 80) log.shift(); };
+  add({ k: "loaded", how: performance.getEntriesByType("navigation")[0]?.type ?? "?" });
+  addEventListener("keydown", (e) => { if (e.key.length > 1) add({ k: "key", key: e.key, on: name(e.target) }); }, true);
   for (const k of ["pointerdown", "pointerup", "mousedown", "mouseup", "click"]) document.addEventListener(k, (e) => add({ k, at: [Math.round(e.clientX), Math.round(e.clientY)], on: name(e.target), ...(e.pointerType ? { by: e.pointerType } : {}) }), true);
   for (const k of ["touchstart", "touchend"]) document.addEventListener(k, (e) => add({ k, on: name(e.target) }), true);
   for (const k of ["popstate", "hashchange"]) addEventListener(k, () => add({ k, hash: location.hash }), true);
@@ -35,6 +39,10 @@ const WATCH = `(() => {
 
 // Starts the log in the page now (aimed() does it for a click), so what comes before the first click is in it too.
 export const watch = (evaluate: Evaluate) => evaluate(WATCH).catch(() => {});
+
+// A step of the walk's own that the page would log as the browser's doing, given before the step: did(ev, "back").
+export const did = (evaluate: Evaluate, what: string) =>
+  watch(evaluate).then(() => evaluate(`(window.__walk?.push({ t: Math.round(performance.now()), k: "test", did: ${JSON.stringify(what)} }), true)`)).catch(() => {});
 
 // Before and after a press at (x, y) aimed at what: what is under the point, and whether a navigation is under way.
 export async function aimed(evaluate: Evaluate, what: string, x: number, y: number, phase: "aim" | "pressed") {

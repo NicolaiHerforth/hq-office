@@ -3,6 +3,19 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.38.1] - 2026-11-03
+### Fixed
+
+- **A click on a card inside a page no longer gets lost.** A page's cards are read again every few seconds while the
+  HUD is busy, and each read drew every card anew, even when nothing on it had changed. A click whose press and
+  release fell on either side of a redraw opened nothing. A card is now drawn again only when what it shows changes.
+- **A page's live data no longer fires twice for one change.** A page that watches its data (`onSnapshot`) got a
+  second, identical update shortly after it wrote something itself, or after a write elsewhere in its data that its
+  query does not see. It now hears only when what it watches has changed.
+- **A page opened while the HUD is still loading gets everything it may use.** On a busy machine a page could start
+  before the HUD had loaded, and then go without the model (`use("sample")` gave nothing) and see the owner as
+  "Owner". The HUD now answers a page only once it has loaded, and the page waits for that.
+
 ## [0.38.0] - 2026-11-03
 ### Changed
 

@@ -531,6 +531,7 @@ b{font-weight:800}.l{color:var(--m);font-size:13px;white-space:nowrap;overflow:h
   class HudCard extends HTMLElement {
     static get observedAttributes() { return ["ref"]; }
     #root = this.attachShadow({ mode: "closed" });
+    #drawn = "";
     connectedCallback() { cardEls.add(this); this.draw(); }
     disconnectedCallback() { cardEls.delete(this); }
     attributeChangedCallback() { if (this.isConnected) this.draw(); }
@@ -539,6 +540,10 @@ b{font-weight:800}.l{color:var(--m);font-size:13px;white-space:nowrap;overflow:h
       wantCard(ref);
       const c = cardData.get(ref);
       const known = framed && c !== undefined;
+      // The cards are read again every few seconds: a box replaced between a press and its release loses the click.
+      const drawn = JSON.stringify([ref, framed, known, c ?? null, dark()]);
+      if (drawn === this.#drawn) return;
+      this.#drawn = drawn;
       const box = document.createElement(known && c ? "a" : "div");
       box.className = `c${dark() ? " dark" : ""}${!framed || !known ? " wait" : c ? (c.floor ? " other" : "") : " gone"}`;
       const body = span("t", ""), head = span("h", "");
