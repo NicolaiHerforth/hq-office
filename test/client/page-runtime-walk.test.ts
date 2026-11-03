@@ -61,6 +61,8 @@ const server_ = () => server;
 let page: Session;
 const errors: string[] = [];
 const frames = new Map<string, { session: string; tab: string }>(); // an attached frame target: its session, and its tab's
+const frameTab = new Map<string, string>(); // an attached frame's session: its tab's
+const frameEvents: { tab: string; text: string }[] = []; // what the frames' targets printed
 let brief = 0, opsBrief = 0;
 const ev = (e: string, p = page) => p.evaluate(e);
 const post = (p: string, b: object = {}, h: object = {}) => fetch(`${server.base}${p}`, { method: "POST", headers: { "content-type": "application/json", "x-hud": "1", ...h }, body: JSON.stringify(b) }).then((r) => r.json());
@@ -68,7 +70,7 @@ const upload = (name: string, body: string) => fetch(`${server.base}/api/rooms/p
 const hud = (args: string[], pane: string) => Bun.spawnSync([process.execPath, join(ROOT, "hud.ts"), ...args], { env: { ...process.env, HUD_URL: server.base, HERDR_PANE_ID: pane, HUD_LOCAL_MACHINE: "local" }, stdout: "pipe", stderr: "pipe" });
 async function until(what: () => Promise<unknown>, label: string, ms = 10_000, p?: Session) {
   for (const end = Date.now() + ms; Date.now() < end; await Bun.sleep(60)) if (await what().catch(() => false)) return;
-  throw new Error(`timed out: ${label}${p ? await clickLog((e) => ev(e, p)) : ""}`);
+  throw new Error(`timed out: ${label}${p ? await clickLog((e) => ev(e, p)) + await frameLog(p) : ""}`);
 }
 const untilHud = (expr: string, ms?: number, p = page) => until(() => ev(expr, p), expr, ms, p);
 
@@ -129,6 +131,13 @@ const untilFrame = (expr: string, ms?: number, p: Session = page) => until(() =>
 const text = (id: string, p: Session = page) => inFrame(`document.getElementById(${JSON.stringify(id)})?.textContent ?? ""`, p);
 // The frame has stopped moving: the same place for 4 checks 50 ms apart. Input sent while it is still being laid
 // out can reach the HUD instead of the frame, which no hand is quick enough to do.
+// The same log inside the page's frame (its clicks, its messages, its errors), and what its target printed.
+const inFrameOf = (p: Session) => (e: string) => inFrame(e, p);
+async function frameLog(p: Session) {
+  const own = await clickLog(inFrameOf(p), "in the page's frame").catch(() => "");
+  const said = frameEvents.filter((x) => x.tab === p.id).slice(-12);
+  return own + (said.length ? `\nthe page's frame printed:\n${said.map((x) => `  ${x.text}`).join("\n")}` : "");
+}
 async function settled(p: Session) {
   let last = "", same = 0;
   for (const end = Date.now() + 5000; Date.now() < end && same < 4; await Bun.sleep(50)) {
@@ -154,6 +163,7 @@ let lastClick: unknown = null;
 async function clickInFrame(id: string, p: Session = page) {
   const xy = await inFrame(`(() => { const b = document.getElementById(${JSON.stringify(id)}); b.scrollIntoView({ block: "center" }); const r = b.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`, p);
   const at = await framePoint(xy, p);
+  await aimed(inFrameOf(p), `#${id}`, xy[0], xy[1], "aim");
   await inFrame(`(() => { const d = document.documentElement; if (!d.dataset.walkClicks) { d.dataset.walkClicks = "0"; document.addEventListener("click", (e) => { d.dataset.walkClicks = String(Number(d.dataset.walkClicks) + 1); d.dataset.walkLast = e.target.id || e.target.tagName; }, true); } })()`, p);
   lastClick = { id, inFrame: xy, onHud: at, hudHit: await ev(`(() => { const e = document.elementFromPoint(${at[0]}, ${at[1]}); return e ? e.tagName + "." + e.className : null; })()`, p), frameHit: await inFrame(`document.elementFromPoint(${xy[0]}, ${xy[1]})?.id ?? null`, p) };
   // Headless Chrome now and then drops synthetic input to a page's frame just after a layout or a tab switch: the
@@ -162,7 +172,8 @@ async function clickInFrame(id: string, p: Session = page) {
   const clicks = () => inFrame(`[performance.timeOrigin, Number(document.documentElement.dataset.walkClicks || 0)]`, p);
   const [t0, was] = await clicks();
   for (let tries = 0; ; tries++) {
-    await clickAt(at, p);
+    await clickAt(at, p, `#${id} in the frame`);
+    await aimed(inFrameOf(p), `#${id}`, xy[0], xy[1], "pressed");
     const got = await until(async () => { const [t, n] = await clicks(); return t !== t0 || n > was; }, "a click", 1000).then(() => true, () => false);
     if (got) return;
     if (tries === 2) throw new Error(`three clicks on ${id} never reached the page`);
@@ -183,7 +194,9 @@ async function selectAndComment(id: string, p: Session = page) {
   await untilFrame(`getSelection().toString().trim().length > 0 && document.querySelector("hud-comment-pick")?.style.display === ""`);
   // COMMENT sits centred 8 px above the selection (runtime.js pickShow)
   const r = await inFrame(`(() => { const r = getSelection().getRangeAt(0).getBoundingClientRect(); return [r.left + r.width / 2, r.top - 24]; })()`, p);
-  await clickAt(await framePoint(r, p), p);
+  await aimed(inFrameOf(p), "COMMENT", r[0], r[1], "aim");
+  await clickAt(await framePoint(r, p), p, "COMMENT in the frame");
+  await aimed(inFrameOf(p), "COMMENT", r[0], r[1], "pressed");
 }
 const runtimeOn = (p: Session = page) => untilFrame(`document.body.dataset.runtime === "on" && /votes$/.test(document.getElementById("votes").textContent)`, 15_000, p);
 async function vote(p: Session = page) {
@@ -237,7 +250,19 @@ beforeAll(async () => {
   await post("/api/sync");
   opsBrief = (await post("/api/briefs", { title: "Ops walk", body: WALK }, { "x-hud-pane": "w1:p3", "x-hud-machine": "local" })).id;
   chrome = await startChrome();
-  chrome.cdp.listeners.push((m: any) => { if (m.method === "Target.attachedToTarget" && m.params.targetInfo.type === "iframe") frames.set(m.params.targetInfo.targetId, { session: m.params.sessionId, tab: m.sessionId }); });
+  chrome.cdp.listeners.push((m: any) => {
+    if (m.method === "Target.attachedToTarget" && m.params.targetInfo.type === "iframe") {
+      frames.set(m.params.targetInfo.targetId, { session: m.params.sessionId, tab: m.sessionId });
+      frameTab.set(m.params.sessionId, m.sessionId);
+      chrome.cdp.send("Runtime.enable", {}, m.params.sessionId).catch(() => {});
+    }
+    const tab = frameTab.get(m.sessionId);
+    if (!tab) return;
+    const at = new Date().toISOString().slice(11, 23);
+    if (m.method === "Runtime.exceptionThrown") frameEvents.push({ tab, text: `${at} exception ${String(m.params.exceptionDetails.exception?.description ?? m.params.exceptionDetails.text).slice(0, 200)}` });
+    if (m.method === "Runtime.consoleAPICalled") frameEvents.push({ tab, text: `${at} console.${m.params.type} ${m.params.args.map((a: any) => a.value ?? a.description).join(" ").slice(0, 200)}` });
+    if (frameEvents.length > 200) frameEvents.shift();
+  });
   await chrome.cdp.send("Browser.setDownloadBehavior", { behavior: "allow", downloadPath: DOWNLOADS });
   page = await session();
 }, 60_000);

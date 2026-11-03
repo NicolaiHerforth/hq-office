@@ -16,6 +16,12 @@ const WATCH = `(() => {
   for (const k of ["pointerdown", "pointerup", "mousedown", "mouseup", "click"]) document.addEventListener(k, (e) => add({ k, at: [Math.round(e.clientX), Math.round(e.clientY)], on: name(e.target), ...(e.pointerType ? { by: e.pointerType } : {}) }), true);
   for (const k of ["touchstart", "touchend"]) document.addEventListener(k, (e) => add({ k, on: name(e.target) }), true);
   for (const k of ["popstate", "hashchange"]) addEventListener(k, () => add({ k, hash: location.hash }), true);
+  // what the page itself went through: errors, messages, being shown and hidden, focus
+  addEventListener("error", (e) => add({ k: "error", text: String(e.message ?? e.target?.src ?? e.type).slice(0, 160) }), true);
+  addEventListener("unhandledrejection", (e) => add({ k: "unhandledrejection", text: String(e.reason?.message ?? e.reason).slice(0, 160) }));
+  addEventListener("message", (e) => add({ k: "message", from: e.origin, keys: e.data && typeof e.data === "object" ? Object.keys(e.data).slice(0, 6).join(",") : typeof e.data }), true);
+  for (const k of ["pageshow", "pagehide", "focus", "blur"]) addEventListener(k, () => add({ k }), true);
+  document.addEventListener("visibilitychange", () => add({ k: "visibilitychange", state: document.visibilityState }), true);
   const nav = window.navigation;
   if (nav) {
     nav.addEventListener("navigate", (e) => add({ k: "navigate", type: e.navigationType, to: new URL(e.destination.url).hash }));
@@ -37,11 +43,11 @@ export async function aimed(evaluate: Evaluate, what: string, x: number, y: numb
 }
 
 // The log, one line per event, times from its first line; empty when the page kept none (a new document).
-export async function clickLog(evaluate: Evaluate) {
+export async function clickLog(evaluate: Evaluate, title = "last clicks and navigations") {
   const log: Record<string, unknown>[] | null = await evaluate(`window.__walk ? window.__walk.slice(-40) : null`).catch(() => null);
   if (!log?.length) return "";
   const t0 = log[0].t as number;
-  return "\nlast clicks and navigations (ms):\n" + log.map(({ t, k, ...rest }) => `  +${(t as number) - t0} ${k} ${JSON.stringify(rest)}`).join("\n");
+  return `\n${title} (ms):\n` + log.map(({ t, k, ...rest }) => `  +${(t as number) - t0} ${k} ${JSON.stringify(rest)}`).join("\n");
 }
 
 // A person aims at what has stopped moving (a sheet still growing as its content comes, text a late font widens):

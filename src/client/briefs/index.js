@@ -2,8 +2,8 @@
 // lists the floor's briefs newest first, with the date, who posted it and its first lines; NEW marks one you have not
 // opened. Opening one (from the list, or the line MESSAGES gets, #brief/ID) takes the right column at full width, or
 // sits beside the room or a lane's drawer on a wide stage (split/, #room/SLUG+brief/ID), with the whole brief in
-// markdown (headings, tables, lists, code), BACK, NEWER and OLDER. BACK returns to the room under it. On a narrow
-// screen the brief fills the screen. It reads in the HUD's theme (the tokens of core/base.css). Inside a floor, that floor's briefs (docs/floors.md).
+// markdown (headings, tables, lists, code), BACK, NEWER and OLDER. BACK returns to the brief it was opened from (a card
+// or a link in another brief), else to the room under it. On a narrow screen the brief fills the screen. It reads in the HUD's theme (the tokens of core/base.css). Inside a floor, that floor's briefs (docs/floors.md).
 // A brief shows only inside its own floor or in the building: opened inside another floor (a MESSAGES line, a link, a
 // card), the page enters the brief's floor first, so NEWER and OLDER walk that floor; going to another floor closes it.
 import { $, toast } from "../core/dom.js";
@@ -79,7 +79,7 @@ function show(b) {
   const page = !b.loading && b.html;
   const meta = page ? `<span class="bvmeta">${floorChip(b.floor)}<span class="when">${esc(when(b.at))}</span><span class="by">by ${esc(b.by)}</span></span>` : `<span class="spacer"></span>`;
   setHTML(view, `<div class="bvbar"><button class="btn-s" type="button" data-brief-back>◀ BACK</button>${meta}`
-    + (b.loading ? "" : `<button class="btn-s" type="button" data-comments-toggle="briefs/${b.id}">COMMENTS</button>${SPLIT_BUTTON}<button class="btn-s wideonly" type="button" data-view-full>FULL SCREEN</button><a class="btn-s wideonly" href="./#brief/${b.id}" target="_blank" rel="noopener" title="This brief in a window of its own, beside a room or a lane">NEW WINDOW</a>`)
+    + (b.loading ? "" : `<button class="btn-s" type="button" data-comments-toggle="briefs/${b.id}">COMMENTS</button>${SPLIT_BUTTON}<button class="btn-s wideonly" type="button" data-view-full>${document.fullscreenElement === view ? "EXIT FULL SCREEN" : "FULL SCREEN"}</button><a class="btn-s wideonly" href="./#brief/${b.id}" target="_blank" rel="noopener" title="This brief in a window of its own, beside a room or a lane">NEW WINDOW</a>`)
     + `<a class="btn-s" data-brief-step="-1">NEWER</a><a class="btn-s" data-brief-step="1">OLDER</a></div>`
     + (b.loading ? `<div class="empty">LOADING…</div>`
       : page ? frameHTML(`/briefs/${b.id}.html`, b.title)
@@ -87,6 +87,8 @@ function show(b) {
       <header><div class="meta">${floorChip(b.floor)}<span class="when">${esc(when(b.at))}</span><span class="by">by ${esc(b.by)}</span></div><h1>${mdInline(b.title)}</h1></header>
       <div class="md">${md(b.body)}</div></article>`)
     + (b.loading ? "" : `<aside class="cmount" data-comments="briefs/${b.id}"></aside>`));
+  // What sits inside the brief, not its bar (NEWER, OLDER): a side opened from it adds a step (core/stage.js).
+  for (const el of view.querySelectorAll(".bbody, .pageframe, .cmount")) el.dataset.trail = "";
   steps();
   if (!b.loading) emit("comments:mount", view.querySelector(".cmount"));
   view.scrollTop = 0;

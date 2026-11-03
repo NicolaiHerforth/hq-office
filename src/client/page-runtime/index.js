@@ -131,7 +131,7 @@ async function handle(c, d) {
         emit("page:cards", { page: c.page, refs: d.refs, reply, view: c.cards });
         return;
       case "open":
-        emit("page:open", { page: c.page, ref: String(d.ref ?? "") });
+        emit("page:open", { page: c.page, ref: String(d.ref ?? ""), frame: c.frame });
         return;
       case "sampleAbort":
         c.aborts.get(d.re)?.abort();

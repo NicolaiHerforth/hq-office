@@ -23,6 +23,12 @@ const until = async (expr: string, ms = 10_000) => {
   throw new Error(`timed out waiting for ${expr}`);
 };
 const state = async () => (await fetch(`${server.base}/api/state`)).json();
+// A reload, and then the new document: location.reload() returns before the page goes, so a check made in between
+// can pass on the old one (which has everything the check looks for) and what follows reads a blank new one.
+const reload = async () => {
+  await page.evaluate(`window.__old = true; location.reload()`);
+  await until(`!window.__old`);
+};
 // In the page: a picture as a File (a gradient with a few shapes; a PNG unless asked otherwise), and a pick through
 // a box's file input, the way the phone's menu hands the files over.
 const HELPERS = `
@@ -219,7 +225,7 @@ describe.skipIf(!chromeFound)("attach", () => {
     await server.post("/api/asks", { lane: "golf", kind: "info", title: "Arrives while attaching" });
     await until(`document.getElementById("hud").textContent.includes("Arrives while attaching")`);
     expect(await chips(String(askId))).toEqual(["done"]);
-    await page.evaluate(`location.reload()`);
+    await reload();
     await until(`!!document.querySelector('${card} .chip.done img')`);
     await page.evaluate(HELPERS);
     await page.evaluate(`document.querySelector('${card} .opt[data-opt="No"]').click()`);
@@ -277,7 +283,7 @@ describe.skipIf(!chromeFound)("attach", () => {
   test("on a touch screen: a 44x44 photo button, 64px thumbnails, 32px badges and 16px fields", async () => {
     await page.s("Emulation.setDeviceMetricsOverride", { width: 390, height: 664, deviceScaleFactor: 3, mobile: true });
     await page.s("Emulation.setTouchEmulationEnabled", { enabled: true, maxTouchPoints: 5 });
-    await page.evaluate(`location.reload()`);
+    await reload();
     await until(`matchMedia("(pointer: coarse)").matches && !!document.querySelector(".ask label.attach")`);
     const sizes = await page.evaluate(`[...document.querySelectorAll("label.attach")].map((l) => { const r = l.getBoundingClientRect(); return [r.width, r.height, parseFloat(getComputedStyle(l.querySelector("input")).fontSize), parseFloat(getComputedStyle(l.closest(".reply").querySelector("textarea")).fontSize)]; })`);
     expect(sizes.length).toBeGreaterThanOrEqual(2);
