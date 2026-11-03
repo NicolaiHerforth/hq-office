@@ -3,7 +3,7 @@
 // tray (the file as a chip with its name and size, the image as a thumbnail), a pasted file joins them, × removes
 // one, sending puts [file: PATH] and [image: PATH] at the end of the text, and the sent message shows a thumbnail
 // and a link named after the file, both made by core/markdown.js. A drop anywhere else on the page does nothing and
-// never navigates; a refused kind, a file over 25 MB and an eleventh attachment say why in the tray; a draft keeps
+// never navigates; any type uploads, and a file over 25 MB and an eleventh attachment say why in the tray; a draft keeps
 // its files through a reload; the attach button takes files too. Needs Chrome; skipped without it.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { existsSync } from "node:fs";
@@ -232,19 +232,13 @@ describe.skipIf(!chromeFound)("files on every send box", () => {
     expect(await page.evaluate(`document.querySelectorAll(".chips .chip").length`)).toBe(0);
   });
 
-  test("refused kinds, a file over 25 MB and an eleventh attachment say why in one line each, and upload nothing", async () => {
+  test("any type uploads; a file over 25 MB and an eleventh attachment say why in one line each, and upload nothing", async () => {
     await page.evaluate(`__drop(".box.tell .head", [["page.html", "text/html"], ["logo.svg", "image/svg+xml"], ["tool.exe", "application/x-msdownload"], ["fake.pdf", "text/html"], ["big.mp4", "video/mp4", 25 * 1024 * 1024 + 1]])`);
-    await until(`__tray("note").length === 5 && __tray("note").every((c) => c.state === "err")`);
+    await until(`__tray("note").length === 5 && __tray("note").filter((c) => c.state === "done").length === 4 && __tray("note")[4].state === "err"`);
+    expect((await tray("note")).map((c: any) => [c.name, c.state])).toEqual([["page.html", "done"], ["logo.svg", "done"], ["tool.exe", "done"], ["fake.pdf", "done"], ["big.mp4", "err"]]);
     const why = await page.evaluate(`[...document.querySelectorAll('[data-chips="note"] .why')].map((w) => [w.textContent, Math.round(w.getBoundingClientRect().height / parseFloat(getComputedStyle(w).lineHeight))])`);
-    expect(why.map((w: any) => w[0])).toEqual([
-      "page.html: .html files cannot be attached.",
-      "logo.svg: .svg files cannot be attached.",
-      "tool.exe: .exe files cannot be attached.",
-      "fake.pdf: its type (text/html) does not match .pdf.",
-      "big.mp4 is 25.0 MB; the limit is 25 MB.",
-    ]);
-    expect(why.every((w: any) => w[1] === 1)).toBe(true);
-    expect(await page.evaluate(`[...document.querySelectorAll('[data-chips="note"] .chip')].every((c) => c.querySelector(".fname") && !c.querySelector("[data-chip-retry]"))`)).toBe(true);
+    expect(why).toEqual([["big.mp4 is 25.0 MB; the limit is 25 MB.", 1]]);
+    expect(await page.evaluate(`!!document.querySelector('[data-chips="note"] .chip.err .fname') && !document.querySelector('[data-chips="note"] .chip.err [data-chip-retry]')`)).toBe(true);
     for (let i = 0; i < 5; i++) await page.evaluate(`document.querySelector('[data-chips="note"] [data-chip-rm]').click()`);
     // Ten at most per message: the eleventh is refused, the ten upload.
     const eleven = Array.from({ length: 11 }, (_, i) => [`part-${i + 1}.txt`, "text/plain", 10]);
@@ -267,13 +261,10 @@ describe.skipIf(!chromeFound)("files on every send box", () => {
     expect((await state()).notes[0].text).toMatch(/^\[file: \/\S+\/uploads\/kept\.csv\]$/);
   }, 30_000);
 
-  test("the attach button takes images and the allowed files, several at once; a picked file joins the tray", async () => {
-    const accept = await page.evaluate(`[...document.querySelectorAll("input[data-attach]")].map((i) => [i.accept, i.multiple])`);
-    for (const [a, m] of accept) {
-      expect(a.split(",")).toEqual(expect.arrayContaining(["image/*", ".pdf", ".zip", ".docx", ".mp4", ".m4a", ".md"]));
-      expect(a).not.toMatch(/html|svg|\.js(,|$)|\.sh(,|$)|\.exe|\.app|\.dmg|\.pkg/);
-      expect(m).toBe(true);
-    }
+  test("the attach button takes any file, several at once; a picked file joins the tray", async () => {
+    const accept = await page.evaluate(`[...document.querySelectorAll("input[data-attach]")].map((i) => [i.hasAttribute("accept"), i.multiple])`);
+    expect(accept.length).toBeGreaterThan(0);
+    for (const am of accept) expect(am).toEqual([false, true]);
     await page.evaluate(`(() => { const i = document.querySelector('input[data-attach="note"]'); i.files = __dt([["picked.docx", ""]]).files; i.dispatchEvent(new Event("change", { bubbles: true })); })()`);
     await allDone("note", 1);
     expect((await tray("note"))[0]).toMatchObject({ kind: "file", name: "picked.docx" });

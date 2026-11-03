@@ -1,7 +1,7 @@
 // Images on the send boxes, in Chrome against a temporary server: every send box is one composer (the tray, the text
 // field, then the photo button and SEND) and stays compact on a desktop; a picked image is re-encoded before upload (a
 // big PNG comes out at most 2048 px, as JPEG where the browser has no WebP encoder, an image the server does not take
-// but the browser can read is converted); thumbnails show in the tray, are removed by their corner badge, open in a
+// but the browser can read is converted, one it cannot read goes as a file); thumbnails show in the tray, are removed by their corner badge, open in a
 // preview, and show a failed upload with a red ring and a retry; a file that is refused says why in one line; the
 // field grows with its text up to five lines; the text box stays clean and the tokens are appended on send; the draft
 // keeps its images through a re-render and a reload; on a touch screen the targets are big enough. Needs Chrome;
@@ -79,14 +79,14 @@ describe.skipIf(!chromeFound)("attach", () => {
     expect(boxes.filter((b: any) => /^\d+$/.test(b.key))).toHaveLength(2);
     for (const b of boxes) {
       expect(b.parts).toEqual(["chips", "field", "acts"]);
-      expect(b.input).toEqual({ key: b.key, accept: expect.stringMatching(/^image\/\*,\.pdf,/), multiple: true, beforeSend: true });
+      expect(b.input).toEqual({ key: b.key, accept: "", multiple: true, beforeSend: true });
       // 0.8.0's row was 42 to 61 px; the composer stays under 64 at 1440x900 (the empty tray takes no space).
       expect(b.height).toBeLessThanOrEqual(64);
     }
     await page.evaluate(`document.querySelector('[data-qtab="messages"]').click()`);
     await until(`!!document.querySelector("#msgs [data-reply]")`);
     await page.evaluate(`document.querySelector("#msgs [data-reply]").click()`);
-    await until(`!!document.querySelector('[data-rbox] .reply[data-composer="reply"] label.attach input[data-attach="reply"][accept^="image/*,"][multiple]')`);
+    await until(`!!document.querySelector('[data-rbox] .reply[data-composer="reply"] label.attach input[data-attach="reply"]:not([accept])[multiple]')`);
     expect((await page.evaluate(COMPOSERS)).find((b: any) => b.key === "reply").parts).toEqual(["chips", "field", "acts"]);
     await page.evaluate(`document.querySelector("#msgs [data-reply]").click(); document.querySelector('[data-qtab="questions"]').click()`);
   });
@@ -129,7 +129,7 @@ describe.skipIf(!chromeFound)("attach", () => {
     expect(r.safari.size).toBeLessThan(r.inSize);
   });
 
-  test("an image the server does not take is converted when the browser can read it; one it cannot read says why", async () => {
+  test("an image the server does not take is converted when the browser can read it; one it cannot read goes as a file", async () => {
     const r = await page.evaluate(`(async () => {
       const { prepare } = await __images();
       // An iPhone photo the browser can decode (here PNG bytes labelled HEIC), and a BMP.
@@ -138,7 +138,7 @@ describe.skipIf(!chromeFound)("attach", () => {
       const out = [];
       for (const f of [heic, bmp]) { const p = await prepare(f); out.push({ type: p.type, name: p.name.replace(/\\.(jpg|webp)$/, ".X"), dims: await __size(p) }); }
       const why = async (f) => { try { await prepare(f); return "accepted"; } catch (e) { return [e.label, e.message]; } };
-      out.push(await why(new File([new Uint8Array(64)], "IMG_0002.HEIC", { type: "" })));
+      out.push(await prepare(new File([new Uint8Array(64)], "IMG_0002.HEIC", { type: "" })));
       out.push(await why(new File(["hello"], "notes.txt", { type: "text/plain" })));
       out.push(await why(new File([new Uint8Array(10.5 * 1024 * 1024)], "huge.gif", { type: "image/gif" })));
       // a small accepted image goes as it is
@@ -149,8 +149,7 @@ describe.skipIf(!chromeFound)("attach", () => {
     expect(["image/jpeg", "image/webp"]).toContain(r[0].type);
     expect(r[0]).toMatchObject({ name: "IMG_0001.X", dims: [800, 600] });
     expect(r[1].name).toBe("old.X");
-    expect(r[2][0]).toBe("CAN'T READ HEIC");
-    expect(r[2][1]).toContain("cannot read HEIC");
+    expect(r[2]).toBe(null);
     expect(r[3][0]).toBe("NOT AN IMAGE");
     expect(r[4][0]).toBe("OVER 10 MB");
     expect(r[5]).toBe(true);
@@ -277,6 +276,15 @@ describe.skipIf(!chromeFound)("attach", () => {
       return { label: c.querySelector(".noimg").textContent, retry: !!c.querySelector("[data-chip-retry]"), open: !!c.querySelector("[data-chip-open]"), why: w.textContent, lines: Math.round(w.getBoundingClientRect().height / parseFloat(getComputedStyle(w).lineHeight)), ring: getComputedStyle(c.querySelector(".cimg")).boxShadow }; })()`);
     expect(r).toEqual({ label: "OVER 10 MB", retry: false, open: false, why: "huge.gif is 10.5 MB; the limit is 10 MB.", lines: 1, ring: expect.stringContaining("rgb(214, 60, 60)") });
     await page.evaluate(`document.querySelector('[data-chips="note"] .chip.err [data-chip-rm]').click()`);
+    expect(await page.evaluate(`document.querySelector('[data-chips="note"]').innerHTML`)).toBe("");
+  });
+
+  test("an image the browser cannot read joins the tray as a file chip, uploads, and goes as a file token", async () => {
+    await page.evaluate(`__pick('[data-attach="note"]', [new File([new Uint8Array(64)], "IMG_0003.HEIC", { type: "image/heic" })])`);
+    await until(`!!document.querySelector('[data-chips="note"] .chip.file.done')`);
+    const r = await page.evaluate(`(async () => { const { withImages } = await __images(); return [document.querySelector('[data-chips="note"] .chip .fname').textContent, document.querySelectorAll('[data-chips="note"] .chip').length, withImages("note", "")]; })()`);
+    expect(r).toEqual(["IMG_0003.HEIC", 1, expect.stringMatching(/^\[file: \/\S+\/uploads\/IMG_0003\.HEIC\]$/)]);
+    await page.evaluate(`document.querySelector('[data-chips="note"] [data-chip-rm]').click()`);
     expect(await page.evaluate(`document.querySelector('[data-chips="note"]').innerHTML`)).toBe("");
   });
 

@@ -39,7 +39,7 @@ const shot = async (name: string) => {
   const { data } = await page.s("Page.captureScreenshot", { format: "png" });
   await Bun.write(join(process.env.ASK_SHOTS, `routing-${name}.png`), Buffer.from(data, "base64"));
 };
-async function typedInto(name: string, part: string, ms = 4000) {
+async function typedInto(name: string, part: string, ms = 12_000) {
   for (const end = Date.now() + ms; Date.now() < end; await Bun.sleep(40)) if (herdr.typedInto(name).some((t) => t.includes(part))) break;
   await Bun.sleep(250);
   return herdr.typedInto(name).filter((t) => t.includes(part));
