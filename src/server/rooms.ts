@@ -167,7 +167,7 @@ export async function addFile(slugRaw: unknown, req: Request, url: URL) {
   if (!bytes.byteLength) throw new Error("the file is empty");
   if (bytes.byteLength > MAX_ROOM_FILE) throw new Error("the file is over 25 MB");
   const given = str(url.searchParams.get("name")) || "file";
-  // Attached to a message in the send box (?attach=1): only the kinds and sizes any attachment may have.
+  // Attached to a message in the send box (?attach=1): only the sizes any attachment may have.
   const why = url.searchParams.get("attach") ? refusal(safeName(given), bytes.byteLength) : "";
   if (why) throw new Error(why);
   const kind = str(url.searchParams.get("kind")) ? kindOf("", url.searchParams.get("kind")) : undefined;

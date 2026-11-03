@@ -3,6 +3,17 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.38.0] - 2026-11-03
+### Changed
+
+- **Attach any file.** Every send box (Tell HQ, an answer, a reply, a room's send box, a comment) now takes a file of
+  any type, with or without an extension, as a room's shelf already did: a .key, a .sketch, a .exe, an .svg, a
+  `Makefile`. An image the browser cannot read (a PSD, a HEIC in a browser without HEIC) goes as a file instead of
+  being refused. The limits on size stay as they were: 25 MB a file, 10 MB an image, 10 attachments a message.
+- Nothing you attach runs on the HUD's address. Images and video still show in the browser; everything else,
+  HTML, SVG and programs included, downloads. In a room, as before, a text file or a script shows as plain text and
+  an HTML file opens as a sandboxed page.
+
 ## [0.37.0] - 2026-11-03
 ### Changed
 

@@ -1,25 +1,23 @@
-// What the owner may attach to a message (an image or a file), how its name is kept, and how a stored file is served.
+// What the owner may attach to a message (an image or a file of any type), how its name is kept, and how a stored
+// file is served.
 // Used by /api/uploads (routes/uploads.ts) and by a room's send box (rooms.ts, ?attach=1). Files stay on this machine.
 import { closeSync, lstatSync, openSync, writeSync } from "node:fs";
 import { join } from "node:path";
 
 export const MAX_IMAGE = 10 * 1024 * 1024;
 export const MAX_FILE = 25 * 1024 * 1024;
-// Raster images the browser has already re-encoded; they show inline.
-export const IMAGE_EXTS = new Set(["png", "jpg", "jpeg", "gif", "webp"]);
-// Other files the owner may attach. Anything else (html, svg, js, sh, exe, dmg, pkg, app...) is refused.
-export const FILE_EXTS = new Set(["pdf", "txt", "md", "csv", "tsv", "json", "log", "yaml", "yml", "xml", "zip", "gz", "tar", "docx", "xlsx", "pptx", "mp4", "mov", "webm", "mp3", "wav", "m4a"]);
+// Raster images the browser has already re-encoded; they show inline. Any other file is taken too: what keeps it from
+// running is how it is served (fileResponse), never its type.
+export const IMAGE_EXTS = new Set(["png", "jpg", "jpeg", "gif", "webp", "avif"]);
 const VIDEO_TYPE: Record<string, string> = { mp4: "video/mp4", mov: "video/quicktime", webm: "video/webm" };
 const IMAGE_TYPE: Record<string, string> = { png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", gif: "image/gif", webp: "image/webp", avif: "image/avif" };
 const TEXT = /\.(txt|md|markdown|log|csv|tsv|json|jsonl|ya?ml|toml|ini|env\.example|diff|patch|sql|sh|ts|tsx|js|jsx|mjs|py|rb|go|rs|java|kt|swift|c|h|cpp|css)$/i;
 
 export const extOf = (name: string) => (name.match(/\.([A-Za-z0-9]{1,8})$/)?.[1] ?? "").toLowerCase();
 
-// Why NAME (BYTES long) may not be attached, or "" when it may.
+// Why NAME (BYTES long) may not be attached, or "" when it may: only its size.
 export function refusal(name: string, bytes: number) {
-  const ext = extOf(name);
-  if (IMAGE_EXTS.has(ext)) return bytes > MAX_IMAGE ? "the image is over 10 MB" : "";
-  if (!FILE_EXTS.has(ext)) return `${ext ? `.${ext}` : "a file without an extension"} is not a type HQ takes`;
+  if (IMAGE_EXTS.has(extOf(name))) return bytes > MAX_IMAGE ? "the image is over 10 MB" : "";
   return bytes > MAX_FILE ? "the file is over 25 MB" : "";
 }
 

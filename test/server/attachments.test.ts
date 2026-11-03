@@ -1,8 +1,9 @@
-// Attachments on the server, against a server on a spare port with a throwaway data dir and a stub herdr: each
-// allowed kind lands in uploads/ under its own name (name-2.ext when taken) and is served sandboxed, never sniffed,
-// inline only for images and video; a refused kind and a file over 25 MB get a 4xx; a room's send box (?attach=1)
-// puts files in the room's files/ and on its shelf under the same rules; and the tokens reach hud inbox and hud room
-// read with the file's full path on this machine.
+// Attachments on the server, against a server on a spare port with a throwaway data dir and a stub herdr: a file of
+// any type, with or without an extension, lands in uploads/ under its own name (name-2.ext when taken) and is served
+// sandboxed, never sniffed, inline only for images and video, so HTML, SVG, a script or a program is a download that
+// never runs on the HUD's address; a file over 25 MB and an image over 10 MB get a 413; a room's send box (?attach=1)
+// puts files in the room's files/ and on its shelf under the same sizes, where text shows as plain text and an HTML
+// file is a sandboxed page; and the tokens reach hud inbox and hud room read with the file's full path on this machine.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -44,29 +45,47 @@ async function hud(args: string[]) {
   return { out: out.trim(), code };
 }
 const PNG = Uint8Array.from(atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="), (c) => c.charCodeAt(0));
-const ALLOWED = ["pdf", "txt", "md", "csv", "tsv", "json", "log", "yaml", "yml", "xml", "zip", "gz", "tar", "docx", "xlsx", "pptx", "mp4", "mov", "webm", "mp3", "wav", "m4a"];
+// Every kind of file, the ones HQ took before 0.37 and the ones it refused, with and without an extension.
+const ANY = ["pdf", "txt", "md", "csv", "json", "zip", "docx", "mp4", "mov", "webm", "mp3", "html", "htm", "svg", "js", "mjs", "sh", "py", "exe", "dmg", "pkg", "app", "key", "sketch", "psd", "heic", "parquet", "wasm", "jar", "bat", "ps1", ""];
 const INLINE: Record<string, string> = { mp4: "video/mp4", mov: "video/quicktime", webm: "video/webm" };
+const named = (ext: string) => (ext ? `Report Q3.${ext}` : "Report Q3");
+const SCRIPT = "<html><body><script>alert(1)</script><svg onload=alert(2)></svg></body></html>";
+// How a stored file is answered: always sandboxed with no scripts and never sniffed, and either inline as TYPE or a
+// download of NAME.
+async function served(url: string) {
+  const res = await fetch(`${BASE}${url}`);
+  return { status: res.status, type: res.headers.get("content-type"), disposition: res.headers.get("content-disposition"), csp: res.headers.get("content-security-policy"), nosniff: res.headers.get("x-content-type-options"), body: await res.text() };
+}
+const download = (name: string, body: string) => ({ status: 200, type: "application/octet-stream", disposition: `attachment; filename*=UTF-8''${encodeURIComponent(name)}`, csp: expect.stringMatching(/^sandbox; default-src 'none'/), nosniff: "nosniff", body });
 
 describe("uploads", () => {
-  test("each allowed kind lands under its own name and is served sandboxed: inline for video, a download otherwise", async () => {
-    for (const ext of ALLOWED) {
-      const out = await send("/api/uploads", `Report Q3.${ext}`, `bytes of ${ext}`);
-      expect(out).toMatchObject({ status: 200, name: `Report Q3.${ext}`, kind: "file", path: join(DATA, "uploads", `Report Q3.${ext}`), url: `/uploads/${encodeURIComponent(`Report Q3.${ext}`)}` });
-      expect(readFileSync(out.path, "utf8")).toBe(`bytes of ${ext}`);
-      const res = await fetch(`${BASE}${out.url}`);
-      expect(res.status).toBe(200);
-      expect(await res.text()).toBe(`bytes of ${ext}`);
-      expect(res.headers.get("x-content-type-options")).toBe("nosniff");
-      expect(res.headers.get("content-security-policy")).toStartWith("sandbox");
-      const disp = res.headers.get("content-disposition")!;
-      if (INLINE[ext]) {
-        expect(res.headers.get("content-type")).toBe(INLINE[ext]);
-        expect(disp).toStartWith("inline;");
-      } else {
-        expect(res.headers.get("content-type")).toBe("application/octet-stream");
-        expect(disp).toBe(`attachment; filename*=UTF-8''${encodeURIComponent(`Report Q3.${ext}`)}`);
-      }
+  test("a file of any type, with or without an extension, lands under its own name; only images and video show inline", async () => {
+    for (const ext of ANY) {
+      const name = named(ext);
+      const out = await send("/api/uploads", name, `bytes of ${ext || "none"}`);
+      expect(out).toMatchObject({ status: 200, name, kind: "file", path: join(DATA, "uploads", name), url: `/uploads/${encodeURIComponent(name)}` });
+      expect(readFileSync(out.path, "utf8")).toBe(`bytes of ${ext || "none"}`);
+      const res = await served(out.url);
+      if (INLINE[ext]) expect(res).toMatchObject({ status: 200, type: INLINE[ext], disposition: expect.stringMatching(/^inline;/), nosniff: "nosniff" });
+      else expect([ext, res]).toEqual([ext, download(name, `bytes of ${ext || "none"}`)]);
     }
+  });
+
+  test("HTML, SVG, a script and a program are downloads that never run or render on the HUD's address, whatever type they were sent as", async () => {
+    for (const [name, type] of [["page.html", "text/html"], ["logo.svg", "image/svg+xml"], ["app.js", "text/javascript"], ["setup.exe", "application/x-msdownload"]]) {
+      const out = await send("/api/uploads", name, SCRIPT, type);
+      expect(out).toMatchObject({ status: 200, name, kind: "file" });
+      expect([name, await served(out.url)]).toEqual([name, download(name, SCRIPT)]);
+    }
+  });
+
+  test("a file with no extension keeps its name, a nameless one is called file, and a taken name gets -2", async () => {
+    const a = await send("/api/uploads", "Makefile", "all:");
+    const b = await send("/api/uploads", "Makefile", "all: again");
+    const c = await send("/api/uploads", "", "x");
+    const d = await send("/api/uploads", "...", "y");
+    expect([a.name, b.name, c.name, d.name]).toEqual(["Makefile", "Makefile-2", "file", "file-2"]);
+    expect(await served(b.url)).toEqual(download("Makefile-2", "all: again"));
   });
 
   test("an image keeps its name with its type's extension and shows inline; a taken name gets -2, -3", async () => {
@@ -85,18 +104,6 @@ describe("uploads", () => {
     expect(readFileSync(e.path, "utf8")).toBe("two");
   });
 
-  test("a refused kind gets a 4xx and nothing is written", async () => {
-    for (const name of ["page.html", "page.htm", "logo.svg", "app.js", "run.sh", "setup.exe", "disk.dmg", "install.pkg", "Thing.app", "noext"]) {
-      const out = await send("/api/uploads", name, "<script>alert(1)</script>");
-      expect(out.status).toBeGreaterThanOrEqual(400);
-      expect(out.status).toBeLessThan(500);
-      expect(out.error).toContain("not a type HQ takes");
-      expect(existsSync(join(DATA, "uploads", name))).toBe(false);
-    }
-    // An SVG sent with an image's content type is still not an image the server keeps.
-    expect((await send("/api/uploads", "logo.svg", "<svg/>", "image/svg+xml")).status).toBe(415);
-  });
-
   test("a file over 25 MB, or an image over 10 MB, is refused", async () => {
     const big = await send("/api/uploads", "huge.zip", new Uint8Array(25 * 1024 * 1024 + 1));
     expect(big.status).toBe(413);
@@ -106,6 +113,13 @@ describe("uploads", () => {
     expect(ok).toMatchObject({ status: 200, name: "edge.zip" });
     const img = await send("/api/uploads", "huge.png", new Uint8Array(10 * 1024 * 1024 + 1), "image/png");
     expect(img.status).toBe(413);
+    // Any type, the same 25 MB: a program, a file with no extension, and an SVG (a file, not an image).
+    for (const name of ["huge.exe", "HUGE", "huge.svg"]) {
+      const out = await send("/api/uploads", name, new Uint8Array(25 * 1024 * 1024 + 1));
+      expect([name, out.status, out.error]).toEqual([name, 413, "the file is over 25 MB"]);
+      expect(existsSync(join(DATA, "uploads", name))).toBe(false);
+    }
+    expect(await send("/api/uploads", "big.svg", new Uint8Array(10 * 1024 * 1024 + 1), "image/svg+xml")).toMatchObject({ status: 200, name: "big.svg", kind: "file" });
   });
 
   test("a name that tries to leave uploads/ is kept inside it, and a path out is not served", async () => {
@@ -126,7 +140,7 @@ describe("uploads", () => {
 });
 
 describe("a room's send box", () => {
-  test("attached files land in the room's files/ and on its shelf; refused kinds and sizes get a 4xx", async () => {
+  test("attached files land in the room's files/ and on its shelf; a file over its size gets a 4xx", async () => {
     await post("/api/rooms", { slug: "deck", title: "Deck", owner: "pm" });
     const url = "/api/rooms/deck/files?as=owner&attach=1";
     const pdf = await send(url, "plan.pdf", "%PDF");
@@ -143,13 +157,31 @@ describe("a room's send box", () => {
     expect(res.headers.get("content-security-policy")).toStartWith("sandbox");
     const mp4 = await send(url, "clip.mp4", "video");
     expect((await fetch(`${BASE}${mp4.url}`)).headers.get("content-type")).toBe("video/mp4");
-    const html = await send(url, "page.html", "<script>1</script>");
-    expect(html.status).toBe(400);
-    expect(html.error).toContain("not a type HQ takes");
-    expect(existsSync(join(DATA, "rooms", "deck", "files", "page.html"))).toBe(false);
     expect((await send(url, "huge.zip", new Uint8Array(25 * 1024 * 1024 + 1))).status).toBe(400);
+    expect((await send(url, "huge.exe", new Uint8Array(25 * 1024 * 1024 + 1))).status).toBe(400);
+    expect((await send(url, "huge.png", new Uint8Array(10 * 1024 * 1024 + 1), "image/png")).status).toBe(400);
     // The shelf's own ADD and a lane's hud room artifact are not attachments: they still take any file.
     expect((await send("/api/rooms/deck/files?as=owner", "notes.ts", "x")).status).toBe(200);
+  });
+
+  test("any type goes on the shelf; a script shows as plain text, an HTML file is a sandboxed page, the rest download", async () => {
+    const url = "/api/rooms/deck/files?as=owner&attach=1";
+    const sent = async (name: string, type?: string) => {
+      const out = await send(url, name, SCRIPT, type);
+      expect(out).toMatchObject({ status: 200, name, path: join(DATA, "rooms", "deck", "files", name), url: `/rooms/deck/files/${encodeURIComponent(name)}` });
+      return served(out.url);
+    };
+    for (const [name, type] of [["logo.svg", "image/svg+xml"], ["setup.exe", "application/x-msdownload"], ["Deck.key", "application/x-iwork-keynote-sffkey"], ["Makefile", ""]]) {
+      expect([name, await sent(name, type)]).toEqual([name, download(name, SCRIPT)]);
+    }
+    expect(await sent("app.js", "text/javascript")).toMatchObject({ status: 200, type: "text/plain; charset=utf-8", disposition: expect.stringMatching(/^inline;/), csp: expect.stringMatching(/^sandbox; default-src 'none'/), nosniff: "nosniff", body: SCRIPT });
+    // A page: its scripts run only inside a sandbox without allow-same-origin, so never as the HUD.
+    const page = await sent("page.html", "text/html");
+    expect(page).toMatchObject({ status: 200, type: "text/html; charset=utf-8", nosniff: "nosniff" });
+    expect(page.csp).toStartWith("sandbox allow-scripts ");
+    expect(page.csp!.split(";")[0]).not.toContain("allow-same-origin");
+    const shelf = JSON.parse(readFileSync(join(DATA, "rooms", "deck", "shelf.json"), "utf8")).map((a: any) => a.file);
+    expect(shelf).toEqual(expect.arrayContaining(["logo.svg", "setup.exe", "Deck.key", "Makefile", "app.js", "page.html"]));
   });
 
   test("a message's tokens reach hud room read with the full path", async () => {

@@ -18,26 +18,11 @@ const typeOf = (file) => file.type || EXT_TYPE[(file.name || "").split(".").pop(
 const stemOf = (name) => (name || "image").replace(/\.[^.]*$/, "") || "image";
 const mb = (n) => `${(n / 1024 / 1024).toFixed(1)} MB`;
 export const sizeText = (n) => (n < 1024 ? `${n} B` : n < 1024 * 1024 ? `${(n / 1024).toFixed(1)} KB` : mb(n));
-const extOf = (name) => ((name || "").match(/\.([A-Za-z0-9]{1,8})$/)?.[1] ?? "").toLowerCase();
 const isImage = (file) => { const t = typeOf(file); return t.startsWith("image/") && !t.includes("svg"); };
 
-// Files besides images: these kinds only, 25 MB each, 10 attachments per message. The browser's MIME type, when it
-// gives one, must fit the extension (the server checks the extension again). Text kinds take any text/ type a
-// browser may give them, never HTML or a script.
+// Files besides images: any type, 25 MB each, 10 attachments per message. What keeps one from running is how the
+// HUD serves it (a download), never its type.
 const MAX_FILE = 25 * 1024 * 1024, MAX_COUNT = 10;
-const TEXTISH = /^text\/(?!html|javascript|ecmascript|xml)[\w.+-]+$/;
-const MIME = {
-  pdf: /^application\/pdf$/, txt: TEXTISH, md: TEXTISH, csv: /^(text\/(?!html|javascript)[\w.+-]+|application\/(csv|vnd\.ms-excel))$/, tsv: TEXTISH, log: TEXTISH,
-  json: /^(application\/json|text\/(plain|json))$/, yaml: /^(application\/(x-)?yaml|text\/(plain|(x-)?yaml))$/, yml: /^(application\/(x-)?yaml|text\/(plain|(x-)?yaml))$/,
-  xml: /^(application|text)\/xml$/, zip: /^application\/(zip|x-zip|x-zip-compressed)$/, gz: /^application\/(gzip|x-gzip)$/, tar: /^application\/(x-)?tar$/,
-  docx: /^application\/vnd\.openxmlformats-officedocument\.wordprocessingml\.document$/,
-  xlsx: /^application\/vnd\.openxmlformats-officedocument\.spreadsheetml\.sheet$/,
-  pptx: /^application\/vnd\.openxmlformats-officedocument\.presentationml\.presentation$/,
-  mp4: /^(video|audio)\/mp4$/, mov: /^video\/quicktime$/, webm: /^(video|audio)\/webm$/, mp3: /^audio\/(mpeg|mp3)$/, wav: /^audio\/(wav|x-wav|wave|vnd\.wave)$/, m4a: /^audio\/(mp4|x-m4a|m4a)$/,
-};
-export const FILE_EXTS = Object.keys(MIME);
-// What the attach button offers: images, and the files above by extension (a phone offers photos and files).
-export const ACCEPT = ["image/*", ...FILE_EXTS.map((e) => `.${e}`)].join(",");
 
 class Refused extends Error { constructor(label, message) { super(message); this.label = label; } }
 
@@ -50,6 +35,7 @@ const encode = (canvas, type) => new Promise((res) => canvas.toBlob(res, type, Q
 
 // What is uploaded: a GIF, or an accepted image already small, as it is; anything else the browser can read
 // (an iPhone's HEIC, a big PNG) scaled to at most 2048 px on its longest side, as JPEG, or WebP where that is smaller.
+// null when the browser cannot read it: it goes as a file instead.
 export async function prepare(file) {
   const type = typeOf(file), name = file.name || "image";
   if (!type.startsWith("image/")) throw new Refused("NOT AN IMAGE", `${name} is not an image.`);
@@ -59,9 +45,7 @@ export async function prepare(file) {
   }
   let pic;
   try { pic = await decode(file); } catch {
-    if (ACCEPTED.has(type) && file.size <= MAX) return file;
-    const ext = type.split("/")[1].toUpperCase();
-    throw new Refused(`CAN'T READ ${ext}`, `${name}: this browser cannot read ${ext} images.`);
+    return ACCEPTED.has(type) && file.size <= MAX ? file : null;
   }
   const w = pic.width, h = pic.height;
   if (ACCEPTED.has(type) && file.size <= KEEP && Math.max(w, h) <= SIDE) { pic.close?.(); return file; }
@@ -87,13 +71,9 @@ export async function prepare(file) {
   return new File([best], `${stemOf(name)}.${best.type === "image/webp" ? "webp" : "jpg"}`, { type: best.type });
 }
 
-// Why a file that is not an image may not be attached, or null when it may.
+// Why a file that is not an image may not be attached (its size), or null when it may.
 export function refuseFile(file) {
-  const name = file.name || "file", ext = extOf(name), type = (file.type || "").toLowerCase();
-  if (!MIME[ext]) return new Refused("NOT ALLOWED", ext ? `${name}: .${ext} files cannot be attached.` : `${name}: files without an extension cannot be attached.`);
-  if (type && type !== "application/octet-stream" && !MIME[ext].test(type)) return new Refused("WRONG TYPE", `${name}: its type (${type}) does not match .${ext}.`);
-  if (file.size > MAX_FILE) return new Refused("OVER 25 MB", `${name} is ${mb(file.size)}; the limit is 25 MB.`);
-  return null;
+  return file.size > MAX_FILE ? new Refused("OVER 25 MB", `${file.name || "file"} is ${mb(file.size)}; the limit is 25 MB.`) : null;
 }
 
 // Pixel icons, drawn on a grid and scaled by whole pixels.
@@ -132,7 +112,7 @@ export function chipsHTML(key) {
 }
 const chipsBox = (key) => `<div class="chips" data-chips="${esc(key)}">${chipsHTML(key)}</div>`;
 // A label around the file input: a tap opens the phone's own menu (photo library, camera, files) with no script.
-export const attachButton = (key) => `<label class="attach" title="Attach images or files"><input type="file" accept="${ACCEPT}" multiple data-attach="${esc(key)}" aria-label="Attach images or files">${PHOTO}</label>`;
+export const attachButton = (key) => `<label class="attach" title="Attach images or files"><input type="file" multiple data-attach="${esc(key)}" aria-label="Attach images or files">${PHOTO}</label>`;
 // A send box: the tray (when something is attached), the text field, then the attach button and the box's own button.
 export const composer = (key, field, send) => `<div class="reply" data-composer="${esc(key)}">${chipsBox(key)}${field}<div class="acts">${attachButton(key)}${send}</div></div>`;
 
@@ -192,7 +172,12 @@ export async function addFiles(files, key) {
     else {
       try {
         a.blob = await prepare(file);
-        a.preview = URL.createObjectURL(a.blob);
+        if (a.blob) a.preview = URL.createObjectURL(a.blob);
+        else {
+          const no = refuseFile(file);
+          if (no) throw no;
+          Object.assign(a, { kind: "file", blob: file });
+        }
       } catch (err) {
         Object.assign(a, { state: "err", label: err.label || "CAN'T READ", error: err.message });
         if (listOf(key).includes(a)) changed(key);
