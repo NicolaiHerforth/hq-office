@@ -9,6 +9,7 @@
 // own temporary server, port and data folder, with a fake herdr, and is stopped afterwards. Time, randomness and
 // animation frames are frozen in the page; Google Fonts are blocked so both trees draw with the same fonts.
 import { mkdtempSync, rmSync, writeFileSync, chmodSync, readFileSync, existsSync, readdirSync } from "node:fs";
+import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
@@ -173,21 +174,44 @@ export class Cdp {
   }
 }
 
+// Each Chrome runs in a process group of its own, with its helpers: close() ends the group, and so does this process
+// ending without close() (a test file that dies before afterAll, a runner stopped by a signal), or the Chrome outlives it.
+const chromes = new Set<number>();
+const endGroup = (pid: number, signal: NodeJS.Signals) => { try { process.kill(-pid, signal); } catch {} };
+let watching = false;
+function watchExit() {
+  if (watching) return;
+  watching = true;
+  process.on("exit", () => { for (const pid of chromes) endGroup(pid, "SIGKILL"); });
+  for (const [signal, code] of [["SIGINT", 130], ["SIGTERM", 143], ["SIGHUP", 129]] as const) process.once(signal, () => process.exit(code));
+}
+
 export async function startChrome() {
   const bin = findChrome();
   if (!bin) throw new Error("no Chrome found; set CHROME_BIN");
+  watchExit();
   const profile = mkdtempSync(join(tmpdir(), "hq-office-chrome-"));
-  const proc = Bun.spawn([bin, "--headless=new", "--remote-debugging-port=0", `--user-data-dir=${profile}`, "--no-first-run", "--no-default-browser-check", "--mute-audio", "--hide-scrollbars", "--force-device-scale-factor=1", "--disable-background-timer-throttling", "--disable-renderer-backgrounding", "about:blank"], { stdout: "ignore", stderr: "ignore" });
+  const proc = spawn(bin, ["--headless=new", "--remote-debugging-port=0", `--user-data-dir=${profile}`, "--no-first-run", "--no-default-browser-check", "--mute-audio", "--hide-scrollbars", "--force-device-scale-factor=1", "--disable-background-timer-throttling", "--disable-renderer-backgrounding", "about:blank"], { detached: true, stdio: "ignore" });
+  const pid = proc.pid!;
+  chromes.add(pid);
+  const exited = new Promise<void>((ok) => proc.once("exit", () => ok()));
+  const close = async () => {
+    endGroup(pid, "SIGTERM");
+    await Promise.race([exited, Bun.sleep(5000)]);
+    endGroup(pid, "SIGKILL");
+    chromes.delete(pid);
+    rmSync(profile, { recursive: true, force: true });
+  };
   let port = "";
   for (let i = 0; i < 100 && !port; i++) {
     try { port = readFileSync(join(profile, "DevToolsActivePort"), "utf8").split("\n")[0]; } catch {}
     if (!port) await Bun.sleep(100);
   }
-  if (!port) throw new Error("Chrome did not start");
+  if (!port) { await close(); throw new Error("Chrome did not start"); }
   const version = await (await fetch(`http://127.0.0.1:${port}/json/version`)).json();
   const cdp = await Cdp.open(version.webSocketDebuggerUrl);
   // The profile is removed once Chrome has exited: removed while it still runs, Chrome writes parts of it back.
-  return { cdp, close: async () => { cdp.ws.close(); proc.kill(); await proc.exited; rmSync(profile, { recursive: true, force: true }); } };
+  return { cdp, close: async () => { cdp.ws.close(); await close(); } };
 }
 
 // A port nothing is listening on right now.

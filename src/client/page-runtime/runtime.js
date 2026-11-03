@@ -2,7 +2,8 @@
 // the page's <head> (src/server/page-runtime.ts withRuntime), after a JSON block with the page's key and stored keys.
 // It gives the page what a Claude artifact gets from its runtime, without leaving the sandbox:
 //   window.hud.use(name), and window.claude.use(name) when the page has no window.claude: a Promise of the
-//     capability's frozen namespace, or null (unknown name, not framed by the HUD, or no answer in 10 s).
+//     capability's frozen namespace, or null (unknown name, or not framed by the HUD). In a frame it waits for the
+//     HUD's answer however late it comes.
 //     db, user, downloads, artifact (publish), room, comments (openComposer, into the HUD's thread) and sample (when
 //     the owner set HUD_SAMPLE_CMD) work; anything else is null.
 //   COMMENT on a text selection, when the HUD shows the page's comment thread.
@@ -53,9 +54,19 @@
       };
       try { window.parent.postMessage({ "hud-page": "hello", page: PAGE, nonce, version: VERSION }, "*", [ch.port2]); } catch {}
     };
-    hello();
-    const timer = setInterval(() => { if (port) clearInterval(timer); else hello(); }, 400);
-    setTimeout(() => { clearInterval(timer); if (!port) { for (const p of tries) p.close(); resolve(null); } }, 10_000);
+    // A HUD that is busy (a cold browser, a loaded machine) answers late: the page waits for it rather than going
+    // without. The HUD answers a hello as it arrives or never, so only the last few lines are kept open.
+    const started = Date.now();
+    let warned = false;
+    const again = () => {
+      if (port) return;
+      if (tries.length > 4) tries.shift().close();
+      hello();
+      const waited = Date.now() - started;
+      if (waited > 10_000 && !warned) { warned = true; console.warn("hud: the HUD has not answered this page yet; still asking"); }
+      setTimeout(again, waited < 10_000 ? 400 : 2000);
+    };
+    again();
   });
   function onReply(e) {
     const d = e.data || {};

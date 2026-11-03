@@ -21,7 +21,7 @@ let online = false;
 
 // A page as an agent writes it for a Claude artifact. It reports what it found to its parent, and again on every snapshot.
 const APP = `<!doctype html><html><head><title>Votes</title></head><body><h1>Votes</h1><pre class="mermaid">graph LR; A-->B</pre><script>
-const out = { t0: performance.timeOrigin, hud: typeof window.hud?.use, claude: typeof window.claude?.use, same: window.hud === window.claude };
+const out = { doc: new URLSearchParams(location.search).get("doc"), hud: typeof window.hud?.use, claude: typeof window.claude?.use, same: window.hud === window.claude };
 out.before = localStorage.getItem("visits");
 localStorage.setItem("visits", String(Number(out.before || 0) + 1));
 localStorage.note = "kept";
@@ -61,7 +61,7 @@ const hello = (target, page) => new Promise((ok) => {
   setTimeout(() => ok("silent"), 1500);
 });
 (async () => {
-  const out = { t0: performance.timeOrigin };
+  const out = { doc: new URLSearchParams(location.search).get("doc") };
   out.otherPage = await hello(parent, "briefs/1");
   out.ownPage = await hello(parent, "rooms/pricing/files/forge.html");
   const f = document.createElement("iframe");
@@ -75,7 +75,7 @@ const hello = (target, page) => new Promise((ok) => {
 const SAVE = `<!doctype html><html><head></head><body><script>
 (async () => {
   const dl = await claude.use("downloads");
-  const out = { t0: performance.timeOrigin };
+  const out = { doc: new URLSearchParams(location.search).get("doc") };
   try { await dl.save({ filename: "run.exe", data: "x" }); } catch (e) { out.exe = e.code; }
   try { await dl.save({ filename: "../a.txt", data: "x" }); } catch (e) { out.path = e.code; }
   out.first = await dl.save({ filename: "results.json", data: '{"ok":true}' }).then((r) => r.status, (e) => e.code);
@@ -91,7 +91,7 @@ const FLOOD = `<!doctype html><html><head></head><body><script>
   const db = await claude.use("db");
   const r = await Promise.allSettled(Array.from({ length: 100 }, (_, i) => db.doc("flood/" + i).get()));
   const limited = r.filter((x) => x.status === "rejected" && x.reason.code === "resource_exhausted").length;
-  parent.postMessage({ probe: { t0: performance.timeOrigin, ok: r.length - limited, limited } }, "*");
+  parent.postMessage({ probe: { doc: new URLSearchParams(location.search).get("doc"), ok: r.length - limited, limited } }, "*");
 })();
 </script></body></html>`;
 
@@ -100,14 +100,14 @@ const FLOOD = `<!doctype html><html><head></head><body><script>
 const POLL = `<!doctype html><html><head><title>Poll</title></head><body><p id="n">0</p><script>
 const SRC = document.currentScript.textContent;
 const n = Number(document.getElementById("n").textContent);
-parent.postMessage({ probe: { t0: performance.timeOrigin, n } }, "*");
+parent.postMessage({ probe: { doc: new URLSearchParams(location.search).get("doc"), n } }, "*");
 if (n === 0) claude.use("artifact").then((a) => a.publish('<!doctype html><html><head><title>Poll</title></head><body><p id="n">' + (n + 1) + '</p><script>' + SRC + '<\\/script></body></html>'))
-  .then((r) => parent.postMessage({ probe: { t0: performance.timeOrigin, n, published: r.version } }, "*"), (e) => parent.postMessage({ probe: { t0: performance.timeOrigin, n, refused: e.code } }, "*"));
+  .then((r) => parent.postMessage({ probe: { doc: new URLSearchParams(location.search).get("doc"), n, published: r.version } }, "*"), (e) => parent.postMessage({ probe: { doc: new URLSearchParams(location.search).get("doc"), n, refused: e.code } }, "*"));
 </script></body></html>`;
 
 // A page for everyone who has it open: it says who is there, and pings once when someone else is.
 const ROOM = `<!doctype html><html><head></head><body><script>
-const out = { t0: performance.timeOrigin, heard: [], others: 0 };
+const out = { doc: new URLSearchParams(location.search).get("doc"), heard: [], others: 0 };
 const report = () => parent.postMessage({ probe: JSON.parse(JSON.stringify(out)) }, "*");
 (async () => {
   const room = await claude.use("room");
@@ -129,7 +129,7 @@ const report = () => parent.postMessage({ probe: JSON.parse(JSON.stringify(out))
 
 // A page that asks a model twice: the owner is asked once, and the answers stream back.
 const ASK = `<!doctype html><html><head></head><body><script>
-const out = { t0: performance.timeOrigin, texts: [] };
+const out = { doc: new URLSearchParams(location.search).get("doc"), texts: [] };
 const report = () => parent.postMessage({ probe: JSON.parse(JSON.stringify(out)) }, "*");
 (async () => {
   const sample = await claude.use("sample");
@@ -140,7 +140,7 @@ const report = () => parent.postMessage({ probe: JSON.parse(JSON.stringify(out))
 </script></body></html>`;
 // A page that quotes itself into the HUD's comment thread: an element on load; a range, or a selection, when asked.
 const QUOTE = `<!doctype html><html><head></head><body><h1 id="t">Pricing</h1><p id="p">Tier two costs forty a month.</p><script>
-const out = { t0: performance.timeOrigin };
+const out = { doc: new URLSearchParams(location.search).get("doc") };
 const report = () => parent.postMessage({ probe: JSON.parse(JSON.stringify(out)) }, "*");
 (async () => {
   const comments = await claude.use("comments");
@@ -154,6 +154,10 @@ const report = () => parent.postMessage({ probe: JSON.parse(JSON.stringify(out))
     if (e.data === "select") { getSelection().selectAllChildren(document.getElementById("p")); setTimeout(() => { const h = document.querySelector("hud-comment-pick"); out.pick = !!h && h.style.display !== "none"; report(); }, 400); }
   });
 })();
+</script></body></html>`;
+// A page that asks for its db once: it says whether it got one.
+const LATE = `<!doctype html><html><head></head><body><script>
+claude.use("db").then((db) => parent.postMessage({ probe: { doc: new URLSearchParams(location.search).get("doc"), db: !!db } }, "*"));
 </script></body></html>`;
 // A stand-in for HUD_SAMPLE_CMD: it answers slowly, and in JSON when asked.
 const MODEL = join(dir, "model.sh");
@@ -180,13 +184,14 @@ async function load(hash: string) {
   await page.s("Page.navigate", { url: "about:blank" });
   await page.s("Page.navigate", { url: `${server.base}/${hash}` });
   await until(`!!document.getElementById("lastNote")?.innerHTML`);
-  // a report from a document that started before the last reload is late: it is not the page being tested
-  await ev(`window.__probe = null; window.__since = 0; addEventListener("message", (e) => { if (e.data?.probe && !(e.data.probe.t0 < window.__since)) window.__probe = e.data.probe; }), true`);
+  // after a reload, only the document it loaded counts: a late report from the one before is not the page being tested
+  await ev(`window.__probe = null; window.__doc = null; addEventListener("message", (e) => { if (e.data?.probe && (window.__doc === null || e.data.probe.doc === window.__doc)) window.__probe = e.data.probe; }), true`);
 }
 const frame = `document.querySelector(".pageview:not([hidden]) iframe, .briefview:not([hidden]) iframe")`;
-// The frame loads again once the test listens, so its report is not missed.
+// The frame loads again, as a document the test names (?doc=), so its report is told from a late one of the last.
+const fresh = `(() => { window.__probe = null; window.__doc = Math.random().toString(36).slice(2); const f = ${frame}; const u = new URL(f.getAttribute("src"), location.href); u.searchParams.set("doc", window.__doc); f.src = u.pathname + u.search; return true; })()`;
 async function reloadFrame(ready = "window.__probe?.sizes?.length") {
-  await ev(`(() => { window.__probe = null; window.__since = Date.now(); const f = ${frame}; f.src = f.getAttribute("src"); return true; })()`);
+  await ev(fresh);
   await until(`!!(${ready})`, 25_000); // a page in a cold browser on a loaded machine can take a while
   return ev(`window.__probe`);
 }
@@ -207,6 +212,7 @@ beforeAll(async () => {
   await upload("room.html", ROOM);
   await upload("ask.html", ASK);
   await upload("quote.html", QUOTE);
+  await upload("late.html", LATE);
   brief = (await post("/api/briefs", { title: "Votes", body: APP }, { "x-hud-pane": "w1:p1", "x-hud-machine": "local" })).id;
   pollBrief = (await post("/api/briefs", { title: "Poll", body: POLL }, { "x-hud-pane": "w1:p1", "x-hud-machine": "local" })).id;
   chrome = await startChrome();
@@ -260,7 +266,7 @@ test.skipIf(!chromeFound)("the HUD answers a hello only for the page the frame s
   await load("#page/rooms/pricing/files/forge.html");
   await until(`${frame}?.getAttribute("src")?.split("?")[0] === "/rooms/pricing/files/forge.html"`);
   const p = await reloadFrame(`window.__probe?.nested`);
-  expect(p).toEqual({ t0: p.t0, otherPage: "silent", ownPage: "answered", nested: "silent" });
+  expect(p).toEqual({ doc: p.doc, otherPage: "silent", ownPage: "answered", nested: "silent" });
 }, 30_000);
 
 test.skipIf(!chromeFound)("downloads.save: refused names, then the owner says NO, then SAVE, and the HUD saves the file", async () => {
@@ -334,7 +340,7 @@ test.skipIf(!chromeFound)("sample: the owner allows the page once, and the answe
   expect(p.texts.length).toBeGreaterThan(0);
   expect(await ev(`!!document.querySelector(".pr-save")`)).toBe(false); // asked once for the view
   // a new view of the page asks again; NO holds for both calls
-  await ev(`(() => { window.__probe = null; window.__since = Date.now(); const f = ${frame}; f.src = f.getAttribute("src"); return true; })()`);
+  await ev(fresh);
   await until(`!!document.querySelector(".pr-save")`, 10_000);
   await ev(`document.querySelector(".pr-save .pr-no").click()`);
   await until(`!!window.__probe?.json`, 10_000);
@@ -356,6 +362,24 @@ test.skipIf(!chromeFound)("comments: the page opens its thread in the HUD with a
   expect(await ev(`window.__probe.pick`)).toBe(true);
 }, 30_000);
 
+test.skipIf(!chromeFound)("a page the HUD answers late keeps asking: it gets its runtime when the answer comes, however late", async () => {
+  // a busy HUD: while __hold is set, no hello reaches its page runtime (this listener comes before the HUD's)
+  const { identifier } = await page.s("Page.addScriptToEvaluateOnNewDocument", { source: `addEventListener("message", (e) => { if (window.__hold && e.data?.["hud-page"] === "hello") e.stopImmediatePropagation(); })` });
+  try {
+    await load("#page/rooms/pricing/files/late.html");
+    await until(`${frame}?.getAttribute("src")?.split("?")[0] === "/rooms/pricing/files/late.html"`);
+    await ev(`window.__hold = true`);
+    await ev(fresh);
+    await Bun.sleep(11_000); // longer than a page once waited before it gave up
+    expect(await ev(`window.__probe`)).toBe(null);
+    await ev(`window.__hold = false`);
+    await until(`!!window.__probe`, 5000);
+    expect(await ev(`window.__probe.db`)).toBe(true);
+  } finally {
+    await page.s("Page.removeScriptToEvaluateOnNewDocument", { identifier });
+  }
+}, 30_000);
+
 test.skipIf(!chromeFound)("opened on its own (OPEN IN NEW TAB): its stored keys are there, use() gives null", async () => {
   await page.s("Page.navigate", { url: `${server.base}/briefs/${brief}.html` });
   await until(`document.readyState === "complete"`);
@@ -364,5 +388,5 @@ test.skipIf(!chromeFound)("opened on its own (OPEN IN NEW TAB): its stored keys 
 }, 30_000);
 
 test.skipIf(!chromeFound)("no page errors", () => {
-  expect(errors.filter((e) => !/Blocked script execution|Content Security Policy|Failed to load resource|SecurityError|sandbox/i.test(e))).toEqual([]);
+  expect(errors.filter((e) => !/Blocked script execution|Content Security Policy|Failed to load resource|SecurityError|sandbox|has not answered this page yet/i.test(e))).toEqual([]);
 });
