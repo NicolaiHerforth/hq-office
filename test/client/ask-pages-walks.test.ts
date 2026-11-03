@@ -7,6 +7,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { findChrome, newSession, spawnServer, startChrome } from "../../scripts/room-hash.ts";
+import { aimed, clickLog, settled } from "../walk-diag.ts";
 import { fakeHerdr } from "../fake-herdr.ts";
 
 const ROOT = join(import.meta.dir, "..", "..");
@@ -22,7 +23,7 @@ const errors: string[] = [];
 const ev = (e: string) => page.evaluate(e);
 const until = async (expr: string, ms = 8000) => {
   for (const end = Date.now() + ms; Date.now() < end; await Bun.sleep(50)) if (await ev(expr).catch(() => false)) return true;
-  throw new Error(`timed out waiting for ${expr}`);
+  throw new Error(`timed out waiting for ${expr}${await clickLog(ev)}`);
 };
 const post = (p: string, b: object = {}, h: object = {}) => fetch(`${server.base}${p}`, { method: "POST", headers: { "content-type": "application/json", "x-hud": "1", ...h }, body: JSON.stringify(b) }).then((r) => r.json());
 const state = () => fetch(`${server.base}/api/state`).then((r) => r.json());
@@ -34,6 +35,7 @@ const shot = async (name: string) => {
 
 // ---- real input ----
 async function centre(sel: string) {
+  await settled(ev, sel);
   // in the middle of its list, and only if it is what the pointer would hit (not under the MORE OUT OF VIEW pill)
   const r = await ev(`(() => { const el = [...document.querySelectorAll(${JSON.stringify(sel)})].find((x) => x.getClientRects().length); if (!el) return null; el.scrollIntoView({ block: "center" }); const r = el.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2, hit = document.elementFromPoint(x, y); return { x, y, ok: !!hit && (el === hit || el.contains(hit)), hit: hit?.outerHTML.slice(0, 120) }; })()`);
   if (!r) throw new Error(`nothing to click: ${sel}`);
@@ -42,14 +44,18 @@ async function centre(sel: string) {
 }
 async function click(sel: string) {
   const { x, y } = await centre(sel);
+  await aimed(ev, sel, x, y, "aim");
   await page.s("Input.dispatchMouseEvent", { type: "mouseMoved", x, y });
   await page.s("Input.dispatchMouseEvent", { type: "mousePressed", x, y, button: "left", clickCount: 1 });
   await page.s("Input.dispatchMouseEvent", { type: "mouseReleased", x, y, button: "left", clickCount: 1 });
+  await aimed(ev, sel, x, y, "pressed");
 }
 async function tap(sel: string) {
   const { x, y } = await centre(sel);
+  await aimed(ev, sel, x, y, "aim");
   await page.s("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
   await page.s("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await aimed(ev, sel, x, y, "pressed");
 }
 const KEYS: Record<string, number> = { Escape: 27, Enter: 13 };
 async function key(k: string, modifiers = 0) {
@@ -113,6 +119,9 @@ beforeAll(async () => {
   D = (await post("/api/asks", { title: "CRM: which stage?", options: ["Lead", "Won"], file: PAGE("Pipeline") }, { "x-hud-pane": "w1:p2", "x-hud-machine": "local" })).id;
   chrome = await startChrome();
   page = await newSession(chrome.cdp, errors);
+  // Web fonts come over the network at their own time and widen the text they replace: a click aimed just before
+  // lands beside its target (the tabs move 96 px when Press Start 2P arrives). The walks run without them.
+  await page.s("Network.setBlockedURLs", { urls: ["*fonts.googleapis.com*", "*fonts.gstatic.com*"] });
 }, 30_000);
 afterAll(async () => {
   await server?.stop();

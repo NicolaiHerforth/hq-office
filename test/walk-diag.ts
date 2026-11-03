@@ -1,0 +1,56 @@
+// What a walk's last clicks and taps did, for the message of a step that timed out: every mousedown, mouseup and click and the
+// element it reached, what was under the point just before and after each press, layout shifts and what moved,
+// popstate and hashchange, and the Navigation API's navigations. A click that missed, or a step undone by a late
+// navigation, then says so in the run that caught it.
+type Evaluate = (expression: string) => Promise<any>;
+
+const WATCH = `(() => {
+  if (window.__walkOn) return;
+  window.__walkOn = true;
+  const log = window.__walk ??= [], t = () => Math.round(performance.now());
+  const name = (n) => !n ? "-" : n.nodeType !== 1 ? name(n.parentElement) : n.tagName.toLowerCase() + (n.id ? "#" + n.id : "")
+    + (typeof n.className === "string" && n.className.trim() ? "." + n.className.trim().split(/\\s+/).join(".") : "")
+    + ["ref", "qtab", "room"].filter((k) => n.dataset?.[k]).map((k) => "[" + k + "=" + n.dataset[k] + "]").join("");
+  window.__walkName = name;
+  const add = (e) => { log.push({ t: t(), ...e }); if (log.length > 80) log.shift(); };
+  for (const k of ["pointerdown", "pointerup", "mousedown", "mouseup", "click"]) document.addEventListener(k, (e) => add({ k, at: [Math.round(e.clientX), Math.round(e.clientY)], on: name(e.target), ...(e.pointerType ? { by: e.pointerType } : {}) }), true);
+  for (const k of ["touchstart", "touchend"]) document.addEventListener(k, (e) => add({ k, on: name(e.target) }), true);
+  for (const k of ["popstate", "hashchange"]) addEventListener(k, () => add({ k, hash: location.hash }), true);
+  const nav = window.navigation;
+  if (nav) {
+    nav.addEventListener("navigate", (e) => add({ k: "navigate", type: e.navigationType, to: new URL(e.destination.url).hash }));
+    for (const k of ["navigatesuccess", "navigateerror"]) nav.addEventListener(k, () => add({ k, hash: location.hash }));
+    nav.addEventListener("currententrychange", (e) => add({ k: "currententrychange", type: e.navigationType, hash: location.hash }));
+  }
+  try {
+    new PerformanceObserver((l) => { for (const e of l.getEntries()) add({ k: "shift", v: +e.value.toFixed(3), moved: (e.sources || []).map((s) => name(s.node) + " y" + Math.round(s.previousRect.y) + ">" + Math.round(s.currentRect.y)) }); }).observe({ type: "layout-shift" });
+  } catch {}
+})(), true`;
+
+// Starts the log in the page now (aimed() does it for a click), so what comes before the first click is in it too.
+export const watch = (evaluate: Evaluate) => evaluate(WATCH).catch(() => {});
+
+// Before and after a press at (x, y) aimed at what: what is under the point, and whether a navigation is under way.
+export async function aimed(evaluate: Evaluate, what: string, x: number, y: number, phase: "aim" | "pressed") {
+  await watch(evaluate);
+  await evaluate(`(window.__walk && window.__walk.push({ t: Math.round(performance.now()), k: ${JSON.stringify(phase)}, what: ${JSON.stringify(what)}, at: [${Math.round(x)}, ${Math.round(y)}], under: __walkName(document.elementFromPoint(${x}, ${y})), hash: location.hash, navigating: !!window.navigation?.transition }), true)`).catch(() => {});
+}
+
+// The log, one line per event, times from its first line; empty when the page kept none (a new document).
+export async function clickLog(evaluate: Evaluate) {
+  const log: Record<string, unknown>[] | null = await evaluate(`window.__walk ? window.__walk.slice(-40) : null`).catch(() => null);
+  if (!log?.length) return "";
+  const t0 = log[0].t as number;
+  return "\nlast clicks and navigations (ms):\n" + log.map(({ t, k, ...rest }) => `  +${(t as number) - t0} ${k} ${JSON.stringify(rest)}`).join("\n");
+}
+
+// A person aims at what has stopped moving (a sheet still growing as its content comes, text a late font widens):
+// wait until the first visible match of sel has the same box in two looks 80 ms apart, 3 s at most.
+export async function settled(evaluate: Evaluate, sel: string) {
+  const box = `JSON.stringify([...document.querySelectorAll(${JSON.stringify(sel)})].find((x) => x.getClientRects().length)?.getBoundingClientRect() ?? null)`;
+  let last = await evaluate(box).catch(() => null);
+  for (const end = Date.now() + 3000; Date.now() < end; last = await evaluate(box).catch(() => null)) {
+    await Bun.sleep(80);
+    if (last !== null && last !== "null" && (await evaluate(box).catch(() => null)) === last) return;
+  }
+}

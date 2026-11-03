@@ -8,6 +8,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { findChrome, newSession, spawnServer, startChrome } from "../../scripts/room-hash.ts";
+import { aimed, clickLog, settled } from "../walk-diag.ts";
 import { fakeHerdr } from "../fake-herdr.ts";
 
 const ROOT = join(import.meta.dir, "..", "..");
@@ -24,7 +25,7 @@ const ev = (e: string) => page.evaluate(e);
 const until = async (expr: string, ms = 8000) => {
   for (const end = Date.now() + ms; Date.now() < end; await Bun.sleep(50)) if (await ev(expr).catch(() => false)) return true;
   const now = await ev(`JSON.stringify({ hash: location.hash, stage: document.querySelector(".stage").className, card: !document.getElementById("card").hidden, room: document.querySelector("#roomView .rvhead h2")?.textContent, scope: sessionStorage.getItem("hq-scope"), tab: document.querySelector("[data-qtab].on")?.dataset.qtab, briefs: document.getElementById("briefs")?.hidden, rows: document.querySelectorAll("#briefs .brow").length, focus: document.activeElement?.tagName })`).catch(() => "?");
-  throw new Error(`timed out waiting for ${expr}; now ${now}`);
+  throw new Error(`timed out waiting for ${expr}; now ${now}${await clickLog(ev)}`);
 };
 const post = async (p: string, b: unknown, headers: Record<string, string> = {}) => {
   const r = await fetch(`${server.base}${p}`, { method: "POST", headers: { "content-type": "application/json", "x-hud": "1", ...headers }, body: JSON.stringify(b) });
@@ -45,6 +46,7 @@ async function load(hash: string, w = 1512, h = 900, mobile = false, stored: Rec
   await until(`!!document.getElementById("lastNote")?.innerHTML`);
 }
 async function point(sel: string) {
+  await settled(ev, sel);
   const at = await ev(`(() => {
     const e = document.querySelector(${JSON.stringify(sel)});
     if (!e) return "missing";
@@ -58,13 +60,17 @@ async function point(sel: string) {
 }
 async function click(sel: string, clickCount = 1) {
   const [x, y] = await point(sel);
+  await aimed(ev, sel, x, y, "aim");
   await page.s("Input.dispatchMouseEvent", { type: "mouseMoved", x, y });
   for (let n = 1; n <= clickCount; n++) for (const type of ["mousePressed", "mouseReleased"]) await page.s("Input.dispatchMouseEvent", { type, x, y, button: "left", clickCount: n });
+  await aimed(ev, sel, x, y, "pressed");
 }
 async function tap(sel: string) {
   const [x, y] = await point(sel);
+  await aimed(ev, sel, x, y, "aim");
   await page.s("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
   await page.s("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+  await aimed(ev, sel, x, y, "pressed");
 }
 const CODES = { Escape: 27, ArrowLeft: 37, ArrowRight: 39 } as const;
 async function key(k: keyof typeof CODES) {
@@ -112,6 +118,9 @@ beforeAll(async () => {
   await chrome.cdp.send("Target.setDiscoverTargets", { discover: true });
   chrome.cdp.listeners.push((m: any) => { if (m.method === "Target.targetCreated" && m.params.targetInfo.type === "page" && m.params.targetInfo.openerId) opened.push(m.params.targetInfo); });
   page = await newSession(chrome.cdp, errors);
+  // Web fonts come over the network at their own time and widen the text they replace: a click aimed just before
+  // lands beside its target (the tabs move 96 px when Press Start 2P arrives). The walks run without them.
+  await page.s("Network.setBlockedURLs", { urls: ["*fonts.googleapis.com*", "*fonts.gstatic.com*"] });
 }, 40_000);
 afterAll(async () => {
   await server?.stop();

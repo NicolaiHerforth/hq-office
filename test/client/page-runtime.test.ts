@@ -12,6 +12,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { findChrome, newSession, spawnServer, startChrome } from "../../scripts/room-hash.ts";
 import { fakeHerdr } from "../fake-herdr.ts";
+import { clickLog, watch } from "../walk-diag.ts";
 
 const ROOT = join(import.meta.dir, "..", "..");
 const chromeFound = !!findChrome();
@@ -140,12 +141,17 @@ const report = () => parent.postMessage({ probe: JSON.parse(JSON.stringify(out))
 </script></body></html>`;
 // A page that quotes itself into the HUD's comment thread: an element on load; a range, or a selection, when asked.
 const QUOTE = `<!doctype html><html><head></head><body><h1 id="t">Pricing</h1><p id="p">Tier two costs forty a month.</p><script>
+const step = (step) => parent.postMessage({ step }, "*");
 const out = { doc: new URLSearchParams(location.search).get("doc") };
 const report = () => parent.postMessage({ probe: JSON.parse(JSON.stringify(out)) }, "*");
 (async () => {
+  step("started");
   const comments = await claude.use("comments");
+  step(comments ? "comments" : "no comments");
   out.anchor = await comments.anchorFor(document.getElementById("p"));
+  step("anchored");
   out.element = await comments.openComposer({ element: document.getElementById("p") });
+  step("composer opened");
   try { await comments.create({ anchor: out.anchor, text: "x" }); } catch (e) { out.create = e.code; }
   out.canSend = await comments.canSendToClaude();
   report();
@@ -174,7 +180,7 @@ const errors: string[] = [];
 const ev = (e: string) => page.evaluate(e);
 const until = async (expr: string, ms = 8000) => {
   for (const end = Date.now() + ms; Date.now() < end; await Bun.sleep(50)) if (await ev(expr).catch(() => false)) return true;
-  throw new Error(`timed out waiting for ${expr}`);
+  throw new Error(`timed out waiting for ${expr}; the frame shows ${await ev(`${frame}?.getAttribute("src") ?? "no frame"`).catch(() => "?")}${await clickLog(ev)}`);
 };
 const post = (p: string, b: object = {}, h: object = {}) => fetch(`${server.base}${p}`, { method: "POST", headers: { "content-type": "application/json", "x-hud": "1", ...h }, body: JSON.stringify(b) }).then((r) => r.json());
 const upload = (name: string, body: string) => fetch(`${server.base}/api/rooms/pricing/files?${new URLSearchParams({ name, title: name, as: "pm" })}`, { method: "POST", headers: { "content-type": "text/html", "x-hud": "1" }, body }).then((r) => r.json());
@@ -184,14 +190,31 @@ async function load(hash: string) {
   await page.s("Page.navigate", { url: "about:blank" });
   await page.s("Page.navigate", { url: `${server.base}/${hash}` });
   await until(`!!document.getElementById("lastNote")?.innerHTML`);
-  // after a reload, only the document it loaded counts: a late report from the one before is not the page being tested
-  await ev(`window.__probe = null; window.__doc = null; addEventListener("message", (e) => { if (e.data?.probe && (window.__doc === null || e.data.probe.doc === window.__doc)) window.__probe = e.data.probe; }), true`);
+  await watch(ev);
 }
+// The HUD listens for its frames' reports from its first moment (LISTEN, in every HUD document), so a page that reports
+// before the HUD has drawn is heard. After a reload only the document it loaded counts: a late report from the one
+// before is not the page being tested. Every hello, report and step goes in the log a timeout prints.
+const LISTEN = `if (window.top === window) {
+  window.__probe = null; window.__doc = null; window.__walk ??= [];
+  addEventListener("message", (e) => {
+    const d = e.data || {};
+    if (d["hud-page"] || d.probe || d.step) window.__walk.push({ t: Math.round(performance.now()), k: d.probe ? "probe" : d.step ? "step " + d.step : "hello", page: d.page, keys: d.probe && Object.keys(d.probe).join(",") });
+    if (d.probe && (window.__doc === null || d.probe.doc === window.__doc)) window.__probe = d.probe;
+  });
+  document.addEventListener("load", (e) => { if (e.target.tagName === "IFRAME") e.target.dataset.loaded = e.target.getAttribute("src"); }, true);
+}`;
 const frame = `document.querySelector(".pageview:not([hidden]) iframe, .briefview:not([hidden]) iframe")`;
 // The frame loads again, as a document the test names (?doc=), so its report is told from a late one of the last.
 const fresh = `(() => { window.__probe = null; window.__doc = Math.random().toString(36).slice(2); const f = ${frame}; const u = new URL(f.getAttribute("src"), location.href); u.searchParams.set("doc", window.__doc); f.src = u.pathname + u.search; return true; })()`;
-async function reloadFrame(ready = "window.__probe?.sizes?.length") {
+// Only once it has loaded what it was asked for: a navigation asked for while the frame's first is still on its way
+// can be dropped (Chrome moves the frame into a process of its own just then), and the old document stays.
+async function freshFrame() {
+  await until(`${frame}?.dataset.loaded === ${frame}?.getAttribute("src")`, 25_000);
   await ev(fresh);
+}
+async function reloadFrame(ready = "window.__probe?.sizes?.length") {
+  await freshFrame();
   await until(`!!(${ready})`, 25_000); // a page in a cold browser on a loaded machine can take a while
   return ev(`window.__probe`);
 }
@@ -217,6 +240,7 @@ beforeAll(async () => {
   pollBrief = (await post("/api/briefs", { title: "Poll", body: POLL }, { "x-hud-pane": "w1:p1", "x-hud-machine": "local" })).id;
   chrome = await startChrome();
   page = await newSession(chrome.cdp, errors);
+  await page.s("Page.addScriptToEvaluateOnNewDocument", { source: LISTEN });
   await chrome.cdp.send("Browser.setDownloadBehavior", { behavior: "allow", downloadPath: dir });
 }, 30_000);
 afterAll(async () => {
@@ -340,7 +364,7 @@ test.skipIf(!chromeFound)("sample: the owner allows the page once, and the answe
   expect(p.texts.length).toBeGreaterThan(0);
   expect(await ev(`!!document.querySelector(".pr-save")`)).toBe(false); // asked once for the view
   // a new view of the page asks again; NO holds for both calls
-  await ev(fresh);
+  await freshFrame();
   await until(`!!document.querySelector(".pr-save")`, 10_000);
   await ev(`document.querySelector(".pr-save .pr-no").click()`);
   await until(`!!window.__probe?.json`, 10_000);
@@ -369,7 +393,7 @@ test.skipIf(!chromeFound)("a page the HUD answers late keeps asking: it gets its
     await load("#page/rooms/pricing/files/late.html");
     await until(`${frame}?.getAttribute("src")?.split("?")[0] === "/rooms/pricing/files/late.html"`);
     await ev(`window.__hold = true`);
-    await ev(fresh);
+    await freshFrame();
     await Bun.sleep(11_000); // longer than a page once waited before it gave up
     expect(await ev(`window.__probe`)).toBe(null);
     await ev(`window.__hold = false`);

@@ -3,6 +3,16 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.36.1] - 2026-11-03
+### Fixed
+
+- **A brief or a page no longer jumps sideways as it opens.** Its comment thread used to show a LOADING column for a
+  moment and then close, moving the brief or page beside it by about 50 px, so a click just then could miss. On a
+  wide screen the thread is now open or closed from the start, as you left it.
+- **A page never stays on an old version.** A page reloaded while it was still loading for the first time (switching
+  between light and dark, a page that publishes itself, a newer version, a question's page updated) could keep
+  showing what it showed before. The HUD now waits for that first load, then reloads it.
+
 ## [0.36.0] - 2026-11-03
 ### Changed
 

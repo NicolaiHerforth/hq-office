@@ -12,8 +12,9 @@ let chrome: Awaited<ReturnType<typeof startChrome>>;
 let server: Awaited<ReturnType<typeof startServer>>;
 let page: Awaited<ReturnType<typeof newSession>>;
 const errors: string[] = [];
-// Room frames: the loop is the page's only user of animation frames.
-const COUNT = `(() => { window.__frames = 0; const raf = window.requestAnimationFrame; window.requestAnimationFrame = (cb) => raf((t) => { window.__frames++; cb(t); }); })();`;
+// Room frames: the room says "room:draw" at the end of each. (Not animation frames: other parts use one now and
+// then, as the top bar's fit does after a box changes size, which under load can come after the first frames.)
+const COUNT = `import("/src/client/core/bus.js").then((b) => { window.__frames = 0; b.on("room:draw", () => window.__frames++); return true; })`;
 const serverSettings = async () => (await (await fetch(`${server.base}/api/settings`)).json()).settings;
 // Frames presented over the next `seconds` of page time.
 const framesOver = async (seconds: number) => {
@@ -43,10 +44,10 @@ beforeAll(async () => {
   // Block them, as the pixel harness does, and wait for any font loading to settle below.
   await page.s("Network.setBlockedURLs", { urls: ["*fonts.googleapis.com*", "*fonts.gstatic.com*"] });
   await page.s("Page.addScriptToEvaluateOnNewDocument", { source: FREEZE });
-  await page.s("Page.addScriptToEvaluateOnNewDocument", { source: COUNT });
   await page.s("Page.navigate", { url: `${server.base}/?season=spring#t=${DAY}` });
   for (let i = 0; i < 300 && !(await page.evaluate("!!window.__hq && window.__hq.ready()").catch(() => false)); i++) await Bun.sleep(50);
   await page.evaluate("document.fonts.ready.then(() => true)");
+  await page.evaluate(COUNT);
   await page.evaluate("__hq.advance(20)"); // the first frames: state, fonts
 }, 30_000);
 

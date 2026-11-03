@@ -13,6 +13,7 @@ import { setHTML, esc } from "../core/format.js";
 import { S } from "../core/state.js";
 import { emit, on } from "../core/bus.js";
 import { themedSrc } from "./theme.js";
+import { navigateFrame } from "./frame-nav.js";
 import { PAGE, closeSide, current, escIsFor, leaveField } from "../core/stage.js";
 
 export const SANDBOX = "allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms allow-modals allow-downloads";
@@ -95,7 +96,7 @@ async function loadVersions(p) {
     const newer = p.data && !p.v && data.current?.at !== p.data.current?.at;
     p.data = data;
     p.rev = S?.rooms?.find((x) => x.slug === p.slug)?.rev;
-    if (newer) { const f = view.querySelector(".pageframe"); if (f) f.src = f.getAttribute("src"); }
+    if (newer) { const f = view.querySelector(".pageframe"); if (f) navigateFrame(f); }
     renderVersions();
   } catch {}
 }
@@ -122,7 +123,7 @@ on("state", () => {
   // An ask's page replaced in place (hud update ID --file) loads again.
   if (p?.ask) {
     const at = S?.askPages?.[p.ask]?.at;
-    if (at && p.at && at !== p.at) { const f = view.querySelector(".pageframe"); if (f) f.src = f.getAttribute("src"); }
+    if (at && p.at && at !== p.at) { const f = view.querySelector(".pageframe"); if (f) navigateFrame(f); }
     if (at) p.at = at;
     return;
   }
