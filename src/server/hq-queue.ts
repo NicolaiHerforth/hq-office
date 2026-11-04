@@ -190,6 +190,10 @@ function queuedAt(floor: string, p: string) {
   return open.find((it) => p.startsWith(it.text)) ?? null;
 }
 
+// How many times in a row the Stop hook has held each floor's HQ, and how much was unread then.
+const STOP_HOLDS = 3;
+const stopHeld = new Map<string, { n: number; unread: number }>();
+
 // The hook's question: what to do with this event in this session. Only a floor's HQ, in its own session (herdr's
 // session id for it), with the queue on, gets anything; everyone else gets {} and the hook does nothing.
 export type HookIn = { event?: string; session_id?: string; prompt?: string; stop_hook_active?: boolean };
@@ -212,7 +216,16 @@ export function hookDecision(input: HookIn): { output?: unknown; text?: string }
   }
   if (input.event === "PostToolUse") return line ? { output: { hookSpecificOutput: { hookEventName: "PostToolUse", additionalContext: line } } } : {};
   if (input.event === "Stop") {
-    if (!counts(floor).unread) return {};
+    const unread = counts(floor).unread, last = stopHeld.get(floor);
+    if (!unread) return {};
+    // Held at most STOP_HOLDS times in a row while nothing gets read: an HQ that cannot clear its queue (hud blocked,
+    // a broken item) may still end its turn, and the idle kick brings it back. A new turn or a read item starts over.
+    const n = input.stop_hook_active && last && unread >= last.unread ? last.n + 1 : 1;
+    if (n > STOP_HOLDS) {
+      stopHeld.delete(floor);
+      return {};
+    }
+    stopHeld.set(floor, { n, unread });
     return { output: { decision: "block", reason: `${line} Do not stop with unread items in your queue.` } };
   }
   return {};

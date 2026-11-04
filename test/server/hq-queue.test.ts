@@ -359,3 +359,17 @@ test("the loop, replayed: a held message left in the box, then kicks over severa
   expect(kicks().filter((t) => t.includes("1 unread")).length).toBeGreaterThanOrEqual(1);
   setHq("working");
 }, 15_000);
+
+// HQ that cannot clear its queue (hud blocked, a broken item) must still be able to end its turn: with
+// stop_hook_active set, the Stop hook holds it at most 3 times in a row without progress, then lets it stop.
+test("the Stop hook holds HQ at most 3 times in a row while nothing is read, then lets it stop", async () => {
+  await hook("UserPromptSubmit", { prompt: "api: one for the Stop cap" });
+  await hook("UserPromptSubmit", { prompt: "api: another for the Stop cap" });
+  const stop = async (active: boolean) => ((await hook("Stop", { stop_hook_active: active })).output?.decision ?? "stop");
+  expect([await stop(false), await stop(true), await stop(true), await stop(true)]).toEqual(["block", "block", "block", "stop"]);
+  // a new turn starts the count again
+  expect([await stop(false), await stop(true)]).toEqual(["block", "block"]);
+  // HQ reads an item: progress, so the count starts again
+  expect((await post("/api/queue/next", {}, asHq)).item).toBeTruthy();
+  expect([await stop(true), await stop(true), await stop(true), await stop(true)]).toEqual(["block", "block", "block", "stop"]);
+});

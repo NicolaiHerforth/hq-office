@@ -8,29 +8,44 @@ export const STATS_MS = 60_000;
 const STATS_KEEP_MS = 2 * 86_400_000;
 const STATS_SCRIPT = `${DIR}/src/server/machine-stats.sh`;
 
-// herdr's machine list changes rarely: asked again after ten minutes, or after a sample over ssh fails.
-const targets = new Map<string, { target: string; at: number }>();
+// herdr's machine list (each machine's ssh target) changes rarely: one call at a time, shared by every sampler, kept
+// ten minutes. A call that fails, or does not answer in time (it is killed), or a list without the machine, is asked
+// again after 30 seconds, not on the next tick: a herdr that hangs must not pile up one call per SUBS tick.
+const LIST_MS = 600_000;
+const RETRY_MS = 30_000;
+const ASK_MS = Number(process.env.HUD_HERDR_ASK_MS ?? 10_000);
+let listing: { until: number; targets: Promise<Map<string, string>> } | null = null;
+function herdrTargets() {
+  if (listing && Date.now() < listing.until) return listing.targets;
+  const targets = askHerdr();
+  const entry = (listing = { until: Date.now() + LIST_MS, targets });
+  targets.catch(() => (entry.until = Math.min(entry.until, Date.now() + RETRY_MS)));
+  return targets;
+}
+async function askHerdr() {
+  const proc = Bun.spawn([HERDR, "machine", "list", "--json"], { stdout: "pipe", stderr: "ignore", timeout: ASK_MS });
+  const out = await new Response(proc.stdout).text();
+  if ((await proc.exited) !== 0) throw new Error(`herdr machine list: ${proc.signalCode ?? `exit ${proc.exitCode}`}`);
+  return new Map<string, string>(JSON.parse(out).map((m: any) => [m.label, m.target]));
+}
 async function sshTarget(machine: string): Promise<string> {
-  const hit = targets.get(machine);
-  if (hit && Date.now() - hit.at < 600_000) return hit.target;
-  const proc = Bun.spawn([HERDR, "machine", "list", "--json"], { stdout: "pipe", stderr: "ignore" });
-  const list = JSON.parse(await new Response(proc.stdout).text());
-  await proc.exited;
-  const target = list.find((m: any) => m.label === machine)?.target;
-  if (!target) throw new Error(`no herdr machine named ${machine}`);
-  targets.set(machine, { target, at: Date.now() });
-  return target;
+  const target = (await herdrTargets()).get(machine);
+  if (target) return target;
+  forgetTargets();
+  throw new Error(`no herdr machine named ${machine}`);
 }
 
 // One ssh connection per machine, kept open between samples (it closes 3 minutes after the last one), instead of
 // a new handshake every minute on both ends. The socket path must stay short, so it lives in /tmp.
 const SSH_REUSE = ["-o", "ControlMaster=auto", "-o", `ControlPath=/tmp/hq-office-${process.getuid?.() ?? 0}-%C`, "-o", "ControlPersist=180"];
-// The ssh command for a herdr machine, sharing that one connection; sub-usage.ts reads over it too. forgetTarget after
-// a failure, so the next sample asks herdr again.
+// The ssh command for a herdr machine, sharing that one connection; sub-usage.ts reads over it too. forgetTargets after
+// a failure, so herdr is asked again within RETRY_MS.
 export async function sshTo(machine: string): Promise<string[]> {
   return ["ssh", "-o", "BatchMode=yes", "-o", "ConnectTimeout=5", ...SSH_REUSE, await sshTarget(machine)];
 }
-export const forgetTarget = (machine: string) => targets.delete(machine);
+export function forgetTargets() {
+  if (listing) listing.until = Math.min(listing.until, Date.now() + RETRY_MS);
+}
 async function readStats(machine: string): Promise<Record<string, string>> {
   const local = machine === LOCAL;
   const args = local ? ["sh", STATS_SCRIPT] : [...(await sshTo(machine)), "sh", "-s"];
@@ -40,7 +55,7 @@ async function readStats(machine: string): Promise<Record<string, string>> {
   const code = await proc.exited;
   clearTimeout(timer);
   if (code !== 0) {
-    targets.delete(machine);
+    forgetTargets();
     throw new Error((await new Response(proc.stderr).text()).trim() || `exit ${code}`);
   }
   return Object.fromEntries(out.trim().split(/\s+/).map((kv) => kv.split("=") as [string, string]));
