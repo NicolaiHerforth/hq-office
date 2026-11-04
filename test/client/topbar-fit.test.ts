@@ -115,7 +115,17 @@ function oneCalmRow(b: Bar, calm: Bar) {
 }
 
 // Every module has run: MENU has marked the current theme, and on a desktop the ladder has fitted the bar once.
-const ready = () => until(`document.readyState === "complete" && !!document.querySelector("#menuDrop .seg.on[data-set-theme]") && (innerWidth < 1151 || document.querySelector(".top").hasAttribute("data-fit"))`);
+// The modules are in, and the page takes input: just after a load Chrome can drop a real click although the point is
+// right, so the mouse is moved until the page has seen it move.
+async function ready() {
+  await until(`document.readyState === "complete" && !!document.querySelector("#menuDrop .seg.on[data-set-theme]") && (innerWidth < 1151 || document.querySelector(".top").hasAttribute("data-fit"))`);
+  await ev(`window.__moved = false; addEventListener("mousemove", () => (window.__moved = true), { once: true }), true`);
+  for (let i = 0, end = Date.now() + 15_000; !(await ev(`window.__moved`)); i++) {
+    if (Date.now() > end) throw new Error("the page never saw the mouse move");
+    await page.s("Input.dispatchMouseEvent", { type: "mouseMoved", x: 5 + (i % 2), y: 5 });
+    await Bun.sleep(50);
+  }
+}
 
 // A walk starts with no errors, and leaves its page before its server stops (a cut stream is not the page's error).
 const fresh = () => errors.splice(0);
@@ -198,8 +208,10 @@ test.skipIf(!chromeFound)("busy and stalled: one calm row at every width and the
     await page.s("Page.navigate", { url: server.base });
     await until(`document.querySelector("#sWait .count")?.textContent === "1"`);
     await until(`!!document.getElementById("subsBtn") && /^7 OK|\\d OK/.test(document.querySelector("#subsBtn .v").innerText) && document.querySelectorAll("#subsBtn .v i").length === 7`);
-    // The away machine is offline; this machine's own reading can be past 90% on a busy run, and "bad" outranks "off".
-    await until(`["off", "bad"].some((c) => document.getElementById("machines").classList.contains(c))`);
+    // Both machines sampled: this one read (its own reading can be past 90% on a busy run, and "bad" outranks "off"),
+    // the away one offline. Before the first sample both read as offline and the alarm names this machine, so a
+    // sample landing mid-walk would change the bar's width between themes.
+    await until(`(() => { const t = document.getElementById("machines").title; return /^LOCAL: CPU /m.test(t) && t.includes("${AWAY.toUpperCase()}: offline") && ["off", "bad"].some((c) => document.getElementById("machines").classList.contains(c)); })()`);
     await until(`document.getElementById("sBlocked")?.checkVisibility() && !document.getElementById("sQueueCell").hidden`);
     await ready();
     expect(await fontLoaded()).toBe(true);

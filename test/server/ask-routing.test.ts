@@ -2,7 +2,7 @@
 // and NOT YET are typed into the asker's pane, not HQ's, one at a time in order, kept while it is away, at a prompt or
 // busy; its floor's HQ gets them when the lane cannot (removed, moved, gone long, refused). A lane's inbox, wait and ack
 // are its own; HQ sees its lanes' answers under forLanes. A stub herdr records what is typed; no real agent is prompted.
-import { afterAll, beforeAll, expect, test } from "bun:test";
+import { afterAll, beforeAll, beforeEach, expect, setDefaultTimeout, test as bunTest } from "bun:test";
 import { Database } from "bun:sqlite";
 import { mkdtempSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -12,7 +12,9 @@ import { fakeHerdr, type FakeAgent } from "../fake-herdr.ts";
 
 const ROOT = join(import.meta.dir, "..", "..");
 const DATA = mkdtempSync(join(tmpdir(), "hq-askroute-"));
-const GONE_MS = 4000;
+// A lane away longer than this hands what was kept for it to HQ. S5, S8 and S11 keep a PM away over several syncs
+// (S11 over a restart), seconds each with another suite running, and must stay under it; S9 waits it out.
+const GONE_MS = 15_000;
 const agent = (name: string, pane: string, agent_status = "idle"): FakeAgent => ({ name, agent_status, pane_id: pane, agent: "claude" });
 const HQ = agent("hq", "w1:p1"), CRM = agent("hq-crm", "w1:p2"), PM = agent("pm", "w1:p3"), CHILD = agent("child", "w1:p4");
 const PMA = agent("pm-a", "w1:p5"), PMB = agent("pm-b", "w1:p6"), PMC = agent("pm-c", "w1:p7"), PMD = agent("pm-d", "w1:p8"), PMX = agent("pm-x", "w1:p9");
@@ -20,6 +22,9 @@ const ALL = [HQ, CRM, PM, CHILD, PMA, PMB, PMC, PMD, PMX];
 const herdr = fakeHerdr(DATA, ALL);
 const env = { ...process.env, HUD_HOST: "127.0.0.1", HUD_DATA_DIR: DATA, HERDR_BIN: herdr.bin, HUD_MACHINES: "local", HUD_LOCAL_MACHINE: "local", HUD_HQ_AGENT: "hq", HUD_HQ_HINT: "0", HUD_HQ_RENAME: "0", HUD_GH_BIN: "false", HUD_OWNER: "Sam", HUD_LANE_GONE_MS: String(GONE_MS) };
 let server: Awaited<ReturnType<typeof spawnServer>>;
+// Every sync makes the server run the stub herdr several times in a row: 0.4 s on a quiet machine, over 2 s with another
+// suite running. S5 alone syncs four times, so bun's 5 s default does not fit.
+setDefaultTimeout(30_000);
 
 const headers = (pane?: string) => ({ "content-type": "application/json", "x-hud": "1", ...(pane ? { "x-hud-pane": pane, "x-hud-machine": "local" } : {}) });
 const req = async (p: string, b?: object, pane?: string) => {
@@ -33,7 +38,7 @@ const hud = (args: string[], pane = "") => {
 const sync = () => req("/api/sync", {});
 const world = async (list: FakeAgent[]) => { herdr.world(list); await sync(); };
 // What was typed into an agent and contains `part`, once it has landed (delivery runs after the request returns).
-async function typed(name: string, part: string, ms = 4000) {
+async function typed(name: string, part: string, ms = 20_000) {
   for (const end = Date.now() + ms; Date.now() < end; await Bun.sleep(40)) if (herdr.typedInto(name).some((t) => t.includes(part))) break;
   await Bun.sleep(300); // a duplicate would land by now
   return herdr.typedInto(name).filter((t) => t.includes(part));
@@ -57,6 +62,21 @@ beforeAll(async () => {
   await req("/api/lanes", { name: "pm-x", machine: "local" }, "w1:p2");
   await sync();
 }, 30_000);
+// One failed test must not fail the next ones. It can leave herdr without an agent the next test asks from, and
+// answers or notes the next inbox would show.
+let failed = false;
+let body: Promise<void> = Promise.resolve();
+const test = (name: string, fn: () => Promise<void>, ms?: number) => bunTest(name, async () => { failed = true; await (body = fn()); failed = false; }, ms);
+beforeEach(async () => {
+  if (!failed) return;
+  failed = false;
+  // A test that timed out runs on: let it finish before resetting.
+  await Promise.race([body.catch(() => {}), Bun.sleep(20_000)]);
+  await world(ALL);
+  const box = await (await fetch(`${server.base}/api/inbox`, { headers: { ...headers(), "x-hud-floor": "all" } })).json();
+  for (const a of [...box.answers, ...box.forLanes]) await req(`/api/asks/${a.id}/ack`, {});
+  for (const n of box.notes) await req(`/api/notes/${n.id}/ack`, {});
+});
 afterAll(async () => {
   await server?.stop();
   rmSync(DATA, { recursive: true, force: true });
@@ -233,7 +253,7 @@ test("S9: a lane that cannot take it hands it to its floor's HQ, saying why: rem
   expect(nowhere(`HUD answer #${d}`)).toEqual(["hq"]);
   await world(ALL.filter((x) => x !== PMA));
   for (const id of [a, b, c, c2, d]) hud(["ack", `a:${id}`], "w1:p1");
-}, 30_000);
+}, GONE_MS + 30_000);
 
 test("S10: a lane acks only its own answers; HQ acks its lanes' too; an HQ registered as a lane stays HQ", async () => {
   const mine = ask("w1:p3", ["--lane", "child", "--title", "Ack mine", "--opt", "A", "--opt", "B"]);
@@ -296,4 +316,4 @@ test("S11: a restart in the middle of a send keeps it, and it is sent once when 
   expect(await typed("pm", `HUD answer #${id}`)).toHaveLength(1);
   await sync();
   expect(await typed("pm", `HUD answer #${id}`)).toHaveLength(1);
-}, 30_000);
+});

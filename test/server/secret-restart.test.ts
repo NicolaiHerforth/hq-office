@@ -152,7 +152,7 @@ describe("a real server killed hard loses its secrets loudly", () => {
     let base = server!.base;
     const before = (await listing(base)).find((x) => x.name === "TEST_KEY_LOSS");
     await cli(base, ["secret", "set", "TEST_KEY_BRIEF", "--minutes", "0.01"], "TEST_ONLY_VALUE_BRIEF");
-    server!.proc.kill("SIGKILL");
+    server!.kill("SIGKILL");
     await server!.stop();
     await Bun.sleep(700); // TEST_KEY_BRIEF's deadline passes while the server is down
     base = await start();
@@ -185,7 +185,7 @@ describe("a real server killed hard loses its secrets loudly", () => {
     expect((await cli(base, ["secret", "get", "TEST_KEY_LOSS"])).out).toBe(VALUE);
 
     // A lost name can be dismissed with rm.
-    server!.proc.kill("SIGKILL");
+    server!.kill("SIGKILL");
     await server!.stop();
     base = await start();
     expect((await listing(base))[0].lostAt).toBeNumber();
