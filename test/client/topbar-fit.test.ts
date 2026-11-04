@@ -198,7 +198,8 @@ test.skipIf(!chromeFound)("busy and stalled: one calm row at every width and the
     await page.s("Page.navigate", { url: server.base });
     await until(`document.querySelector("#sWait .count")?.textContent === "1"`);
     await until(`!!document.getElementById("subsBtn") && /^7 OK|\\d OK/.test(document.querySelector("#subsBtn .v").innerText) && document.querySelectorAll("#subsBtn .v i").length === 7`);
-    await until(`document.getElementById("machines").classList.contains("off")`);
+    // The away machine is offline; this machine's own reading can be past 90% on a busy run, and "bad" outranks "off".
+    await until(`["off", "bad"].some((c) => document.getElementById("machines").classList.contains(c))`);
     await until(`document.getElementById("sBlocked")?.checkVisibility() && !document.getElementById("sQueueCell").hidden`);
     await ready();
     expect(await fontLoaded()).toBe(true);

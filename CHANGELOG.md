@@ -3,6 +3,21 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.38.4] - 2026-11-04
+### Fixed
+
+- **The HQ QUEUE no longer files one message over and over.** When HQ's hook held a lane's message, Claude Code put
+  it back in HQ's input box, and the box was not cleared. The queue's next prompt to HQ was then typed after it and
+  sent with it, which filed the whole box again, a little longer each time. One message could become dozens of
+  queue items, and HQ's box filled up. Now the whole box is cleared, a long message too, while HQ is idle and the
+  box still holds that message. HQ is prompted only when its box is empty, and a message already in the queue is
+  never filed again.
+- **A long message to HQ is read as its sender wrote it.** Claude Code passes a long message to HQ's hook as a paste.
+  The queue filed it from "unknown", and a long note from the HUD or a long URGENT message waited in the queue
+  instead of going straight to HQ. Now the queue reads the message inside the paste.
+- **HQ hears when its own background task ends.** Claude Code tells HQ that a background command finished by
+  sending HQ a message. The queue held that message as if a lane had sent it. It now goes straight to HQ.
+
 ## [0.38.3] - 2026-11-03
 ### Fixed
 

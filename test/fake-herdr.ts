@@ -3,7 +3,8 @@
 // `agent start NAME --pane P` adds NAME to the list, idle, in pane P (or fails while <dir>/fail-start exists; or
 // says it started but lists nothing while <dir>/hide-start exists: an HQ that never shows up; or, while
 // <dir>/block-start exists, lists it blocked and fails with agent_not_ready: an agent stopped at a startup question,
-// whose pane read answers that file's text); `agent start --help` and `integration status` answer like herdr's own;
+// whose pane read answers that file's text, its last --lines N lines when asked); `agent start --help` and
+// `integration status` answer like herdr's own; `agent get NAME` answers that agent from the list;
 // `pane list` lists every agent's pane and the plain shells in <dir>/shells.json;
 
 // `--machine M agent list` answers <dir>/agents-M.json (empty when missing): another machine's agents;
@@ -39,7 +40,12 @@ else if (a === "tab" && b === "create") {
 } else if (a === "pane" && b === "list") {
   process.stdout.write(JSON.stringify({ result: { panes: [...agents(), ...(existsSync(D + "/shells.json") ? JSON.parse(readFileSync(D + "/shells.json", "utf8")) : [])].map((x) => ({ pane_id: x.pane_id, cwd: x.cwd })) } }));
 } else if (a === "pane" && b === "read") {
-  process.stdout.write(existsSync(D + "/block-start") ? readFileSync(D + "/block-start", "utf8") : "");
+  const text = existsSync(D + "/block-start") ? readFileSync(D + "/block-start", "utf8") : "";
+  process.stdout.write(args.includes("--lines") ? text.split("\\n").slice(-Number(flag("--lines"))).join("\\n") : text);
+} else if (a === "agent" && b === "get") {
+  const ag = agents().find((x) => x.name === args[2]);
+  if (!ag) fail("agent_not_found", "not found");
+  process.stdout.write(JSON.stringify({ result: { agent: ag } }));
 } else if (a === "agent" && b === "start" && existsSync(D + "/block-start")) {
   writeFileSync(D + "/agents.json", JSON.stringify([...agents(), { name: args[2], agent_status: "blocked", pane_id: flag("--pane"), agent: flag("--kind") }]));
   fail("agent_not_ready", "agent " + args[2] + " is blocked during startup and is not ready for prompts");
