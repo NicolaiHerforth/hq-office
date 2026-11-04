@@ -3,6 +3,19 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.38.5] - 2026-11-04
+### Fixed
+
+- **An HQ that cannot clear its queue can end its turn.** With the HQ QUEUE on, HQ was not allowed to stop while
+  something in its queue was unread, however many times it tried. An HQ that could not read its queue (hud blocked,
+  a broken item) was sent back again and again. Now it is sent back at most 3 times in a row while nothing gets read,
+  and then it may stop. The queue prompts it again once it is idle.
+- **A herdr that stops answering no longer piles up processes.** SUBS and MACHINES ask herdr which machines it
+  knows. Each tick started a new `herdr machine list`, with no time limit. A herdr that never answered gained one
+  more process every minute, or every tick when SUBS ticks faster, until the machine slowed down. Now one call
+  runs at a time and every sampler waits for that same call. A call that takes more than 10 seconds is stopped. A
+  call that fails, or a list without the machine, is retried after 30 seconds, not on the next tick.
+
 ## [0.38.4] - 2026-11-04
 ### Fixed
 

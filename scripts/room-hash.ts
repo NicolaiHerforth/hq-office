@@ -8,10 +8,10 @@
 // DIR (default: this repo) or a git ref, exported to a temporary folder with git archive. Each tree runs on its
 // own temporary server, port and data folder, with a fake herdr, and is stopped afterwards. Time, randomness and
 // animation frames are frozen in the page; Google Fonts are blocked so both trees draw with the same fonts.
-import { mkdtempSync, rmSync, writeFileSync, chmodSync, readFileSync, existsSync, readdirSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync, chmodSync, readFileSync, existsSync, readdirSync, readlinkSync } from "node:fs";
 import { spawn } from "node:child_process";
 import { tmpdir } from "node:os";
-import { join, resolve } from "node:path";
+import { dirname, join, resolve } from "node:path";
 
 const DAY = Date.UTC(2026, 3, 20, 14, 0); // 20 April, 14:00 UTC: spring, no event
 const NIGHT = Date.UTC(2026, 3, 20, 2, 0);
@@ -174,15 +174,16 @@ export class Cdp {
   }
 }
 
-// Each Chrome runs in a process group of its own, with its helpers: close() ends the group, and so does this process
-// ending without close() (a test file that dies before afterAll, a runner stopped by a signal), or the Chrome outlives it.
-const chromes = new Set<number>();
+// Each Chrome and each server runs in a process group of its own, with its helpers and children: close() or stop() ends
+// the group, and so does this process ending without them (a test file that dies before afterAll, a runner stopped by a
+// signal), or what it started outlives it.
+const groups = new Set<number>();
 const endGroup = (pid: number, signal: NodeJS.Signals) => { try { process.kill(-pid, signal); } catch {} };
 let watching = false;
 function watchExit() {
   if (watching) return;
   watching = true;
-  process.on("exit", () => { for (const pid of chromes) endGroup(pid, "SIGKILL"); });
+  process.on("exit", () => { for (const pid of groups) endGroup(pid, "SIGKILL"); });
   for (const [signal, code] of [["SIGINT", 130], ["SIGTERM", 143], ["SIGHUP", 129]] as const) process.once(signal, () => process.exit(code));
 }
 
@@ -193,13 +194,16 @@ export async function startChrome() {
   const profile = mkdtempSync(join(tmpdir(), "hq-office-chrome-"));
   const proc = spawn(bin, ["--headless=new", "--remote-debugging-port=0", `--user-data-dir=${profile}`, "--no-first-run", "--no-default-browser-check", "--mute-audio", "--hide-scrollbars", "--force-device-scale-factor=1", "--disable-background-timer-throttling", "--disable-renderer-backgrounding", "about:blank"], { detached: true, stdio: "ignore" });
   const pid = proc.pid!;
-  chromes.add(pid);
+  groups.add(pid);
   const exited = new Promise<void>((ok) => proc.once("exit", () => ok()));
   const close = async () => {
     endGroup(pid, "SIGTERM");
     await Promise.race([exited, Bun.sleep(5000)]);
     endGroup(pid, "SIGKILL");
-    chromes.delete(pid);
+    groups.delete(pid);
+    // Chrome keeps its singleton socket in a folder of its own in the system's temp dir (com.google.Chrome.*), linked
+    // from the profile, and leaves it there: one more entry per Chrome in a temp dir every Bun start reads.
+    try { rmSync(dirname(readlinkSync(join(profile, "SingletonSocket"))), { recursive: true, force: true }); } catch {}
     rmSync(profile, { recursive: true, force: true });
   };
   let port = "";
@@ -227,9 +231,11 @@ export function freePort() {
 // the other run's server. So the server's own word is the signal: it prints its address only once it listens, and a
 // server that exits first is started again on another port.
 export async function spawnServer(opts: { cwd: string; env: Record<string, string | undefined>; out?: (chunk: Uint8Array) => void }) {
+  watchExit();
   for (let attempt = 1; ; attempt++) {
     const port = freePort();
-    const proc = Bun.spawn([process.execPath, "server.ts"], { cwd: opts.cwd, env: { ...opts.env, HUD_PORT: String(port) }, stdout: "pipe", stderr: "pipe" });
+    const proc = Bun.spawn([process.execPath, "server.ts"], { cwd: opts.cwd, env: { ...opts.env, HUD_PORT: String(port) }, stdout: "pipe", stderr: "pipe", detached: true });
+    groups.add(proc.pid);
     let said = "";
     let listening!: (ok: boolean) => void;
     const up = new Promise<boolean>((ok) => (listening = ok));
@@ -247,7 +253,14 @@ export async function spawnServer(opts: { cwd: string; env: Record<string, strin
     const timer = setTimeout(() => listening(false), 15_000);
     const ok = await up;
     clearTimeout(timer);
-    const stop = async () => { proc.kill(); await proc.exited; await drained; };
+    const stop = async () => {
+      endGroup(proc.pid, "SIGTERM");
+      await Promise.race([proc.exited, Bun.sleep(5000)]);
+      endGroup(proc.pid, "SIGKILL");
+      groups.delete(proc.pid);
+      await proc.exited;
+      await drained;
+    };
     if (ok) return { proc, port, base: `http://127.0.0.1:${port}`, stop };
     await stop();
     if (attempt === 5) throw new Error(`server.ts did not start (last port ${port}): ${said.trim() || "no output"}`);

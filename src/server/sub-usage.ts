@@ -2,7 +2,7 @@
 // last reported on each machine (sub-usage.sh, read once a minute over the machines' ssh). In memory only: a restart
 // refills it within a minute. A machine without grazr, Codex or python3 is "no source" for it, quietly.
 import { DIR, LOCAL, MACHINES } from "./config.ts";
-import { forgetTarget, sshTo } from "./machines.ts";
+import { forgetTargets, sshTo } from "./machines.ts";
 import { bump } from "./push.ts";
 import { addStatePart } from "./state.ts";
 import { list, merge, sources, type MachineUsage } from "./sub-usage-merge.ts";
@@ -24,7 +24,7 @@ async function readUsage(machine: string): Promise<MachineUsage> {
     const code = await proc.exited;
     clearTimeout(timer);
     if (code !== 0) {
-      if (!local) forgetTarget(machine);
+      if (!local) forgetTargets();
       return quiet;
     }
     const said = JSON.parse(out.trim().split("\n").pop() ?? "");
