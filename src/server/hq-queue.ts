@@ -116,21 +116,78 @@ function senderOf(text: string) {
   return known ? name : "unknown";
 }
 
-// After a held prompt Claude Code puts its text back in HQ's input box: clear it (ctrl+u), but only while the queue
-// is on and only when the box holds exactly that text, so nothing typed by hand is lost.
-function clearInput(floor: string, text: string) {
-  setTimeout(async () => {
-    if (!queueOn()) return;
-    const pane = floorOf(floor)?.hq_pane;
-    if (!pane) return;
-    try {
-      const read = Bun.spawn([HERDR, "pane", "read", pane, "--lines", "6"], { stdout: "pipe", stderr: "ignore" });
-      const out = await new Response(read.stdout).text();
-      const head = text.replace(/\s+/g, " ").trim().slice(0, 40);
-      if (!out.split("\n").some((l) => /^\s*❯\s/.test(l) && l.replace(/^\s*❯\s*/, "").replace(/\s+/g, " ").startsWith(head))) return;
-      Bun.spawn([HERDR, "agent", "send-keys", hqOf(floor), "ctrl+u"], { stdout: "ignore", stderr: "ignore" });
-    } catch {}
-  }, CLEAR_AFTER);
+// Claude Code hands the hook a long message as a paste, <pasted_content id="X">TEXT</pasted_content id="X">, and shows
+// it in the input box as a "[Pasted text #N]" token. The message is TEXT.
+const PASTE = /<pasted_content id="([^"]*)">\n?([\s\S]*?)\n?<\/pasted_content id="\1">/g;
+const typed = (prompt: string) => prompt.replace(PASTE, "$2").trim();
+// The HUD's own messages, Claude Code's own (a background task's end), commands, URGENT and empty prompts go straight
+// in; anything else waits in the queue.
+const straightIn = (p: string) => !p || /^HUD[\s:]/.test(p) || /^<task-notification>/.test(p) || /^\//.test(p) || /^URGENT\b/i.test(p);
+
+// What HQ's input box holds, read from its pane: "" when empty (or only the dim startup placeholder), null when no
+// Claude Code box is seen. The box is the last "❯" line between two rules; the lines under it until the second rule
+// are its wrapped text. Read 200 lines: a long box pushes its first line out of a short read.
+const RULE = /^─{8,}$/;
+async function hqBox(floor: string): Promise<string | null> {
+  const pane = floorOf(floor)?.hq_pane;
+  if (!pane) return null;
+  try {
+    const read = Bun.spawn([HERDR, "pane", "read", pane, "--lines", "200", "--format", "ansi"], { stdout: "pipe", stderr: "ignore" });
+    const raw = (await new Response(read.stdout).text()).split("\n").map((l) => l.replace(/\r$/, ""));
+    const plain = raw.map((l) => l.replace(/\x1b\[[0-9;]*[A-Za-z]/g, "").trimEnd());
+    for (let i = plain.length - 1; i > 0; i--) {
+      if (!plain[i].startsWith("❯") || !RULE.test(plain[i - 1])) continue;
+      const end = plain.findIndex((l, j) => j > i && RULE.test(l));
+      if (end < 0) return null;
+      if (/^❯\s*(\x1b\[[0-9;]*m)*\x1b\[2m/.test(raw[i])) return "";
+      return [plain[i].slice(1), ...plain.slice(i + 1, end)].join("\n").trim();
+    }
+  } catch {}
+  return null;
+}
+// Whether the box holds exactly this held prompt (whitespace aside: the box wraps it), a paste shown as its token.
+function boxHolds(box: string, prompt: string) {
+  const flat = (s: string) => s.replace(/\s+/g, "");
+  const esc = (s: string) => flat(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const parts = prompt.trim().split(new RegExp(PASTE.source)).filter((_, i) => i % 3 !== 1);
+  const re = parts.map((x, i) => (i % 2 ? "\\[Pastedtext#\\d+(\\+\\d+lines)?\\]" : esc(x))).join("");
+  return new RegExp(`^${re}$`).test(flat(box));
+}
+async function hqIdle(floor: string) {
+  try {
+    const get = Bun.spawn([HERDR, "agent", "get", hqOf(floor)], { stdout: "pipe", stderr: "ignore" });
+    return ["idle", "done"].includes(JSON.parse(await new Response(get.stdout).text())?.result?.agent?.agent_status);
+  } catch {
+    return false;
+  }
+}
+
+// After a held prompt Claude Code puts it back in HQ's input box. It is cleared with ctrl+c (ctrl+u clears only the
+// box's last line), only while the queue is on, HQ is idle (ctrl+c interrupts a working HQ) and the box holds exactly
+// that prompt (nothing typed by hand is lost, and ctrl+c on an empty box is a step toward exiting). Tried once the
+// box has it back and again on each sync while it is there. The last few held prompts are kept, since Claude does not
+// put every one back. An empty box drops those held over HELD_BACK_MS ago: Claude puts one back at once, so it is gone.
+const HELD_BACK_MS = 10_000;
+const heldInBox = new Map<string, { prompt: string; at: number }[]>();
+async function clearHeld(floor: string, box: string | null) {
+  const holds = (h: { prompt: string }) => !!box && boxHolds(box, h.prompt);
+  if (!queueOn() || !(heldInBox.get(floor) ?? []).some(holds) || !(await hqIdle(floor))) return;
+  // Looked at again after the wait, and every match dropped at once: two clears of one box send one ctrl+c, not the
+  // two that exit Claude Code.
+  const held = heldInBox.get(floor) ?? [];
+  if (!held.some(holds)) return;
+  heldInBox.set(floor, held.filter((h) => !holds(h)));
+  Bun.spawn([HERDR, "agent", "send-keys", hqOf(floor), "ctrl+c"], { stdout: "ignore", stderr: "ignore" });
+}
+function hold(floor: string, prompt: string, reason: string) {
+  heldInBox.set(floor, [{ prompt, at: Date.now() }, ...(heldInBox.get(floor) ?? [])].slice(0, 10));
+  setTimeout(async () => clearHeld(floor, await hqBox(floor)), CLEAR_AFTER);
+  return { output: { decision: "block", reason } };
+}
+// The open item a prompt starts with: what Claude put back in the box after a hold, with something typed after it.
+function queuedAt(floor: string, p: string) {
+  const open = db.query(`SELECT * FROM hq_queue WHERE floor = ? AND via = 'hook' AND ${OPEN} ORDER BY length(text) DESC`).all(floor) as Item[];
+  return open.find((it) => p.startsWith(it.text)) ?? null;
 }
 
 // The hook's question: what to do with this event in this session. Only a floor's HQ, in its own session (herdr's
@@ -144,12 +201,14 @@ export function hookDecision(input: HookIn): { output?: unknown; text?: string }
   if (!queueOn()) return {};
   const line = queueLine(floor);
   if (input.event === "UserPromptSubmit") {
-    const p = String(input.prompt ?? "");
-    // The HUD's own messages, commands, URGENT and empty prompts go straight in; anything else waits in the queue.
-    if (!p.trim() || /^\s*HUD[\s:]/.test(p) || /^\s*\//.test(p) || /^\s*URGENT\b/i.test(p)) return line ? { text: line } : {};
+    const raw = String(input.prompt ?? ""), p = typed(raw);
+    // Already queued: held again when nothing follows it; what follows goes straight in when it would on its own.
+    const dup = queuedAt(floor, p), rest = dup ? p.slice(dup.text.length).trim() : null;
+    if (dup && !rest) return hold(floor, raw, `Already queued as #${dup.id}; HQ reads it with hud req next.`);
+    if (dup && straightIn(rest!)) return { text: `${line ?? ""} This prompt starts with queue item #${dup.id}, already in your queue: answer it there.`.trim() };
+    if (straightIn(p)) return line ? { text: line } : {};
     const id = fileItem({ floor, from: senderOf(p), text: p, via: "hook" });
-    clearInput(floor, p);
-    return { output: { decision: "block", reason: `Queued for HQ as #${id}; HQ reads it with hud req next.` } };
+    return hold(floor, raw, `Queued for HQ as #${id}; HQ reads it with hud req next.`);
   }
   if (input.event === "PostToolUse") return line ? { output: { hookSpecificOutput: { hookEventName: "PostToolUse", additionalContext: line } } } : {};
   if (input.event === "Stop") {
@@ -161,19 +220,22 @@ export function hookDecision(input: HookIn): { output?: unknown; text?: string }
 
 // An idle HQ with unread items is prompted (any agent kind; a hook only keeps a working one going): at once for a new
 // item, then every KICK_EVERY while it stays idle and something is unread. The line starts with HUD, so the hook lets
-// it through.
+// it through. Only into an empty box: typed after text already there, both would be submitted as one prompt. A held
+// prompt still in the box is cleared first, unread items or not, and the kick goes in on the next sync.
 const kicked = new Map<string, { at: number; top: number }>();
 export async function kickQueue(now = Date.now()) {
   if (!queueOn()) return;
   for (const f of floorList()) {
-    const c = counts(f.id);
-    if (!c.unread) continue;
-    const top = c.unreadItems.at(-1)!.id, k = kicked.get(f.id);
-    if (k && k.top === top && now - k.at < KICK_EVERY) continue;
-    const hq = hqNowOf(f.id);
-    if (!["idle", "done"].includes(hq.status ?? "") || hqLink(f.id).ok !== true) continue;
+    const c = counts(f.id), top = c.unreadItems.at(-1)?.id, k = kicked.get(f.id);
+    const due = !!c.unread && !(k && k.top === top && now - k.at < KICK_EVERY);
+    if (!due && !heldInBox.get(f.id)?.length) continue;
+    if (!["idle", "done"].includes(hqNowOf(f.id).status ?? "") || hqLink(f.id).ok !== true) continue;
+    const box = await hqBox(f.id);
+    if (box === "") heldInBox.set(f.id, (heldInBox.get(f.id) ?? []).filter((h) => now - h.at < HELD_BACK_MS));
+    if (box) await clearHeld(f.id, box);
+    if (box || !due) continue;
     const r = await promptAgent(hqOf(f.id), `HUD queue: ${queueLine(f.id, now)}`);
-    if (r.ok) kicked.set(f.id, { at: now, top });
+    if (r.ok) kicked.set(f.id, { at: now, top: top! });
   }
 }
 
