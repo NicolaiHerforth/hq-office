@@ -195,7 +195,9 @@ if (Object.keys({ ...pkg.dependencies, ...pkg.devDependencies }).length) run(["b
 const testEnv: Record<string, string | undefined> = { ...process.env };
 for (const key of Object.keys(testEnv)) if (key.startsWith("PIXEL_") || key.startsWith("HUD_")) delete testEnv[key];
 console.log("bun test in the export:");
-run([process.execPath, "test"], { cwd: CHECK, inherit: true, env: testEnv });
+// 30 s per test, not bun's 5 s: a release runs on a machine shared with other work, and a slow moment is not a broken
+// test. A test that hangs still fails, and the watchdog still stops a run that hangs as a whole.
+run([process.execPath, "test", "--timeout", "30000"], { cwd: CHECK, inherit: true, env: testEnv });
 
 // ---- Parity Lab: the export's pages still do what an artifact's do ----
 

@@ -230,12 +230,17 @@ export function freePort() {
 // it (by another test run on this machine); the server then exits, and a readiness check on that port would reach
 // the other run's server. So the server's own word is the signal: it prints its address only once it listens, and a
 // server that exits first is started again on another port.
+// When one test times out, bun test kills every process the test file started, so a server shared by the file died
+// with it and every later test failed. Bun kills only its own children: a shell starts the server and exits, and the
+// server lives on in the shell's process group, which stop(), kill() and this process's end take down. The server
+// has exited when its output closes.
 export async function spawnServer(opts: { cwd: string; env: Record<string, string | undefined>; out?: (chunk: Uint8Array) => void }) {
   watchExit();
   for (let attempt = 1; ; attempt++) {
     const port = freePort();
-    const proc = Bun.spawn([process.execPath, "server.ts"], { cwd: opts.cwd, env: { ...opts.env, HUD_PORT: String(port) }, stdout: "pipe", stderr: "pipe", detached: true });
-    groups.add(proc.pid);
+    const sh = Bun.spawn(["sh", "-c", '"$0" server.ts &', process.execPath], { cwd: opts.cwd, env: { ...opts.env, HUD_PORT: String(port) }, stdout: "pipe", stderr: "pipe", detached: true });
+    const group = sh.pid;
+    groups.add(group);
     let said = "";
     let listening!: (ok: boolean) => void;
     const up = new Promise<boolean>((ok) => (listening = ok));
@@ -248,20 +253,20 @@ export async function spawnServer(opts: { cwd: string; env: Record<string, strin
         }
       }
     };
-    const drained = Promise.all([pump(proc.stdout, true), pump(proc.stderr, false)]).then(() => {});
-    proc.exited.then(() => listening(false));
+    const drained = Promise.all([pump(sh.stdout, true), pump(sh.stderr, false)]).then(() => {});
+    drained.then(() => listening(false));
     const timer = setTimeout(() => listening(false), 15_000);
     const ok = await up;
     clearTimeout(timer);
     const stop = async () => {
-      endGroup(proc.pid, "SIGTERM");
-      await Promise.race([proc.exited, Bun.sleep(5000)]);
-      endGroup(proc.pid, "SIGKILL");
-      groups.delete(proc.pid);
-      await proc.exited;
+      endGroup(group, "SIGTERM");
+      await Promise.race([drained, Bun.sleep(5000)]);
+      endGroup(group, "SIGKILL");
+      groups.delete(group);
       await drained;
     };
-    if (ok) return { proc, port, base: `http://127.0.0.1:${port}`, stop };
+    const kill = (signal: NodeJS.Signals) => endGroup(group, signal);
+    if (ok) return { port, base: `http://127.0.0.1:${port}`, stop, kill };
     await stop();
     if (attempt === 5) throw new Error(`server.ts did not start (last port ${port}): ${said.trim() || "no output"}`);
   }

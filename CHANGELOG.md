@@ -3,6 +3,15 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.38.6] - 2026-11-04
+### Fixed
+
+- **The test suite holds up on a busy machine.** Nothing in the plugin changes; this is for anyone who runs
+  `bun test`. A test that timed out took its file's test server with it, so every later test in that file failed
+  too. Now it costs only that one test. The ask-routing tests no longer run out of time while the machine is under
+  load. The top bar test no longer depends on when the first machine sample lands, or on Chrome dropping the first
+  click after a page load. A release's own test run allows 30 seconds per test instead of 5.
+
 ## [0.38.5] - 2026-11-04
 ### Fixed
 
