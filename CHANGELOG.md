@@ -3,6 +3,16 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.39.1] - 2026-11-05
+### Fixed
+
+- **HQ SWEEP backs off when nothing can change.** When HQ answered a sweep, the wait always started over, so a
+  sweep about something HQ cannot move (a question only you can answer) came back every 20 minutes for days. Now,
+  if the next sweep would list the same things (only their ages changed), the wait keeps doubling, up to 2 hours.
+  A sweep with something new in it comes after the usual wait again.
+- **A sweep is never typed into HQ twice at once.** The timed check and one that was asked for could both nudge
+  HQ in the same moment. Now one nudge per floor is on its way at a time.
+
 ## [0.39.0] - 2026-11-05
 ### Added
 

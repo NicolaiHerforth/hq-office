@@ -49,6 +49,14 @@ function inWindow(spec: string, now: Date) {
 const lastAt = (floor: string) => (db.query("SELECT MAX(at) AS at FROM events WHERE who = 'hud' AND text LIKE ? AND floor = ?").get(`${NUDGED}%`, floor) as { at: number | null }).at ?? 0;
 // Nudges in a row that a floor's HQ did not act on. Memory only: after a restart HQ counts as having acted.
 const unanswered = new Map<string, number>();
+// The last nudge's list, as typed; ages ("oldest 2d") left out, since only they change while nothing else does.
+const lastText = (floor: string) => (db.query("SELECT text FROM events WHERE who = 'hud' AND text LIKE ? AND floor = ? ORDER BY at DESC LIMIT 1").get(`${NUDGED}%`, floor) as { text: string } | null)?.text ?? "";
+const sameList = (a: string, b: string) => a.replace(/ \(oldest [^)]*\)/g, "") === b.replace(/ \(oldest [^)]*\)/g, "");
+// Judged once per nudge: the last nudge each floor's working HQ was weighed against.
+const judged = new Map<string, number>();
+// A floor whose nudge is being typed in. A timed sync and an asked-for one can overlap; both would read "no nudge
+// yet" before either logged its own, and HQ got the line twice.
+const sending = new Set<string>();
 const waitMin = (minutes: number, floor: string) => Math.min(MAX_WAIT_MIN, minutes * 2 ** (unanswered.get(floor) ?? 0));
 
 // What a floor's HQ should look at, in one line; null when there is nothing.
@@ -86,15 +94,27 @@ export async function sweep(now = Date.now()) {
 async function sweepFloor(floor: string, c: ReturnType<typeof config>, now: number) {
   const last = lastAt(floor);
   const hq = hqNowOf(floor);
-  if (hq.workingAt > last) unanswered.set(floor, 0); // HQ worked since the last nudge
+  // HQ worked since the last nudge: the wait starts over, unless the sweep would list the same things again. Then HQ
+  // could not change them (a question only the owner can answer, a lane idle for a reason), and the repeat keeps
+  // doubling the wait instead of coming back every interval.
+  if (hq.workingAt > last && judged.get(floor) !== last) {
+    judged.set(floor, last);
+    const found = findings(floor);
+    if (!found || !sameList(`${NUDGED}${found}`.slice(0, 500), lastText(floor))) unanswered.set(floor, 0);
+  }
   if (last && now - last < waitMin(c.minutes, floor) * MINUTE) return;
   if (!["idle", "done"].includes(hq.status ?? "") || hqLink(floor).ok !== true) return;
   const found = findings(floor);
-  if (!found) return;
-  const r = await promptAgent(hqOf(floor), withHint(`HUD sweep: ${found}. Sweep now (hud board, hud inbox, the rooms); an idle lane must be idle for a reason, and only HQ can judge it. ${HOUSEKEEPING}`));
-  if (!r.ok) return; // dropped, never held: the link check says why on the page
-  event("hud", `${NUDGED}${found}`.slice(0, 500), null, floor);
-  if (last) unanswered.set(floor, (unanswered.get(floor) ?? 0) + 1);
+  if (!found || sending.has(floor)) return;
+  sending.add(floor);
+  try {
+    const r = await promptAgent(hqOf(floor), withHint(`HUD sweep: ${found}. Sweep now (hud board, hud inbox, the rooms); an idle lane must be idle for a reason, and only HQ can judge it. ${HOUSEKEEPING}`));
+    if (!r.ok) return; // dropped, never held: the link check says why on the page
+    event("hud", `${NUDGED}${found}`.slice(0, 500), null, floor);
+    if (last) unanswered.set(floor, (unanswered.get(floor) ?? 0) + 1);
+  } finally {
+    sending.delete(floor);
+  }
 }
 
 // A floor's last and next nudge and its backoff.
