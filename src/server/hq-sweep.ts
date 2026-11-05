@@ -69,7 +69,7 @@ function findings(floor: string): string | null {
   const gone = notHq(db.query("SELECT name FROM lanes WHERE herdr = 'gone' AND phase NOT IN ('done', 'parked') AND floor = ? ORDER BY name").all(floor) as { name: string }[]);
   const stalled = board.view({ floor }).items.filter((i: any) => i.state === "stalled").map((i: any) => i.issue as string);
   const asks = db.query("SELECT COUNT(*) AS n, MIN(created_at) AS at FROM asks WHERE status = 'open' AND floor = ?").get(floor) as { n: number; at: number | null };
-  const rooms = db.query("SELECT DISTINCT m.slug FROM room_messages m JOIN rooms r ON r.slug = m.slug WHERE m.author IS NULL AND m.delivery IN ('away', 'failed') AND r.floor = ? ORDER BY m.slug").all(floor) as { slug: string }[];
+  const rooms = db.query("SELECT DISTINCT m.slug FROM room_messages m JOIN rooms r ON r.slug = m.slug WHERE m.author IS NULL AND m.delivery IN ('away', 'failed') AND r.archived_at IS NULL AND r.floor = ? ORDER BY m.slug").all(floor) as { slug: string }[];
   const parts: string[] = [];
   const list = (label: string, names: string[]) => names.length && parts.push(`${label} ${names.length}: ${names.join(", ")}`);
   list("idle or done lanes", lanes.map((l) => l.name));

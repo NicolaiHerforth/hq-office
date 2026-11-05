@@ -3,6 +3,12 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.39.2] - 2026-11-05
+### Fixed
+
+- **HQ SWEEP leaves archived rooms out.** A room that was archived while a message in it was still waiting for its
+  lane kept appearing in the sweep under "rooms with undelivered messages". Archived rooms are not counted now.
+
 ## [0.39.1] - 2026-11-05
 ### Fixed
 
