@@ -25,11 +25,14 @@ export function renderBelow() {
 $("hud").addEventListener("scroll", renderBelow, { passive: true });
 new ResizeObserver(renderBelow).observe($("hud"));
 
-// An ask for secrets is answered with all of them, or (with none filled) in words, an image, or like any other ask.
+// An ask for secrets is answered with all of them, or (with none filled) in words, a pick or an image: never by a
+// bare DONE or OK, which would leave its secrets blank and look like a reply.
 export function canSend(a, d) {
   const want = a.secrets ?? [];
   const filled = want.filter((n) => secretDrafts.get(a.id)?.[n]).length;
-  return want.length && filled ? filled === want.length : a.kind !== "decision" || !!d.opt || !!(d.text || "").trim() || hasImages(a.id);
+  const said = !!d.opt || !!(d.text || "").trim() || hasImages(a.id);
+  if (want.length) return filled ? filled === want.length : said;
+  return a.kind !== "decision" || said;
 }
 // A picked, uploaded or removed image can change whether its ask can be sent.
 on("attach", (key) => {

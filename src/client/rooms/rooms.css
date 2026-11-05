@@ -106,6 +106,8 @@
 .roomview.folded .rvrail { display: none; }
 .rvchat { display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: 8px; min-width: 0; min-height: 0; }
 .rvrail { display: grid; align-content: start; gap: 10px; min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-right: 2px; }
+.rmount:empty { display: none; }
+.rmount { display: grid; gap: 10px; min-width: 0; }
 .rtop, .rbrief, .rshelf { display: grid; gap: 6px; min-width: 0; padding: 8px 10px; border: 2px solid var(--rule); border-radius: 8px; background: var(--field); }
 .roomview .k { display: flex; align-items: center; gap: 8px; min-height: 16px; font: 8px/1 var(--pixel); color: var(--muted); }
 .roomview .k .by { font: 12px/1 var(--text); }
@@ -195,7 +197,7 @@
   .roomview[data-pane="chat"] .rvrail { display: none; }
   .roomview:not([data-pane="chat"]) .rvchat { display: none; }
   .roomview:not([data-pane="chat"]) .rvrail, .roomview.folded:not([data-pane="chat"]) .rvrail { display: grid; }
-  .roomview[data-pane="brief"] .rshelf, .roomview[data-pane="shelf"] .rtop, .roomview[data-pane="shelf"] .rbrief { display: none; }
+  .roomview[data-pane="brief"] .rshelf, .roomview[data-pane="shelf"] .rtop, .roomview[data-pane="shelf"] .rmount, .roomview[data-pane="shelf"] .rbrief { display: none; }
   .rthread, .rvrail { -webkit-overflow-scrolling: touch; }
 }
 @media (max-width: 1150px) and (pointer: coarse) {

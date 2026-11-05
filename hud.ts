@@ -60,7 +60,7 @@
 //   hud page room PAGE peers | emit TOPIC [JSON] | listen [--room NAME]   who has the page open now, a moment to them,
 //                               or in the room as yourself while it runs (one JSON line per moment)
 // conference rooms: one per piece of work, where the owner talks straight to the lane that owns it (see roomCmd below)
-//   hud room create|path|brief|artifact|say|read|list|archive ...   `hud room` prints the usage
+//   hud room create|path|brief|artifact|say|read|list|archive|project|acceptance ...   `hud room` prints the usage
 // floors: one HQ agent and everything it runs (see floorCmd below). hud tells the server which pane it runs in
 // ($HERDR_PANE_ID), so an HQ's or a lane's writes land on its own floor, and inbox, wait, ack, board, tree and
 // room list show its own floor only; --all shows every floor, and --floor ID picks a floor by hand.
@@ -72,6 +72,7 @@ import { treeText } from "./src/lane-tree.ts";
 import { atText, expiresText } from "./src/client/secrets/expiry.js";
 import { restartTime } from "./src/server/secrets.ts";
 import { parseRef, refFor } from "./src/client/core/refs.js";
+import { acceptanceText } from "./src/server/acceptance.ts";
 
 const BASE = process.env.HUD_URL ?? "http://127.0.0.1:4747";
 
@@ -442,7 +443,12 @@ function roomUsage() {
   hud room say SLUG TEXT [--as LANE] [--reply ID]    write in the thread (as the owning lane unless --as)
   hud room read SLUG [--since ID] [--wait] [--json]  the owner's messages; --wait blocks until a new one
   hud room list [--all] [--json]
-  hud room archive SLUG`;
+  hud room archive SLUG
+  hud room project SLUG [REF | --clear]              link the room to a Linear project (REF: its URL, its slugId or
+                                                     its exact name), unlink it, or print the link
+  hud room acceptance SLUG [--json] [--refresh]      the project's acceptance criteria (issues labelled acceptance):
+                                                     how many are met, per milestone; --refresh fetches Linear first
+                                                     when the last fetch is over a minute old`;
 }
 
 // Text from an argument, else from stdin when it is piped.
@@ -468,7 +474,7 @@ function ago(t: number) {
 }
 
 async function roomCmd(args: string[]) {
-  const bools = new Set(args.filter((a) => ["--json", "--wait", "--all", "--clear", "--brief"].includes(a)));
+  const bools = new Set(args.filter((a) => ["--json", "--wait", "--all", "--clear", "--brief", "--refresh"].includes(a)));
   const { flags: f, rest: r, one: o } = parse(args.filter((a) => !bools.has(a)));
   const [verb, slugRaw, ...words] = r;
   const slug = (slugRaw ?? "").toLowerCase();
@@ -598,6 +604,22 @@ async function roomCmd(args: string[]) {
       await call("POST", `${path}/archive`, {});
       console.log(`room ${slug} archived`);
       break;
+    case "project": {
+      if (bools.has("--clear") || words.length) {
+        const out = await call("POST", `${path}/project`, bools.has("--clear") ? { clear: true } : { ref: words.join(" ") });
+        console.log(out.project ? `room ${slug} linked to Linear project ${out.project.name}  ${out.project.url}` : `room ${slug} has no Linear project now`);
+        break;
+      }
+      const a = await call("GET", `${path}/acceptance`);
+      console.log(a ? `room ${slug}: Linear project ${a.project.name || a.project.id}  ${a.project.url}` : `room ${slug} has no Linear project: hud room project ${slug} URL`);
+      break;
+    }
+    case "acceptance": {
+      const a = await call("GET", `${path}/acceptance${bools.has("--refresh") ? "?refresh=1" : ""}`);
+      if (bools.has("--json")) console.log(JSON.stringify(a, null, 2));
+      else console.log(acceptanceText(slug, a, ago));
+      break;
+    }
     default:
       usage();
   }

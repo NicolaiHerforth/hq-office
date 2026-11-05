@@ -11,6 +11,11 @@
 // Each room is a folder on the HUD's disk (rooms/SLUG/, see src/server/room-folder.ts). The shelf's ADD puts files
 // (picked, dropped anywhere on the room, or pasted) into its files/ and links on the shelf; images attached to a
 // message go into files/ too, so they are on the shelf as well.
+//
+// A feature that shows something in an open room hooks in on "room:open" { slug, mount }: the mount is its place in
+// the rail, under the lanes and work, new and empty for each room and off the page once the room closes. A feature
+// that loads after a room opened asks openRoom() for it. One that adds to the list's tiles hooks in on "rooms:list"
+// (the list): it runs after every draw of the list, each tile an article[data-room="SLUG"].
 import { $, keepScroll, showEdges, toast } from "../core/dom.js";
 import { CONFIG, S } from "../core/state.js";
 import { clock, esc, setHTML } from "../core/format.js";
@@ -63,6 +68,7 @@ view.innerHTML = `<div class="rvbar">
     </div>
     <aside class="rvrail" id="roomRail" aria-label="Lanes, brief and shelf">
       <section class="rtop"></section>
+      <div class="rmount"></div>
       <section class="rbrief"></section>
       <section class="rshelf"></section>
     </aside>
@@ -71,6 +77,8 @@ stage.append(view);
 const part = (cls) => view.querySelector(`.${cls}`);
 
 let openSlug = null; // the room on the stage
+let mount = part("rmount"); // the features' place in the open room
+export const openRoom = () => (openSlug ? { slug: openSlug, mount } : null);
 let detail = null; // the open room, as /api/rooms/SLUG gave it
 let fetching = "";
 let stick = true; // the thread opens at its newest message
@@ -161,6 +169,7 @@ function renderList() {
   setHTML(list, (rooms.length
     ? `<div class="rhead"><div class="rsum">${live.length} OPEN ${live.length === 1 ? "ROOM" : "ROOMS"}${unread ? ` · ${unread} WITH NEW MESSAGES` : ""}</div>${NEW}</div>${live.map(rowHtml).join("")}${old.length ? `<h4>ARCHIVED (${old.length})</h4>${old.map(rowHtml).join("")}` : ""}`
     : `<div class="rhead"><div class="rsum">NO ROOMS YET</div>${NEW}</div><div class="empty">A room is where you talk to the lanes on one piece of work. Open one with + NEW ROOM, or HQ opens one with hud room create. Its lane keeps the brief and the artifacts there.</div>`));
+  emit("rooms:list", list);
 }
 function renderCount() {
   const n = pick(S?.rooms).filter((r) => !r.archivedAt && r.unread).length, t = $("qtRooms");
@@ -484,7 +493,14 @@ function setPtab(t) {
   for (const b of view.querySelectorAll("[data-ptab]")) { b.classList.toggle("on", b.dataset.ptab === t); b.setAttribute("aria-selected", String(b.dataset.ptab === t)); }
 }
 function show(slug) {
-  if (openSlug !== slug) { detail = null; fresh.clear(); stick = true; atEnd = true; sendFor = null; shelfFor = null; pixKey = ""; setPtab("chat"); }
+  const changed = openSlug !== slug;
+  if (changed) {
+    detail = null; fresh.clear(); stick = true; atEnd = true; sendFor = null; shelfFor = null; pixKey = ""; setPtab("chat");
+    const next = document.createElement("div");
+    next.className = "rmount";
+    mount.replaceWith(next);
+    mount = next;
+  }
   openSlug = slug;
   view.hidden = !slug;
   stage.classList.toggle("inroom", !!slug);
@@ -492,6 +508,7 @@ function show(slug) {
   emit("stage", slug ? "room" : "office"); // the office's frame loop rests while a room covers it (room/loop.js)
   fitViewport();
   if (qTab === "rooms") renderList();
+  if (changed && slug) emit("room:open", { slug, mount });
 }
 // Follows the address: on load, on every state and whenever the address changes.
 function route() {

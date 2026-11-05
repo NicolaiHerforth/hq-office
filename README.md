@@ -470,6 +470,8 @@ Set these in `config.env`. An empty value means the default.
 | `HUD_TRUSTED_ORIGINS` | empty | Extra page addresses that may use the page, comma-separated and exact, such as a phone reaching it through `tailscale serve` (`https://name.tailnet.ts.net:4747`). Every other site is refused. A listed address may also set and remove secrets (never read a value, except COPY). |
 | `HUD_GITHUB_REPO` | empty | `owner/repo`, used to link lanes to pull requests. |
 | `HUD_LINEAR_WORKSPACE` | empty | Linear workspace slug, used to link lanes to issues. |
+| `HUD_LINEAR_API_KEY` | empty | A Linear API key (read-only is enough), for rooms linked to a Linear project (`hud room project`): the project's issues labelled acceptance show how far along it is. Never logged or shown. |
+| `HUD_LINEAR_ACCEPTANCE_LABEL` | `acceptance` | The label that marks a project's acceptance criteria, matched in any case. |
 | `HUD_LOCAL_MACHINE` | `local` | Name of this machine in the room. |
 | `HUD_MACHINES` | this machine | Comma-separated herdr machine labels to poll for agents, sample for CPU and memory, and read subscription usage from (SUBS). Remote machines need SSH access. |
 | `HERDR_BIN` | `herdr` on PATH | Path to the herdr binary. |

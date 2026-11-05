@@ -3,6 +3,29 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.39.0] - 2026-11-05
+### Added
+
+- **A room can show what "done" means for its project.** Link a room to a Linear project, and the room shows that
+  project's acceptance criteria: its issues with the label `acceptance` (any capitals), grouped by milestone, with a
+  bar and a count such as "7 of 12 closed". Each criterion shows its key, which links to Linear, and its state. SHOW
+  CLOSED shows the ones already closed. The ROOMS tab shows the project and its count on each room's tile. A room
+  without a project offers a field for a Linear project URL. Linking is optional, since some rooms are about a
+  single issue. The count is what Linear says is closed, so it is only as true as the board it reads.
+- **`hud room project SLUG REF`** links a room to a project by its URL, its slugId or its exact name (`--clear`
+  unlinks it). **`hud room acceptance SLUG`** prints the criteria as text, so a room's lane can answer "are we done?".
+- Set `HUD_LINEAR_API_KEY` (a read-only Linear key) in the plugin's config.env. The key is sent only to Linear, in
+  one header, and is cut from every error message. HQ Office reads a linked project when the room is linked, when
+  someone asks (at most once a minute), and every 10 minutes while an open room has a project. A page load never
+  fetches. `HUD_LINEAR_ACCEPTANCE_LABEL` changes the label it looks for.
+
+### Fixed
+
+- **A question that asks for a secret can no longer be sent blank.** An action or info question with a secret
+  field let DONE or OK through with nothing filled in, so the reply looked as if the secret had been given. With
+  its secrets empty, it now needs words, a pick or an image, as any other answer does. Filling every secret still
+  sends it.
+
 ## [0.38.6] - 2026-11-04
 ### Fixed
 
