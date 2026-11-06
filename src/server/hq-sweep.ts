@@ -3,7 +3,9 @@
 // the hour is in the window, HQ is idle or done right now (never mid-turn) and receiving, and the interval has passed
 // since the last nudge. It lists what HQ should look at (done lanes to close among it, with their worktrees) and asks
 // for housekeeping every time; with nothing to list it sends nothing. A nudge HQ does not
-// act on (HQ never works after it) doubles the wait for the next, up to 2 h. Never queued: a nudge that cannot go
+// act on (HQ never works after it) doubles the wait for the next, up to 2 h. A list of nothing but questions waiting
+// on the owner goes once, and again only when it changes: HQ cannot answer them, and the question panel shows them
+// to the owner already. Never queued: a nudge that cannot go
 // now is dropped, since an old one says nothing.
 // Per floor: the settings are shared, but each floor's HQ is nudged about its own floor only, with its own last
 // nudge, next one and backoff.
@@ -52,6 +54,8 @@ const unanswered = new Map<string, number>();
 // The last nudge's list, as typed; ages ("oldest 2d") left out, since only they change while nothing else does.
 const lastText = (floor: string) => (db.query("SELECT text FROM events WHERE who = 'hud' AND text LIKE ? AND floor = ? ORDER BY at DESC LIMIT 1").get(`${NUDGED}%`, floor) as { text: string } | null)?.text ?? "";
 const sameList = (a: string, b: string) => a.replace(/ \(oldest [^)]*\)/g, "") === b.replace(/ \(oldest [^)]*\)/g, "");
+const WAITING = `questions waiting on ${OWNER} `;
+const ownerOnly = (found: string) => found.startsWith(WAITING) && !found.includes("; ");
 // Judged once per nudge: the last nudge each floor's working HQ was weighed against.
 const judged = new Map<string, number>();
 // A floor whose nudge is being typed in. A timed sync and an asked-for one can overlap; both would read "no nudge
@@ -76,7 +80,7 @@ function findings(floor: string): string | null {
   list("gone lanes", gone.map((l) => l.name));
   list("done lanes to close", done.map((l) => { const f = agentFolders.get(l.name); return f ? `${l.name} (${short(f.cwd)} on ${f.machine})` : l.name; }));
   list("stalled board items", stalled);
-  if (asks.n) parts.push(`questions waiting on ${OWNER} ${asks.n} (oldest ${age(Date.now() - (asks.at ?? Date.now()))})`);
+  if (asks.n) parts.push(`${WAITING}${asks.n} (oldest ${age(Date.now() - (asks.at ?? Date.now()))})`);
   list("rooms with undelivered messages", rooms.map((r) => r.slug));
   return parts.length ? parts.join("; ") : null;
 }
@@ -106,6 +110,7 @@ async function sweepFloor(floor: string, c: ReturnType<typeof config>, now: numb
   if (!["idle", "done"].includes(hq.status ?? "") || hqLink(floor).ok !== true) return;
   const found = findings(floor);
   if (!found || sending.has(floor)) return;
+  if (ownerOnly(found) && sameList(`${NUDGED}${found}`.slice(0, 500), lastText(floor))) return;
   sending.add(floor);
   try {
     const r = await promptAgent(hqOf(floor), withHint(`HUD sweep: ${found}. Sweep now (hud board, hud inbox, the rooms); an idle lane must be idle for a reason, and only HQ can judge it. ${HOUSEKEEPING}`));

@@ -1,6 +1,6 @@
 {
   "name": "hq-office",
-  "version": "0.39.2",
+  "version": "0.39.3",
   "private": false,
   "description": "A handheld-RPG office for herdr agent lanes, with a panel for answering your HQ agent's questions",
   "repository": "github:NicolaiHerforth/hq-office",

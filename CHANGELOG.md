@@ -3,6 +3,14 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.39.3] - 2026-11-06
+### Fixed
+
+- **HQ SWEEP stops repeating questions only you can answer.** When the only thing a sweep had to report was your
+  open questions, HQ got the same line every 2 hours, though it cannot answer them and the question panel already
+  shows them to you. Now that sweep goes once, and again only when your questions change or there is something else
+  for HQ to look at.
+
 ## [0.39.2] - 2026-11-05
 ### Fixed
 
