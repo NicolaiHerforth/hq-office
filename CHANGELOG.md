@@ -3,6 +3,13 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.40.1] - 2026-11-06
+### Added
+
+- **The minute record of each machine has swap in use, free disk and the size of its temp folders**, in
+  `GET /api/machines`, so a machine filling up can be seen before it hurts. Temp size is read every ten minutes at low
+  priority, because it walks the folders' files; a slow or failed reading never affects the rest of the sample.
+
 ## [0.40.0] - 2026-11-06
 ### Fixed
 

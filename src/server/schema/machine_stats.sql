@@ -7,6 +7,9 @@ CREATE TABLE IF NOT EXISTS machine_stats (
   load1 REAL,
   cpu_busy REAL,
   mem_used REAL,
-  error TEXT
+  error TEXT,
+  swap_used_gb REAL,
+  disk_free_gb REAL,
+  temp_gb REAL
 );
 CREATE INDEX IF NOT EXISTS machine_stats_at ON machine_stats (machine, at);

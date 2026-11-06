@@ -20,6 +20,10 @@ if (!(db.query("PRAGMA table_info(lanes)").all() as { name: string }[]).some((c)
 if (!(db.query("PRAGMA table_info(lanes)").all() as { name: string }[]).some((c) => c.name === "prompt")) db.exec("ALTER TABLE lanes ADD COLUMN prompt TEXT");
 // A level set by hand (`hud lane NAME --level L`), over the one the tree gives; empty: the tree decides.
 if (!(db.query("PRAGMA table_info(lanes)").all() as { name: string }[]).some((c) => c.name === "level")) db.exec("ALTER TABLE lanes ADD COLUMN level TEXT");
+// The minute record's swap, free disk and temp size (machines.ts); older rows stay NULL.
+for (const col of ["swap_used_gb", "disk_free_gb", "temp_gb"]) {
+  if (!(db.query("PRAGMA table_info(machine_stats)").all() as { name: string }[]).some((c) => c.name === col)) db.exec(`ALTER TABLE machine_stats ADD COLUMN ${col} REAL`);
+}
 // Delivery to HQ, confirmed (HQ started working on it) or typed in mid-turn and sent once more (hq-link.ts).
 // Rows from before it count as confirmed: an upgrade never replays the past.
 for (const [col, type] of [["confirmed_at", "INTEGER"], ["resend", "INTEGER NOT NULL DEFAULT 0"]]) {
