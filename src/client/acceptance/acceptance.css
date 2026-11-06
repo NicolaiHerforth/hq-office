@@ -47,3 +47,5 @@
 .acctile b { flex: none; font: 8px/1 var(--pixel); color: var(--ink); }
 .acctile .none { color: var(--muted); }
 .acctile .accwarn { flex: none; padding: 1px 4px; border-radius: 3px; background: var(--amber); color: var(--on-fill); font: 8px/1 var(--pixel); }
+@media (max-width: 1150px) and (pointer: coarse) { .accproj { display: block; line-height: 44px; } }
+@media (max-width: 640px) { .acc .k > span { flex: none; white-space: nowrap; } }

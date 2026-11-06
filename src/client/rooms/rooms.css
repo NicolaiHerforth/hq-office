@@ -79,6 +79,7 @@
 .rvbar .back .tag[hidden] { display: none; }
 .rvtabs { display: flex; gap: 6px; min-width: 0; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; }
 .rvtabs::-webkit-scrollbar { display: none; }
+.rvjump { display: none; }
 .rvtab { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; max-width: 230px; padding: 6px 8px; border: 2px solid var(--edge-2); border-radius: 6px; background: var(--box); color: var(--ink); font: 8px/1.2 var(--pixel); text-decoration: none; }
 .rvtab span:first-child { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .rvtab:hover { background: var(--lift); border-color: var(--edge); }
@@ -190,6 +191,11 @@
     padding: max(10px, env(safe-area-inset-top, 0px)) max(12px, env(safe-area-inset-right, 0px)) max(8px, env(safe-area-inset-bottom, 0px)) max(12px, env(safe-area-inset-left, 0px)); }
   .roomview .railbtn { display: none; }
   .rvptabs { display: flex; }
+  /* the screen's picker in place of the row of open rooms, which would hide most of them past its edge */
+  .rvbar:has(> .rvjump) .rvtabs { display: none; }
+  .rvjump:not([hidden]) { position: relative; flex: none; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; margin-left: auto; padding: 0 8px; border: 2px solid var(--edge); border-radius: 6px; background: var(--box); color: var(--ink); font: 8px/1 var(--pixel); }
+  .rvjump.unread { border-color: var(--amber-edge); background: var(--amber-tint); }
+  .rvjump select { position: absolute; inset: 0; width: 100%; opacity: 0; font-size: 16px; cursor: pointer; }
   .rvhead h2 { font-size: 16px; }
   .rvhead .who { display: none; }
   .roomview.typing .rvpix, .roomview.typing .rvhead { display: none; }
@@ -204,5 +210,29 @@
   html .rto select, html .radd input[type=url], html .radd input[type=text] { font-size: 16px; }
   .radd .rpick, .radd button[type=submit] { min-height: 34px; display: inline-flex; align-items: center; }
   .rlane { padding-block: 5px; }
-  .rvtab, .rvptabs .tab { min-height: 34px; }
+  .rvtab, .rvptabs .tab { min-height: 44px; }
+  .rvbar .back { min-height: 44px; }
+  .rlane { min-height: 44px; }
+}
+@media (max-width: 640px) {
+  .rlane .lv, .rlane .role { flex: none; white-space: nowrap; }
+  .rthread .msg .to { line-height: 1.5; }
+  .roomview { gap: 4px; }
+  .rvbar { gap: 6px; }
+  .rvbar .back { flex: 0 1 auto; padding-inline: 6px; font-size: 8px; }
+  /* the room's name and CLOSE ROOM share a row, so the thread gets the row back */
+  .rvhead { flex-wrap: nowrap; }
+  .rvhead h2 { flex: 1 1 0; }
+  .rvhead .rclose { flex: none; }
+}
+/* A phone: one column and one gutter. The open rooms' tabs fade where they run on, the last one clear of the fade; a
+   room's tile holds its lanes without a box round each; the form's buttons and lanes run the full width. */
+@media (max-width: 640px) {
+  .roomview { padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px)); }
+  .rvtabs { padding-right: 24px; -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 24px), transparent); }
+  .rrow .rlane { padding-inline: 0; border: 0; background: none; }
+  .rbrief .k > :first-child { flex: none; white-space: nowrap; }
+  .opts2.nracts { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .nrlane { flex: 1 1 100%; line-height: 1.4; }
+  .rshelf .cards { grid-template-columns: minmax(0, 1fr); }
 }

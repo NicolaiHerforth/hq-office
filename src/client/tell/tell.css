@@ -25,3 +25,5 @@
 .urgentsw { margin-left: auto; padding: 4px 7px; border: 2px solid var(--edge-2); border-radius: 5px; background: var(--box); font: 7px/1 var(--pixel); color: var(--muted); cursor: pointer; }
 .urgentsw[aria-pressed="true"] { border-color: var(--red); background: var(--red); color: var(--on-fill); }
 .urgentsw[hidden] { display: none; }
+/* A phone: the last note wraps to two lines, so a link in it is not cut at the edge. */
+@media (max-width: 640px) { .tell .lastnote { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; white-space: normal; overflow-wrap: anywhere; } }

@@ -32,6 +32,7 @@
   --muted: #6a6a82;
   --on-ink: #fff;           /* text on an ink fill (a picked tab, a lane tag) */
   --on-fill: #fff;          /* text on an accent, a status colour or a scrim */
+  --on-amber: #23233a;      /* text on an amber fill, on a phone */
   /* edges */
   --edge: #3c3c5a;
   --edge-2: #a8a8c8;
@@ -136,6 +137,7 @@
     --ink-2: #c8c8da;
     --muted: #a6a6c2;
     --on-ink: #1b1d2c;
+    --on-amber: #1b1d2c;
     --edge: #b4b4d4;
     --edge-2: #50547c;
     --dim-edge: #7a7a96;
@@ -200,6 +202,7 @@
   --ink-2: #c8c8da;
   --muted: #a6a6c2;
   --on-ink: #1b1d2c;
+  --on-amber: #1b1d2c;
   --edge: #b4b4d4;
   --edge-2: #50547c;
   --dim-edge: #7a7a96;
@@ -237,6 +240,19 @@
   --secret-ink: #ffb08a;
   --artifact-bg: #382620;
   --artifact-ink: #f0a07a;
+}
+/* On a phone the text is small and held in daylight: the status colours that carry text are a step darker, so each
+   reads at 4.5:1 or more on a panel, and white reads on them. Dark sets its own text colours above. */
+@media (max-width: 799px), (max-width: 1150px) and (pointer: coarse) {
+  :root {
+    --green: #1f7a42;
+    --green-text: #1f7a42;
+    --red: #c43232;
+    --red-text: #c43232;
+    --blue-text: #3565c8;
+    --amber-text: #8f5a08;
+    --muted: #5c5c74;
+  }
 }
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.45 var(--text); }

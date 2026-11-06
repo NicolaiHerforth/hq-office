@@ -3,6 +3,29 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.40.0] - 2026-11-06
+### Fixed
+
+- **NEEDS YOU keeps your place.** Every update used to rebuild the list, so your reading position, your typing focus
+  and a phone's keyboard could all be lost whenever a question arrived or was answered. Now cards change in place:
+  what you're reading stays at the same pixel, your draft and your cursor survive, and answering a question leaves you
+  at the next one. A reload brings you back to the same card.
+- **No more sideways scrolling on a phone.** One long lane name could stretch the whole page to 629 px on a 390 px
+  screen. Nothing inside the page can widen it now, in any view.
+- **MESSAGES stays at the newest message** when late fonts or images reflow the thread.
+- **Question comments and checklists, and the HQ link banner, no longer go missing on a fresh load.**
+
+### Changed
+
+- **A new question no longer pulls you back to NEEDS YOU**, at any width, desktop too. You hear the chime, the tab
+  count goes up, and on a narrow screen the position row under the tabs turns red: `45 OF 87 · 2 NEW`.
+- **On a phone, the first question comes first.** Healthy readings (WORKING, SUBS, MACHINES) sit below the desk; alarms
+  stay above it. Tap targets are 44 px, buttons have a press state, and each kind of button has one look.
+- **All five tabs fit on a phone**, with each count under its label.
+- **A full-screen room on a phone has a ROOMS picker** in place of the row of room tabs, since no width fits them all.
+- **Asking for less motion is honoured everywhere**, including the room, which rests as in POWER SAVER.
+- **Floor name chips** pick whichever ink reads better, so two palette colours change.
+
 ## [0.39.3] - 2026-11-06
 ### Fixed
 

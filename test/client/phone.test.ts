@@ -63,6 +63,8 @@ test.skipIf(!chromeFound)("no zoom: the viewport forbids it, and no text field i
 test.skipIf(!chromeFound)("MESSAGES has a bounded height, scrolls itself and opens at the newest, with its tabs and Tell HQ on screen", async () => {
   await page.evaluate(`document.querySelector('[data-qtab="messages"]').click()`);
   await until(`document.querySelectorAll("#msgs [data-msg]").length > 20`);
+  // A fresh Chrome fetches the web fonts: their reflow and the page's answer to it are a moment apart.
+  await page.evaluate(`document.fonts.ready.then(() => new Promise((ok) => requestAnimationFrame(() => ok(true))))`);
   await settle();
   const b = await bounded("msgs");
   expect(b.overflowY).toBe("auto");
@@ -76,6 +78,26 @@ test.skipIf(!chromeFound)("MESSAGES has a bounded height, scrolls itself and ope
   expect(await topOf("#qtabs")).toBeGreaterThanOrEqual(0);
   expect(await page.evaluate(`document.querySelector(".tell").getBoundingClientRect().bottom`)).toBeLessThanOrEqual(664);
   expect(await page.evaluate(`document.scrollingElement.scrollHeight > innerHeight`)).toBe(true);
+});
+
+test.skipIf(!chromeFound)("at the newest message, a reflow keeps it in view: web fonts that land late, an image that loads", async () => {
+  await page.evaluate(`document.getElementById("msgs").scrollTop = 1e6`);
+  await settle();
+  // Taller lines arrive with no scroll event, as when the fonts land after the thread opened.
+  await page.evaluate(`document.head.insertAdjacentHTML("beforeend", '<style id="late">#msgs .msg { padding-bottom: 24px; }</style>')`);
+  expect(await lastInView()).toBe(false);
+  await page.evaluate(`document.fonts.dispatchEvent(new Event("loadingdone"))`);
+  await settle();
+  expect(await lastInView()).toBe(true);
+  // Reading older ones, the same reflow leaves them be.
+  await page.evaluate(`document.getElementById("msgs").scrollTop = 200`);
+  await settle();
+  const top = await scrollTopOf("msgs");
+  await page.evaluate(`document.fonts.dispatchEvent(new Event("loadingdone"))`);
+  await settle();
+  expect(await scrollTopOf("msgs")).toBe(top);
+  await page.evaluate(`document.getElementById("late").remove(); document.getElementById("msgs").scrollTop = 1e6`);
+  await settle();
 });
 
 test.skipIf(!chromeFound)("reading older messages, a live update and a reply above do not move them", async () => {

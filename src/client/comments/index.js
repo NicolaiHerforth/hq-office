@@ -30,7 +30,7 @@ function mount(el) {
   el.setAttribute("aria-label", "Comments");
   el.setAttribute("data-drop", ""); // a file dropped on the thread joins its send box (images.js)
   el.innerHTML = `<button class="cjump" type="button" data-cjump>COMMENTS</button>
-    <div class="chead"><b>COMMENTS</b><span class="cn"></span><span class="cto"></span><button class="cclose" type="button" data-cclose aria-label="Close comments">×</button></div>
+    <div class="chead"><b>COMMENTS</b><span class="cn"></span><span class="cto"></span><button class="cclose" type="button" data-cclose aria-label="Close comments">✕</button></div>
     <div class="cthread" tabindex="-1"><div class="empty">LOADING…</div></div>
     <div class="csend"><div class="cquote"></div><div class="creply"></div>${composer(boxKey(el.dataset.comments), `<textarea rows="1" placeholder="Comment on this. ⌘↩ sends.">${esc(draft(el.dataset.comments).text)}</textarea>`, `<button class="send go" type="button" data-csend>SEND</button>`)}</div>`;
   watchJump(el);

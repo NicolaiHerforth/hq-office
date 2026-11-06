@@ -25,7 +25,9 @@ export const PERFORMANCE = {
   saver: { walkFps: 8, dance: null, travel: null, steady: null, steam: null },
 };
 export const FROZEN_T = 0;
-export const mode = () => PERFORMANCE[settings.performance] ?? PERFORMANCE.smooth;
+// Asked for less motion, the room rests as in POWER SAVER: still poses, and a worker walks only when its work moves it.
+const lessMotion = matchMedia("(prefers-reduced-motion: reduce)");
+export const mode = () => (lessMotion.matches ? PERFORMANCE.saver : PERFORMANCE[settings.performance] ?? PERFORMANCE.smooth);
 // A walking frame's interval; 4 ms early lands on the display frame.
 export const walkMs = () => 1000 / mode().walkFps - 4;
 

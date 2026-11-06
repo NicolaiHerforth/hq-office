@@ -25,3 +25,5 @@ a.hudcard:focus-visible { outline: 3px solid var(--blue); outline-offset: 1px; }
 .hudcard.gone .hctitle { color: var(--muted); font-weight: 700; }
 /* a message a question card jumped to (an answered question, in MESSAGES) */
 .msg.flash { animation: flash .9s ease 2; }
+@media (max-width: 799px), (max-width: 1150px) and (pointer: coarse) { .hudcard .hchip.st { box-shadow: inset 0 0 0 99px rgba(0, 0, 0, .22); } }
+@media (max-width: 799px), (max-width: 1150px) and (pointer: coarse) { .hudcard .hchip.new { padding: 3px 6px; border-color: var(--amber); background: var(--amber); color: var(--on-amber); font: 8px/1.4 var(--pixel); } }

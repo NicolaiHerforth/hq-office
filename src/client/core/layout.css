@@ -28,6 +28,14 @@
   .under { height: clamp(180px, 27dvh, 280px); }
   .under > * { min-height: 0; overflow: hidden; }
 }
+/* a phone or a narrow window: nothing inside the page can widen it. A grid or flex child's automatic minimum is its longest unbreakable
+   line, so one long lane name would set the width of its column and of everything up to the page; with no such
+   minimum, what holds the text decides, and a word too long for its line breaks only when it has to. A rule with a
+   class still sets its own min-width. */
+@media (max-width: 799px), (max-width: 1150px) and (pointer: coarse) {
+  body { overflow-wrap: break-word; }
+  body * { min-width: 0; }
+}
 /* phone: a touch screen with the stacked layout. One page scroll and no zoom: no list scrolls inside the page, the
    question tabs stay in reach while their list scrolls under them, the page only pans (no double-tap or pinch zoom),
    and no text field is under 16px, which makes iOS zoom in when it gets focus. */
@@ -42,7 +50,7 @@
      without taking space: it shows where there is more that way (data-more, set by messages.js). The fades stay
      inside the box's inner frame. */
   html .msgs { display: block; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
-  html .msgs { max-height: max(240px, calc(100vh - 230px)); max-height: max(240px, calc(100svh - 230px)); }
+  html .msgs { max-height: max(240px, calc(100vh - 250px)); max-height: max(240px, calc(100svh - 250px)); }
   html .msgs > * + * { margin-top: 8px; }
   html .msgs::before, html .msgs::after { content: ""; display: block; position: sticky; z-index: 1; pointer-events: none; opacity: 0; transition: opacity .15s; height: 36px; }
   html .msgs::before { top: 5px; margin: -7px -9px -29px; background: linear-gradient(var(--box), transparent); }
@@ -54,3 +62,10 @@
 :root:not([data-layout="board"]) .under { display: none; }
 /* the worker card and the secrets panel open over the stage */
 .stage { position: relative; }
+/* A phone: all five question tabs show, with any count. Each count sits under its label, inside the 44 px target, so it
+   takes no width; the labels stay on one line across the row. */
+@media (max-width: 640px) {
+  html .qtabs { gap: 3px; }
+  html .qtabs .tab { flex: 1 1 auto; flex-direction: column; justify-content: flex-start; gap: 2px; padding: 8px 2px 2px; border-width: 2px; font-size: 8px; }
+  html .qtabs .tab .tag { padding: 1px 3px; font-size: 8px; line-height: 1.2; }
+}

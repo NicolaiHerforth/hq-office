@@ -54,3 +54,14 @@
 /* FULL SCREEN: the brief alone, on its reading surface */
 .briefview:fullscreen { background: var(--box); padding: 16px max(24px, env(safe-area-inset-left, 0px)); overflow-y: auto; }
 @media (max-width: 1150px) { .bvbar .wideonly { display: none; } }
+@media (max-width: 1150px) { .briefview:not([hidden]) { border: 0; box-shadow: none; } }
+/* A phone: one gutter, the bar and the text on it. A row's header is one shape: its floor on a line of its own, then the
+   date and who. The thread's jump button floats, so the text can scroll clear of it. */
+@media (max-width: 640px) {
+  .briefview:not([hidden]) { padding-inline: max(16px, env(safe-area-inset-left, 0px)) max(16px, env(safe-area-inset-right, 0px)); }
+  .bbody { padding-inline: 0; padding-bottom: 72px; }
+  .bvbar { flex-wrap: wrap; row-gap: 6px; }
+  .bvbar .btn-s { flex: 1 1 auto; white-space: nowrap; }
+  .brow .bfloor { display: block; flex: 1 1 100%; overflow: hidden; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+  .brow .bfloor::before { display: inline-block; margin-right: 5px; }
+}

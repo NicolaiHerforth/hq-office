@@ -184,10 +184,33 @@ function renderCount() {
 function renderBar(r) {
   const rooms = (S?.rooms ?? []).filter((x) => !x.archivedAt || x.slug === r.slug);
   setHTML(part("rvtabs"), rooms.map((x) => `<a class="rvtab${x.slug === r.slug ? " on" : ""}${x.unread && x.slug !== r.slug ? " unread" : ""}" href="#room/${esc(x.slug)}" data-room-go="${esc(x.slug)}"${x.slug === r.slug ? ` aria-current="page"` : ""} title="${esc(x.title)}"><span>${mdInline(x.title, { links: false })}</span>${x.unread && x.slug !== r.slug ? `<span class="tag new">${x.unread}</span>` : ""}</a>`).join(""));
+  drawJump(rooms, r);
   // The questions stay in their column; on a full-screen room, the way back says when some are waiting.
   const n = S?.open?.length ?? 0, w = part("waitn");
   w.hidden = !n;
   w.textContent = `${n} WAITING`;
+}
+// A full-screen room has no width for a row of tabs, and any number of rooms can be open: the screen's own picker lists
+// them all instead. Made only for a full-screen room, and redrawn only when what it lists changes, so a push never
+// closes it in the owner's hand.
+let jump = null, jumpKey = "";
+const plain = (text) => { const t = document.createElement("template"); t.innerHTML = mdInline(text, { links: false }); return t.content.textContent; };
+function drawJump(rooms, r) {
+  if (!fullScreen.matches) return;
+  if (!jump) {
+    jump = document.createElement("label");
+    jump.className = "rvjump";
+    jump.innerHTML = `<span>ROOMS</span><span aria-hidden="true">▾</span><select aria-label="Go to an open room"></select>`;
+    jump.querySelector("select").addEventListener("change", (e) => goRoom(e.target.value));
+    part("rvtabs").after(jump);
+  }
+  const others = rooms.filter((x) => x.slug !== r.slug);
+  jump.hidden = !others.length;
+  jump.classList.toggle("unread", others.some((x) => x.unread));
+  const key = JSON.stringify([r.slug, rooms.map((x) => [x.slug, x.title, x.unread])]);
+  if (key === jumpKey) return;
+  jumpKey = key;
+  jump.querySelector("select").replaceChildren(...rooms.map((x) => new Option(plain(x.title) + (x.unread && x.slug !== r.slug ? ` (${x.unread} NEW)` : ""), x.slug, false, x.slug === r.slug)));
 }
 // CLOSE ROOM: the owner archives the room, after a confirm in the page (never a browser dialog). closeAsk is the room
 // whose confirm is showing.
@@ -546,7 +569,7 @@ function fitViewport() {
 }
 vv?.addEventListener("resize", fitViewport);
 vv?.addEventListener("scroll", fitViewport);
-fullScreen.addEventListener("change", () => { fitViewport(); if (openSlug) renderStrip(roomOf(openSlug)); });
+fullScreen.addEventListener("change", () => { fitViewport(); if (openSlug) { renderStrip(roomOf(openSlug)); renderBar(roomOf(openSlug)); } });
 
 // ---- sending ----
 

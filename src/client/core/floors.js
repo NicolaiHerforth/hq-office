@@ -124,13 +124,15 @@ export function readingLineHTML(c, now = Date.now()) {
 // Don't print "HQ: hq" for a floor whose HQ is named as the floor.
 export const hqShown = (f) => (f && f.hq !== f.id ? f.hq : "");
 
-// Ink or white on a floor's colour, whichever reads: the colour is the owner's choice (or hud's), any #rrggbb.
-// Fixed values, not the theme's --ink: the floor's colour is the same in light and dark, so its text is too.
+// Ink or white on a floor's colour, whichever has the higher contrast: the colour is the owner's choice (or hud's), any
+// #rrggbb. Fixed values, not the theme's --ink: the floor's colour is the same in light and dark, so its text is too.
+const INK_LUMINANCE = 0.0187; // of #23233a
 export function inkOn(color) {
   const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(color ?? "");
   if (!m) return "#fff";
   const [r, g, b] = m.slice(1).map((h) => parseInt(h, 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4));
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.4 ? "#23233a" : "#fff";
+  const l = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return 1.05 / (l + 0.05) >= (l + 0.05) / (INK_LUMINANCE + 0.05) ? "#fff" : "#23233a";
 }
 // A card's floor, in a list that shows every floor: a 4 px stripe in the floor's colour down the card's left edge
 // and a small swatch that sits in the lane tag after it; the floor's name in the tooltip.

@@ -81,3 +81,45 @@
 .askdock .dockdone .sk { font: 8px/1.4 var(--pixel); color: var(--green); }
 .askdock h3 { margin: 0; }
 @media (max-width: 1150px) { .pageview > .askdock { max-height: 50%; } }
+/* Where the page scrolls (under 1151px) and the list is longer than the screen: a row under the tabs that travels with
+   the list, with the pill between ▲ and ▼ saying where you are. Red when new questions have arrived. It sits in the flow
+   at the top of the list, never over an answer button at the foot of the screen. */
+.asknav { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; justify-content: space-between; gap: 4px; background: var(--bg); }
+.asknav .below { flex: 1; margin: 0; min-height: 44px; padding: 0 12px; font: 8px/1 var(--pixel); cursor: pointer; }
+.asknav .below.quiet { background: var(--box); color: var(--ink); border-color: var(--edge-2); }
+.stepb { width: 44px; height: 44px; background: var(--box); border: 2px solid var(--edge-2); border-radius: 6px; color: var(--ink); font-size: 14px; }
+.stepb:disabled { opacity: .35; }
+.stepb:active:not(:disabled), .asknav .below:active { background: var(--press); color: var(--ink); }
+/* A touch screen: everything to tap in the panel is 44 px, a button pair is one height and answers the finger. */
+@media (max-width: 1150px) and (pointer: coarse) {
+  .ask { grid-template-columns: minmax(0, 1fr); scroll-margin-top: 112px; }
+  .asknav { top: 56px; } /* under the tabs, which stick here */
+  .qtabs .tab { min-height: 44px; box-sizing: border-box; }
+  .qtabs .tab:active { background: var(--press); color: var(--ink); }
+  .menu { gap: 6px; }
+  .opt { min-height: 44px; padding: 8px 10px; background: var(--box); border: 2px solid var(--edge-2); border-radius: 8px; overflow-wrap: anywhere; min-width: 0; }
+  .opt:active { background: var(--press); }
+  /* The marker's strip goes: the text starts at the box's padding, and the marker shows only on the one picked. */
+  .opt:not(.sel)::before { display: none; }
+  .opt.sel { border-color: var(--edge); }
+  .ask .meta { row-gap: 10px; }
+  /* A lane tag is a real 44 px target that looks like a tag: the rest of its height is a clear border, taken back from
+     the row by a margin. 16 px tall corners less the 12 px border leave the 4 px of every tag. In a card a long name
+     wraps, whole. */
+  html button.tag.lane, html button.tag.for, html .ask .meta a.tag { display: inline-flex; align-items: center; box-sizing: border-box; min-height: 44px; margin-block: -12px; border-block: 12px solid transparent; border-radius: 4px / 16px; background-clip: padding-box; line-height: 1.4; text-decoration: none; }
+  .ask .meta .tag[data-select], .ask .meta a.tag, .wi .meta .tag.lane { overflow: visible; white-space: normal; overflow-wrap: anywhere; text-overflow: clip; text-align: left; }
+  .ask .reply .acts { padding: 0 6px 6px; }
+  .ask .reply .acts .send, .ask .reply .acts .notyet { flex: 1 1 0; min-height: 44px; margin-left: 0; box-sizing: border-box; }
+  .ask .reply .acts .attach { min-width: 44px; min-height: 44px; }
+  .ask .reply .acts .send:active:not(:disabled), .ask .reply .acts .notyet:active:not(:disabled) { filter: brightness(.85); }
+  /* "SENT." from the last answer may lie over the next card's button: the tap goes through it. */
+  .toast { pointer-events: none; }
+  .asksec { grid-template-columns: minmax(0, 1fr); }
+  .asksec label { flex-wrap: wrap; min-width: 0; }
+  .asksec .tag.secret { max-width: 100%; white-space: normal; overflow-wrap: anywhere; line-height: 1.4; }
+  .asksec .sin { min-height: 44px; box-sizing: border-box; }
+  .asksec .sin.val { flex: 1 1 100%; width: 100%; }
+  .ask .onstage { display: inline-flex; align-items: center; min-height: 44px; }
+  .askstrip { min-height: 44px; box-sizing: border-box; }
+  .askstrip:active { background: var(--press); }
+}

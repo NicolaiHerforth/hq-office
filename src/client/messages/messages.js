@@ -139,6 +139,8 @@ function msgNode(m, depth) {
 }
 // Built only when the state changes or you act on the list, never per frame. Reading sends nothing to HQ:
 // it only marks the shown updates read, the same call the FROM HQ tab makes.
+let msgAtEnd = false, msgSetTop = -1;
+function msgToBottom(box) { box.scrollTop = box.scrollHeight; msgSetTop = box.scrollTop; }
 export function renderMsgs() {
   if (qTab !== "messages" || !S) return;
   const box = $("msgs");
@@ -156,7 +158,8 @@ export function renderMsgs() {
     // on it; reading older ones, what you read stays where it is, whatever lands above or below.
     const pinned = msgStick || box.scrollHeight - box.scrollTop - box.clientHeight < 40, place = pinned ? null : keepScroll(box, "data-msg");
     setHTML(box, html);
-    if (pinned) box.scrollTop = box.scrollHeight; else place();
+    if (pinned) msgToBottom(box); else place();
+    msgAtEnd = pinned;
     showEdges(box);
   } else if (pageScrolls()) {
     // The page scrolls, not the thread: on the newest message (just opened, or already there), stay on it;
@@ -214,7 +217,18 @@ $("msgs").addEventListener("click", (e) => {
   const send = e.target.closest("[data-rsend]");
   if (send) sendReply(send);
 });
-$("msgs").addEventListener("scroll", () => showEdges($("msgs")), { passive: true });
+// Fonts landing or an image loading reflow the thread with no scroll event, which would leave the newest message cut:
+// at the end, it stays at the end. The page's own move fires a scroll event later, which is not you moving away.
+const msgToEnd = () => { if (msgAtEnd && qTab === "messages" && phone()) { msgToBottom($("msgs")); showEdges($("msgs")); } };
+$("msgs").addEventListener("scroll", () => {
+  const box = $("msgs");
+  if (box.scrollTop !== msgSetTop) msgAtEnd = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
+  msgSetTop = -1;
+  showEdges(box);
+}, { passive: true });
+document.fonts?.addEventListener?.("loadingdone", msgToEnd);
+$("msgs").addEventListener("load", msgToEnd, true);
+new ResizeObserver(msgToEnd).observe($("msgs"));
 $("msgs").addEventListener("input", (e) => {
   if (!e.target.closest("[data-rbox]") || e.target.tagName !== "TEXTAREA") return;
   replyText = e.target.value;

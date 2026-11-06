@@ -3,3 +3,4 @@
    steps(2) animation to 35 %, without the browser animating every display frame. */
 .blink-1 { opacity: .675; }
 .blink-2 { opacity: .35; }
+@media (prefers-reduced-motion: reduce) { .blink-1, .blink-2 { opacity: 1; } }

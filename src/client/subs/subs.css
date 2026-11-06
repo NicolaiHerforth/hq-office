@@ -35,3 +35,8 @@
 @media (max-width: 1150px) {
   .subsdrop { max-width: none; max-height: none; overflow: visible; }
 }
+/* a phone: SUBS and MACHINES share a row at one height, their words in the middle */
+@media (max-width: 640px) {
+  .subswrap > .subsbtn { flex: 1 1 auto; margin: 0; }
+  .subsbtn, .top .right > #machines { align-content: center; }
+}

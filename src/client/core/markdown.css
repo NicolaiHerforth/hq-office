@@ -28,3 +28,21 @@
 /* an attached file: a link named after it, with a small page mark in front */
 .md a.file { display: inline-flex; align-items: center; gap: 4px; padding: 1px 6px; border: 2px solid var(--edge-2); border-radius: 6px; background: var(--field); text-decoration: none; overflow-wrap: anywhere; }
 .md a.file::before { content: ""; flex: 0 0 auto; width: 8px; height: 10px; border: 2px solid currentColor; border-radius: 1px; }
+/* On a phone a wide table keeps its words and scrolls inside its own box; it never squeezes a column until they break. */
+@media (max-width: 799px), (max-width: 1150px) and (pointer: coarse) {
+  .md :is(th, td) { overflow-wrap: normal; }
+  /* Its own box, with a shade at whichever edge has more to scroll to. The two covers scroll with the table and hide a
+     shade once that edge is reached; a table that fits shows none. */
+  .md .mdtable {
+    -webkit-overflow-scrolling: touch;
+    overscroll-behavior-x: contain;
+    --shade: color-mix(in srgb, var(--ink) 35%, transparent);
+    background:
+      linear-gradient(to right, var(--field) 40%, transparent) left / 28px 100% no-repeat local,
+      linear-gradient(to left, var(--field) 40%, transparent) right / 28px 100% no-repeat local,
+      linear-gradient(to right, var(--shade), transparent) left / 14px 100% no-repeat scroll,
+      linear-gradient(to left, var(--shade), transparent) right / 14px 100% no-repeat scroll,
+      var(--field);
+  }
+  .md th { background: color-mix(in srgb, var(--head) 70%, transparent); }
+}

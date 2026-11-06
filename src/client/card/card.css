@@ -47,3 +47,5 @@
 .card .prompt .k { font: 8px/1.5 var(--pixel); color: var(--red-text); }
 .card .prompt .codebox { margin: 0; background: var(--field); }
 .card .prompt .codebox pre { font-size: 12px; line-height: 1.4; }
+/* The status colours are shared with the room's canvas, so a phone darkens the fill under the white text instead. */
+@media (max-width: 799px), (max-width: 1150px) and (pointer: coarse) { .status { box-shadow: inset 0 0 0 99px rgba(0, 0, 0, .22); } }

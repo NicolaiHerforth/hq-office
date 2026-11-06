@@ -16,3 +16,5 @@
 .quote { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .thread { display: grid; gap: 8px; margin-left: 12px; padding-left: 10px; border-left: 3px solid var(--edge-2); }
 .rbox { padding-block: 2px; }
+/* A long name wraps on a phone: at line height 1 its lines would run into each other. */
+@media (max-width: 640px) { .msg .who { line-height: 1.5; } }

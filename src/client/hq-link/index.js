@@ -71,6 +71,7 @@ function render() {
   setHTML(box, down.length ? manyHTML(down) : oneHTML(hq, floor));
 }
 on("state", render);
+render(); // the state may have come before this module
 on("scope", render);
 
 document.addEventListener("click", async (e) => {

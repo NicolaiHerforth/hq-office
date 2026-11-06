@@ -35,3 +35,43 @@
 .send.go { background: var(--green); border-color: var(--green-edge); }
 .send:disabled { opacity: .35; cursor: not-allowed; }
 .empty { font: 9px/1.8 var(--pixel); color: var(--muted); text-align: center; padding: 16px 4px; }
+/* A phone: every control is a 44 px target. A rule with more than a tag name still decides its own size. */
+@media (max-width: 1150px) and (pointer: coarse) {
+  html :is(button, select, summary, input:not([type=checkbox], [type=radio], [type=file], [type=hidden])) { min-height: 44px; }
+  html button { min-width: 44px; }
+  html a:is(.btn, .btn-s) { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; }
+  html .reply textarea { min-height: 44px; padding-top: 12px; }
+  html .reply .acts .send { min-height: 44px; }
+  html :is(.levels, .fprow .levels, .nrrow .levels, .nrtwo .levels, .fphow .seg) { min-height: 44px; }
+  /* MORE follows the last line of a clipped text: a full target that adds nothing to that line's height */
+  .more { display: inline-flex; align-items: center; min-height: 44px; margin-block: -18px; padding-inline: 8px; }
+  /* COPY is a full target too, so the code starts under it */
+  .copy { min-height: 44px; min-width: 56px; }
+  .codebox pre { padding-top: 54px; }
+  /* a tag stays one line: a label that wraps at line height 1 runs into itself */
+  .tag { max-width: 100%; overflow: hidden; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+  .tag.new { color: var(--on-amber); }
+}
+/* A phone: no pixel label under 8 px. Each of these is smaller on a desktop, so the list names what it overrides. */
+@media (max-width: 1150px) and (pointer: coarse) {
+  html :is(.btn-s, .tab .tag, .aw, .earlier, .lpr, .lat, .lmore, .work .under, .seen, .agopts i, .noimg, .cover b, .fsize, .sk, .splan, .son, .swk, .plus, .rrow .last > b:first-child, .lv, .role, .ak, .or, .rfolder, .to, .tr > span, .fledit, .sall, .tell .lastnote > b:first-child, .tell .lastnote button, .urgentsw, .bfloor, .rvtab .tag, .rvbar .back .tag, .fpanel .fprow .sk, .opts2 .btn-s, .frow .btn-s, .sitem .btn-s, .accshow, .acclink .btn-s, .art .open, .rshelf .addbtn, .radd button[type=submit], .msg .meta .btn-s, .rthread .msg .meta .btn-s:last-child, .cthread .msg .meta .btn-s:last-child) { font-size: 8px; }
+}
+@media (max-width: 799px), (max-width: 1150px) and (pointer: coarse) {
+  /* One look per kind of action. Primary: the one filled button that does the thing. */
+  html :is(.send:not(:disabled), .send.go:not(:disabled), .ftile.pic .tenterb, .fpanel .fpacts .btn-s.on, .nracts .btn-s.on) { border: 3px solid var(--green-edge); border-radius: 8px; background: var(--green); color: var(--on-fill); font-family: var(--pixel); }
+  /* Secondary: everything else that acts, on the panel's colour, with the panel's edge. */
+  html :is(.fswitch .fbtn, .fledit, .cmount .cjump, .bgrid .fslot) { border: 2px solid var(--edge); border-radius: 6px; background: var(--box); color: var(--ink); font-family: var(--pixel); opacity: 1; }
+  /* Close: one square with one mark. */
+  html :is(.spx, .cardx, .fpx, .cclose) { display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 2px solid var(--edge); border-radius: 6px; background: var(--box); color: var(--ink); font: 700 16px/1 var(--text); }
+}
+/* A button that cannot act yet still says what it is: a quiet fill, not a faded one. */
+@media (max-width: 799px), (max-width: 1150px) and (pointer: coarse) { html .send:disabled { border-color: var(--edge-2); background: var(--chip); color: var(--ink-2); opacity: 1; } }
+/* Touch has no hover, so a press answers instead. */
+@media (pointer: coarse) {
+  html { -webkit-tap-highlight-color: transparent; }
+  :is(button, a, summary, [role=tab], [role=button], [tabindex="0"]):active:not(:disabled) { filter: brightness(.82); }
+}
+/* Asked for less motion: everything rests, at its end state, and nothing stays hidden. */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}

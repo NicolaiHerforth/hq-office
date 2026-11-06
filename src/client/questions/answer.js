@@ -4,7 +4,8 @@ import { drafts, secretDrafts } from "./drafts.js";
 import { S } from "../core/state.js";
 import { copyCode } from "../core/markdown.js";
 import { post } from "../core/net.js";
-import { canSend, renderHud } from "./questions.js";
+import { canSend } from "./questions.js";
+import { leave, stay } from "./place.js";
 import { forWhom, keptFor } from "./asker.js";
 import { clearImages, notReady, withImages } from "../images/images.js";
 
@@ -69,13 +70,15 @@ $("main").addEventListener("click", async (e) => {
       secretDrafts.delete(id);
       for (const inp of card.querySelectorAll("[data-secret]")) inp.value = "";
       e.target.disabled = true;
+      leave(id);
       try { await post(`/api/asks/${id}/secrets`, { values, minutes: Number(d.minutes ?? 60), note: d.opt ? answer : text }); drafts.delete(id); clearImages(id); toast(`SECRETS SAVED. ${reached(to, "HAS THE NAMES")}`); }
-      catch (err) { toast(err.message); renderHud(); }
+      catch (err) { stay(); toast(err.message); e.target.disabled = !canSend(ask, d); }
       return;
     }
     e.target.disabled = true;
+    leave(id);
     try { await post(`/api/asks/${id}/answer`, { answer }); drafts.delete(id); clearImages(id); toast(`SENT. ${reached(to, "HAS IT")}`); }
-    catch (err) { toast(err.message); e.target.disabled = false; }
+    catch (err) { stay(); toast(err.message); e.target.disabled = false; }
   }
 });
 $("main").addEventListener("input", (e) => {

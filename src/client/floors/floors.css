@@ -202,6 +202,7 @@
 /* the timer stays on the right: the tags shorten first */
 .ask .meta:has(> .fstripe) { flex-wrap: nowrap; }
 .ask .meta:has(> .fstripe) > .tag { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ask .meta:has(> .fstripe) > .tag:not(.lane) { flex: none; }
 .ask .meta:has(> .fstripe) > .tag.lane { flex-shrink: 3; }
 .ask .meta:has(> .fstripe) > .timer { flex: none; }
 
@@ -238,3 +239,30 @@
   .schip .sx { width: 44px; height: 44px; }
   html .fprow .levels { font-size: 16px; }
 }
+/* A phone. The floor's pill takes the row: its slot A already says what waits, so the readings do not repeat it. A
+   closed building row says only what waits, so a long name keeps its words; opening it shows the rest. The form's rows
+   stack, a colour is a full target. */
+@media (max-width: 640px) {
+  .fswitch .freads { display: none; }
+  .fswitch .fpill.fpbuild, .fswitch .fpill:not(.fpbuild) { flex: 1 1 0; width: auto; max-width: none; }
+  .fswitch { height: auto; }
+  .ftile:not(.pic) .tline > :not(:first-child) { display: none; }
+  /* The list and the panel are sheets like MENU and SECRETS: 8 px from the screen's edges. */
+  .fmenu { left: max(8px, env(safe-area-inset-left, 0px)); right: max(8px, env(safe-area-inset-right, 0px)); bottom: calc(8px + env(safe-area-inset-bottom, 0px)); border: 3px solid var(--edge); border-radius: 12px; padding-bottom: 12px; }
+  .fpanel { left: max(8px, env(safe-area-inset-left, 0px)); right: max(8px, env(safe-area-inset-right, 0px)); width: auto; transform: none; }
+  /* The pill right above names the floor: its chip here is the floor's colour and the way out; the row says the rest. */
+  .schip { flex: none; width: 44px; padding: 0; }
+  .schip .fname, .schip .fall { display: none; }
+  .sall { flex: 1 1 0; justify-content: center; }
+  .fli { grid-template-columns: minmax(0, 1fr); grid-template-areas: "id" "hq" "reads"; }
+  .flreads { display: flex; gap: 10px; justify-items: start; }
+  .ftile.pic .thq { gap: 6px; }
+  .fprow { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .fprow .sk { padding-top: 0; }
+  .ftile.pic .fstill { border: 0; }
+  .fphow { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fphow .seg { line-height: 1.4; }
+  .fpanel .fpacts { display: grid; grid-template-columns: minmax(0, 1fr); }
+  .fpanel .fpacts .btn-s { min-height: 44px; }
+}
+@media (max-width: 1150px) and (pointer: coarse) { .fcolor { width: 44px; height: 44px; } .fledit { opacity: 1; } }

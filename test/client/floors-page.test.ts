@@ -507,7 +507,7 @@ test.skipIf(!chromeFound)("on a phone: one switcher row under the top bar, in th
   // The questions come right after the row.
   expect(await ev(`document.querySelector(".floornav").getBoundingClientRect().bottom <= document.querySelector("#qtabs").getBoundingClientRect().top`)).toBe(true);
   await openList();
-  expect(await ev(`(() => { const m = document.querySelector(".fmenu"), b = m.getBoundingClientRect(); return getComputedStyle(m).position === "fixed" && Math.abs(b.bottom - innerHeight) <= 1 && b.left === 0; })()`)).toBe(true);
+  expect(await ev(`(() => { const m = document.querySelector(".fmenu"), b = m.getBoundingClientRect(); return getComputedStyle(m).position === "fixed" && Math.abs(innerHeight - b.bottom - 8) <= 1 && b.left === 8; })()`)).toBe(true);
   await click('.fmenu [data-floor-tab="support"]');
   await until(`document.querySelector(".stage").dataset.floors === "floor"`);
   expect(await ev(ONE_ROW)).toMatchObject({ rows: true, inside: true });

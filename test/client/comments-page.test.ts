@@ -159,7 +159,7 @@ test.skipIf(!chromeFound)("on a phone a page brief keeps the whole view; COMMENT
   await ev(`document.querySelector("[data-cjump]").click()`);
   await until(`document.querySelector(".cmount").classList.contains("open") && getComputedStyle(document.querySelector(".cmount")).position === "fixed"`);
   const sheet = await rect(".briefview .cmount");
-  expect(Math.round(sheet.b)).toBe(844);
+  expect(Math.round(sheet.b)).toBe(836); // 8 px up, as every sheet on a phone
   expect(sheet.t).toBeGreaterThan(100);
   expect(await ev(`(() => { const r = document.querySelector(".cmount textarea").getBoundingClientRect(); return r.top > 0 && r.bottom <= innerHeight; })()`)).toBe(true);
   await until(`getComputedStyle(document.querySelector("[data-cjump]")).display === "none"`);

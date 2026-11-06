@@ -71,6 +71,7 @@ on("state", (S) => {
   }
   if (S.ledger !== seenLedger) { seenLedger = S.ledger; decorate(); }
 });
+decorate(); // the cards and the state may have come before this module
 
 $("hud").addEventListener("click", (e) => {
   const more = e.target.closest("[data-ledger-more]");

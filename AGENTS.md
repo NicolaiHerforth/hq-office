@@ -37,7 +37,7 @@ what it is for. `docs/structure.md` explains the layout and its trade-offs.
 - `src/server/routes/`: one file per resource; the router loads them all.
 - `src/server/schema/`: one `.sql` file per table, applied at startup.
 - `test/`: the original tests; `test/server/` and `test/client/` mirror `src/`.
-- `scripts/`: `release.ts` (the release routine, below), `restructure.ts` (how the split was made; re-runnable), `room-hash.ts` (pixel and style hashes of the page).
+- `scripts/`: `mobile-audit.ts` (every surface at three phone sizes, both themes: screenshots and what spills, on a throwaway server), `release.ts` (the release routine, below), `restructure.ts` (how the split was made; re-runnable), `room-hash.ts` (pixel and style hashes of the page).
 
 ## Working in parallel (lanes)
 
@@ -53,7 +53,7 @@ what it is for. `docs/structure.md` explains the layout and its trade-offs.
 ## How to add
 
 - **A colour**: every colour in the CSS is a token in `src/client/core/base.css`, with a light value in `:root` and a dark one in both dark blocks (SYSTEM in a dark browser, and DARK from MENU › THEME); name it by its role. `test/client/theme-tokens.test.ts` fails on a hex or rgb() colour anywhere else. LIGHT must not change a pixel: `PIXEL_BASE=HEAD bun test test/client/room-pixels.test.ts`, also with `PIXEL_THEME=light`.
-- **A page feature or panel**: create `src/client/<name>/index.js` (and `<name>.css`). The page loads it after the built-in areas, no other file changes. Import what you read (`S` from `core/state.js`, `post` from `core/net.js`, `$` from `core/dom.js`) and render from the bus: `on("state", (S) => render())`. Text that HQ or a lane wrote goes through `core/markdown.js` (`md` for blocks, `mdInline` for titles and one-line places, `mdClip` for MORE/LESS), never `esc()`: `test/client/one-renderer.test.ts` fails otherwise. A panel inserts its own element (for example into `.under` or under the questions); it must never push an open question out of view.
+- **A page feature or panel**: create `src/client/<name>/index.js` (and `<name>.css`). The page loads it after the built-in areas, no other file changes. Import what you read (`S` from `core/state.js`, `post` from `core/net.js`, `$` from `core/dom.js`) and render from the bus: `on("state", (S) => render())`. Text that HQ or a lane wrote goes through `core/markdown.js` (`md` for blocks, `mdInline` for titles and one-line places, `mdClip` for MORE/LESS), never `esc()`: `test/client/one-renderer.test.ts` fails otherwise. A panel inserts its own element (for example into `.under` or under the questions); it must never push an open question out of view. A new surface joins `SURFACES` in `test/mobile-walk.ts`, so `test/client/mobile-overflow.test.ts` holds it to no sideways scroll and 44 px targets at three phone sizes; `scripts/mobile-audit.ts` screenshots and measures every surface.
 - **An accessory**: append one entry to `src/client/room/accessory-table.js`: `{ id, slot: "head" | "body" | "hand", seasons: [...] | "any", pal, front, side }` (or `hand` for a hand item). Original pixel art only.
 - **An event room**: `src/client/room/events/<id>.js` exporting `{ still() {}, live(now) {}, counter(now) {} }` (draw with `dp` and the tools in `room/art.js`), its dates in `EVENTS` in `room/seasons.js`, and one import in `room/events.js`.
 - **Something drawn in the room every frame**: `on("room:draw", (now) => { ... })` in your feature, drawing with `px` from `room/canvas.js`.
