@@ -1,4 +1,4 @@
 [test]
-# A run that hangs is stopped, with what it started, after HUD_TEST_LIMIT_MIN minutes (default 15). no-real-usage.ts
+# A run that hangs is stopped, with what it started, after HUD_TEST_LIMIT_MIN minutes (default 25). no-real-usage.ts
 # keeps every test server off the owner's real subscription usage.
 preload = ["./test/watchdog.ts", "./test/no-real-usage.ts"]

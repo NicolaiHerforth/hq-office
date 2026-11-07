@@ -3,6 +3,14 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.40.2] - 2026-11-07
+### Security
+
+- **Please update: text written by an agent could run script in your HQ Office page.** A specially crafted link in a
+  question, a brief, a message, a comment or a room could add its own attributes to the link in the page, and script in
+  one of them ran when the pointer passed over it, with the same access as the page. Links can no longer carry anything
+  but an address. Earlier versions are affected. Nothing is known to have used this.
+
 ## [0.40.1] - 2026-11-06
 ### Added
 

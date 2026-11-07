@@ -39,7 +39,8 @@ const IN_PAGE = new RegExp(`^#${REF_SOURCE}$`, "i");
 const BARE_REF = new RegExp(`(^|[\\s(])(#${REF_SOURCE})`, "g");
 // A paragraph that is only a reference: bare, or [label](#ref).
 const REF_LINE = new RegExp(`^(?:#${REF_SOURCE}|\\[[^\\]\\n]+\\]\\(#${REF_SOURCE}\\))$`);
-const safeUrl = (u) => /^(?:https?:\/\/[^\s/]|mailto:[^\s/])/i.test(u) || (/^\/(?:uploads|room-files|rooms)\//.test(u) && !/\.\.|\\/.test(u)) || IN_PAGE.test(u);
+// Never one with a held token in it: that token's HTML would land inside the href.
+const safeUrl = (u) => !u.includes("\u0000") && (/^(?:https?:\/\/[^\s/]|mailto:[^\s/])/i.test(u) || (/^\/(?:uploads|room-files|rooms)\//.test(u) && !/\.\.|\\/.test(u)) || IN_PAGE.test(u));
 const anchor = (href, label) => (IN_PAGE.test(href) ? `<a href="${href}">${label}</a>` : `<a href="${href}" target="_blank" rel="noopener noreferrer">${label}</a>`);
 const shorten = (u) => { const t = unesc(u); return esc(t.length > 60 ? t.slice(0, 57) + "…" : t); };
 const LINK = /\[([^\]\n]+)\]\(([^\s)]+)\)/g;
@@ -83,6 +84,7 @@ function inline(raw, o = {}) {
     return p + keep(links ? anchor(u, shorten(u)) : u) + tail;
   });
   t = t.replace(BARE_REF, (m, p, r) => {
+    if (r.includes("\u0000")) return m;
     const ref = r.replace(/[.,;:!?]+$/, "");
     return p + keep(links ? anchor(ref, ref) : ref) + r.slice(ref.length);
   });
