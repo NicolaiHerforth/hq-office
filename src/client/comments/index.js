@@ -7,38 +7,40 @@
 // land here. Selecting text in the view (a markdown brief) shows COMMENT, which quotes the passage in the comment.
 // Selection inside a page's sandboxed frame cannot be read from here: the page runtime will emit
 // "comments:quote" { key, text } for it, which does the same as COMMENT.
-import { toast } from "../core/dom.js";
+import { toast, keysHint } from "../core/dom.js";
 import { S } from "../core/state.js";
 import { clock, esc, setHTML } from "../core/format.js";
 import { post } from "../core/net.js";
 import { on } from "../core/bus.js";
 import { md, mdClip, mdInline } from "../core/markdown.js";
-import { clearImages, composer, hasImages, notReady, withImages } from "../images/images.js";
+import { attachedTo, clearImages, composer, hasImages, notReady, withImages } from "../images/images.js";
+import { sheet, sheetMode } from "../core/sheet.js";
 
 const MAX_QUOTE = 2000;
-const mounts = new Set(); // the mounts on the page now
+const mounts = new Map(); // the mounts on the page now, and how each lets go of its sheet
 const loaded = new Map(); // key -> { rev, data }
-const drafts = new Map(); // key -> { text, quote, reply }
-const draft = (key) => drafts.get(key) ?? drafts.set(key, { text: "", quote: "", reply: null }).get(key);
+const drafts = new Map(); // key -> { text, quote, reply, sending: the words on their way, or null }
+const draft = (key) => drafts.get(key) ?? drafts.set(key, { text: "", quote: "", reply: null, sending: null }).get(key);
 const boxKey = (key) => `comment:${key}`;
 const short = (s, n) => { const t = String(s ?? "").replace(/\s+/g, " ").trim(); return t.length > n ? `${t.slice(0, n - 1)}…` : t; };
 const seenSent = new Map();
 
 function mount(el) {
   if (!el?.dataset?.comments || mounts.has(el)) return;
-  mounts.add(el);
+  live();
+  mounts.set(el, sheet(el, () => el.classList.remove("open"), () => sheetMode() && el.classList.contains("open")));
   el.setAttribute("aria-label", "Comments");
   el.setAttribute("data-drop", ""); // a file dropped on the thread joins its send box (images.js)
   el.innerHTML = `<button class="cjump" type="button" data-cjump>COMMENTS</button>
     <div class="chead"><b>COMMENTS</b><span class="cn"></span><span class="cto"></span><button class="cclose" type="button" data-cclose aria-label="Close comments">✕</button></div>
     <div class="cthread" tabindex="-1"><div class="empty">LOADING…</div></div>
-    <div class="csend"><div class="cquote"></div><div class="creply"></div>${composer(boxKey(el.dataset.comments), `<textarea rows="1" placeholder="Comment on this. ⌘↩ sends.">${esc(draft(el.dataset.comments).text)}</textarea>`, `<button class="send go" type="button" data-csend>SEND</button>`)}</div>`;
+    <div class="csend"><div class="cquote"></div><div class="creply"></div>${composer(boxKey(el.dataset.comments), `<textarea rows="1" placeholder="Comment on this.${keysHint(" ⌘↩ sends.")}">${esc(draft(el.dataset.comments).text)}</textarea>`, `<button class="send go" type="button" data-csend>SEND</button>`)}</div>`;
   watchJump(el);
   // Open or closed from the start: a thread that showed until its comments came, then closed, moved the page beside it.
   el.hidden = !showThread();
   load(el, true);
 }
-const live = () => { for (const el of mounts) if (!el.isConnected) mounts.delete(el); return [...mounts]; };
+const live = () => { for (const [el, off] of mounts) if (!el.isConnected) { mounts.delete(el); off(); } return [...mounts.keys()]; };
 
 async function load(el, force = false) {
   const key = el.dataset.comments, rev = S?.comments?.[key]?.rev ?? "0";
@@ -141,29 +143,46 @@ function renderSend(el) {
 }
 function sendState(el) {
   const btn = el.querySelector("[data-csend]");
-  if (btn) btn.disabled = !draft(el.dataset.comments).text.trim() && !hasImages(boxKey(el.dataset.comments));
+  const d = draft(el.dataset.comments);
+  if (btn) btn.disabled = d.sending === null && !d.text.trim() && !hasImages(boxKey(el.dataset.comments));
 }
 
 // ---- sending ----
 
+// The box stays live while a comment goes: what comes out of it is what went, and only if the box still starts with it.
 async function send(el) {
   const key = el.dataset.comments, d = draft(key), k = boxKey(key);
-  const text = withImages(k, d.text.trim());
+  if (d.sending !== null) { toast(d.text === d.sending ? "STILL SENDING." : "STILL SENDING THE LAST ONE. THIS STAYS HERE; SEND IT WHEN THAT HAS GONE."); return; }
+  const raw = d.text, text = withImages(k, raw.trim());
   if (!text) return;
   const wait = notReady(k);
   if (wait) { toast(wait); return; }
-  const btn = el.querySelector("[data-csend]");
-  btn.disabled = true;
+  const { quote, reply } = d, pictures = attachedTo(k);
+  d.sending = raw;
   try {
-    const r = await post("/api/comments/post", { page: key, text, quote: d.quote || undefined, reply: d.reply ?? undefined });
-    toast(loaded.get(key)?.data.away ? `KEPT FOR ${String(r.to).toUpperCase()}: IT IS AWAY.` : `SENT TO ${String(r.to).toUpperCase()}.`);
-    Object.assign(d, { text: "", quote: "", reply: null });
-    clearImages(k);
-    const ta = el.querySelector("textarea");
-    if (ta) ta.value = "";
+    const r = await post("/api/comments/post", { page: key, text, quote: quote || undefined, reply: reply ?? undefined });
+    d.sending = null;
+    if (d.text.startsWith(raw)) d.text = d.text.slice(raw.length).trimStart();
+    if (d.quote === quote) d.quote = "";
+    if (d.reply === reply) d.reply = null;
+    clearImages(k, pictures);
+    // The view may have been left and opened again meanwhile: the box to show this in is the one there now.
+    const here = live().filter((m) => m.dataset.comments === key);
+    for (const m of here) {
+      const ta = m.querySelector("textarea");
+      if (ta && ta.value !== d.text) ta.value = d.text;
+      renderSend(m);
+    }
+    const said = loaded.get(key)?.data.away ? `KEPT FOR ${String(r.to).toUpperCase()}: IT IS AWAY.` : `SENT TO ${String(r.to).toUpperCase()}.`;
+    const left = d.text.trim() || d.quote || d.reply || hasImages(k);
+    toast(left ? `${said} ${here.some((m) => m.getClientRects().length) ? "WHAT YOU ADDED SINCE IS STILL HERE." : "COMMENTS HAS WHAT YOU ADDED SINCE."}` : said);
     el.dataset.stick = "1";
     await load(el, true);
-  } catch (err) { toast(err.message); btn.disabled = false; }
+  } catch (err) {
+    d.sending = null;
+    toast(err.message);
+    sendState(el);
+  }
 }
 
 // Quote a passage: COMMENT on a selection, or the page runtime for a selection in a page's frame.

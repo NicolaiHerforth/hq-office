@@ -196,13 +196,15 @@ export function removeImage(key, id) {
   if (a.state === "done" && a.ref != null) targetOf(key)?.remove?.(String(key), a);
   changed(key);
 }
-export function clearImages(key) {
-  const list = listOf(key);
-  attached.delete(String(key));
-  if (!list.length) return;
-  for (const a of list) if (a.preview) URL.revokeObjectURL(a.preview);
+// All of them, or only those a send took: attachedTo(key) as it went. What was attached since stays.
+export function clearImages(key, those = listOf(key)) {
+  const left = listOf(key).filter((a) => !those.includes(a));
+  if (left.length) attached.set(String(key), left); else attached.delete(String(key));
+  if (!those.length) return;
+  for (const a of those) if (a.preview) URL.revokeObjectURL(a.preview);
   changed(key);
 }
+export const attachedTo = (key) => [...listOf(key)];
 export const imageKeys = () => [...attached.keys()].filter((k) => listOf(k).length);
 export const hasImages = (key) => listOf(key).length > 0;
 // Why the box cannot send yet, or "" when everything attached is uploaded.

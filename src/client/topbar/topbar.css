@@ -26,7 +26,7 @@
 .strip .v { font: 13px/1 var(--pixel); }
 .strip .v.hot { color: var(--red-text); }
 .fromhq { display: grid; gap: 6px; padding: 10px 14px; text-align: left; font: inherit; color: inherit; }
-.fromhq:hover { background: var(--lift); }
+@media (hover: hover) { .fromhq:hover { background: var(--lift); } }
 .fromhq .k { font: 8px/1 var(--pixel); color: var(--muted); }
 .fromhq .v { font: 13px/1 var(--pixel); color: var(--muted); }
 .fromhq.unread { border-color: var(--amber); }
@@ -65,21 +65,27 @@
 .top[data-fit~="6"] .strip > div:has(> #sBank) { display: none; }
 /* 7: MACHINES drops the name; the tooltip has it */
 .top[data-fit~="7"] #machines .long { display: none; }
-/* A phone: the question comes first. The count, the title and MENU, then the floor's row and the desk; the office's
-   readings follow under the desk, with no row half empty. One that is raising an alarm stays above the desk. The bar's
-   boxes become the page grid's items, so the order is CSS's alone and nothing moves in the markup. */
+/* A phone: the question comes first. One row over the tabs: an alarm if one is raised, the floor's pill and MENU. The
+   count is on NEEDS YOU, and the office's readings follow the desk. The bar's boxes become the page grid's items, so
+   the order is CSS's alone and nothing moves in the markup. A second alarm takes a row of its own. */
 @media (max-width: 640px) {
-  .wrap { grid-template-columns: repeat(2, minmax(0, 1fr)) auto; gap: 8px; }
+  .wrap { grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; padding-top: 8px; }
   .wrap > * { grid-column: 1 / -1; }
   .wrap > .top, .top > .right { display: contents; }
-  .top > .urgent { grid-column: 1 / -1; order: 1; padding: 6px 14px; }
-  .top .right .title { grid-column: 1 / 3; order: 2; padding-block: 6px; }
+  .top .right .title, .top .right .spacer { display: none; }
+  .top .right :is(.strip.nomove, #machines.bad, #machines.off, .blockedbox) { grid-column: 1; order: 0; align-content: center; padding: 4px 8px; }
+  .wrap > .floornav { grid-column: 1 / 3; order: 1; }
+  .wrap:has(.top .right :is(.strip.nomove, #machines.bad, #machines.off, .blockedbox)) > .floornav { grid-column: 2; }
+  .wrap:has(.top .right :is(.strip.nomove, #machines.bad, #machines.off, .blockedbox)) .fswitch :is(.slot.sb, .fout span:last-child) { display: none; }
   .top .right .menuwrap { grid-column: 3; order: 2; }
-  .top .right .spacer { display: none; }
-  .top .right .strip { grid-column: 1 / -1; order: 6; justify-content: space-between; gap: 10px; padding: 6px 12px; }
-  .top .right .subswrap { grid-column: 1; order: 7; }
-  .top .right #machines { grid-column: 2 / -1; order: 7; padding-block: 6px; }
-  .top .right :is(.strip.nomove, #machines.bad, #machines.off, .blockedbox) { grid-column: 1 / -1; order: 3; }
-  .wrap > .floornav { order: 4; }
-  .wrap > .main { order: 5; }
+  .wrap > .main { order: 3; }
+  .top > .urgent { grid-column: 1 / -1; order: 4; padding: 6px 14px; }
+  .urgent .count, .urgent > .k { display: none; }
+  .urgent .old { margin-left: 0; grid-auto-flow: column; align-items: center; justify-items: start; }
+  .top .right .strip:not(.nomove) { grid-column: 1 / -1; order: 5; justify-content: space-between; gap: 10px; padding: 6px 12px; }
+  .strip.nomove > div:not(:first-child), #machines:is(.bad, .off) .k { display: none; }
+  #machines:is(.bad, .off) .v { font-size: 8px; }
+  .top .right .subswrap { grid-column: 1 / -1; order: 6; }
+  .top .right #machines:not(.bad, .off) { grid-column: 1 / -1; order: 7; padding-block: 6px; }
+  .fswitch .slot.sa { display: none; }
 }

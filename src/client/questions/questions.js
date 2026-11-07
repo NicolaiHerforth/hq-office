@@ -1,65 +1,177 @@
 // NEEDS YOU: everything the owner is the blocker on (the open asks), their timers, and the pill for asks out of view.
 // Each card says what it waits for: a QUESTION to decide, a TO DO only the owner can do (DONE or NOT YET), or FYI.
 import { emit, on } from "../core/bus.js";
-import { $, pageScrolls } from "../core/dom.js";
+import { $, pageScrolls, toast } from "../core/dom.js";
 import { drafts, secretDrafts } from "./drafts.js";
 import { S } from "../core/state.js";
 import { ago, clock, dur, esc, setClass, setHTML, setText } from "../core/format.js";
 import { mdClip, mdInline } from "../core/markdown.js";
 import { renderSecretTimes } from "../secrets/secrets.js";
 import { clearImages, composer, hasImages, imageKeys } from "../images/images.js";
-import { pick, scope, tagged } from "../core/scope.js";
+import { enter, pick, scope, tagged } from "../core/scope.js";
 import { floorById, floorTagHTML, hqShown, readingOf } from "../core/floors.js";
 import { fillFrames, holdFrames, onSmall, onStage, pageSlotHTML, stagedAsk } from "./ask-page.js";
 import { askerOf, forWhom, pickWord } from "./asker.js";
-import { arrive, beforeRemove, eyeLine, hold, settle, watchCard } from "./place.js";
+import { arrive, beforeRemove, eyeLine, hold, isLeaving, onScreen, remember, scrollOn, settle, watchCard } from "./place.js";
+import { cardChanged } from "./hold.js";
+import { focusOn, focusTo, focused, leftOnStage, setFocus, stepFrom, syncFocus } from "./focus.js";
+import { dropLeft, holdsWords, leftCard, showParked, syncLeft, toldAfterReload, turnLeft } from "./left.js";
 
 // A question below the fold gets a red pill at the bottom of the list: tap it to go there, to the first new one if any
 // has arrived. Where the page scrolls, the pill sits on the screen between ▲ and ▼ and says where you are.
-const unseen = new Set();
+const unseen = new Set(), showing = new Set(); // not on screen yet; new, on screen now
 export function markNew(ids) { for (const id of ids) unseen.add(String(id)); }
 const go = (el) => el?.scrollIntoView({ behavior: matchMedia("(prefers-reduced-motion: reduce)").matches ? "instant" : "smooth", block: "start" });
 const pill = $("below"), nav = document.createElement("div");
 nav.className = "asknav";
-nav.innerHTML = `<button class="stepb" type="button" data-step="-1" aria-label="Previous question">▲</button><button class="stepb" type="button" data-step="1" aria-label="Next question">▼</button>`;
+nav.innerHTML = `<button class="stepb" type="button" data-step="-1" aria-label="Previous question">▲</button><button class="stepb" type="button" data-step="1" aria-label="Next question">▼</button><button class="focusb" type="button" data-focus aria-pressed="false" title="One question at a time">FOCUS</button><button class="askback" type="button" data-back hidden></button>`;
+const [stepUp, stepDown] = nav.querySelectorAll(".stepb"), focusB = nav.querySelector(".focusb"), backB = nav.querySelector(".askback");
+const liveCards = () => [...$("hud").querySelectorAll(":scope > .ask:not(.left)")];
+const typed = (id) => { const d = drafts.get(id); return !!((d?.text || "").trim() || d?.opt || hasImages(id) || Object.values(secretDrafts.get(id) ?? {}).some(Boolean)); };
+// A chip on the card: new since you last looked, or holding what you typed. Set only when it differs: it can take a line.
+export function markCard(el) {
+  const id = el.dataset.ask, mark = [(unseen.has(id) || showing.has(id)) && "NEW", typed(Number(id)) && "DRAFT"].filter(Boolean).join(" · ");
+  if ((el.dataset.mark ?? "") === mark) return;
+  if (mark) el.dataset.mark = mark; else delete el.dataset.mark;
+}
+// The card under your eye, and the way back to it once you follow NEW or a jump from somewhere else.
+let here = null, back = null, gotAway = false;
+const cardFor = (id) => cards.get(Number(id));
+function show(el) {
+  if (!el) return;
+  if (focusOn()) { focusTo(Number(el.dataset.ask)); renderBelow(); } else go(el);
+}
+function follow(el) {
+  if (el && here && here !== el && !back) { back = here.dataset.ask; gotAway = false; }
+  show(el);
+}
 export function renderBelow() {
-  const list = $("hud"), cards = [...list.querySelectorAll(".ask")];
+  const list = $("hud"), cards = liveCards();
   const stacked = pageScrolls(), line = eyeLine(), edge = stacked ? innerHeight : list.getBoundingClientRect().bottom;
-  const view = list.getBoundingClientRect();
-  for (const el of cards) { const r = el.getBoundingClientRect(); if (r.top < edge && r.bottom > line && !list.hidden) unseen.delete(el.dataset.ask); }
+  const view = list.getBoundingClientRect(), mode = focusOn(), gone = leftOnStage();
+  for (const el of cards) {
+    const r = el.getBoundingClientRect(), id = el.dataset.ask;
+    if (r.top < edge && r.bottom > line && !list.hidden) { if (unseen.delete(id)) showing.add(id); } else showing.delete(id);
+    markCard(el);
+  }
   const fresh = cards.filter((el) => unseen.has(el.dataset.ask));
-  const hidden = cards.filter((el) => el.getBoundingClientRect().bottom > edge + 1);
+  const hidden = mode ? [] : cards.filter((el) => el.getBoundingClientRect().bottom > edge + 1);
   const news = fresh.length ? `${fresh.length} NEW` : "";
   // The next new one below you, else the first: a question that is due sorts to the top.
   const nextNew = fresh.find((el) => el.getBoundingClientRect().top > line) ?? fresh[0];
-  pill.onclick = () => go(nextNew ?? hidden[0]);
-  if (!stacked) {
-    nav.remove();
+  const inside = mode ? cards.findIndex((el) => Number(el.dataset.ask) === focused()) : cards.findIndex((el) => el.getBoundingClientRect().bottom > line + 60);
+  // Reading the closed cards at the top of the list: no question is yours to count yet, and the next one is the first.
+  const overClosed = !mode && [...list.querySelectorAll(":scope > .ask.parked")].some((el) => el.getBoundingClientRect().bottom > line + 60);
+  const i = overClosed ? -1 : inside < 0 ? cards.length - 1 : inside;
+  here = gone || overClosed ? null : cards[i] ?? null;
+  // A list that fits has no place to lose: the row comes with a list longer than its view, and stays with the mode.
+  const long = stacked ? cards.length > 1 && view.height > innerHeight - line : list.scrollHeight > list.clientHeight;
+  const row = !list.hidden && (mode ? cards.length > 0 || !!gone : long);
+  if (!row) nav.remove();
+  else if (!nav.isConnected) list.before(nav);
+  // It goes once you are back: a smooth scroll is still on the card you left when it starts.
+  if (here !== cardFor(back)) gotAway = true;
+  if (back && (!cardFor(back) || (gotAway && cardFor(back) === here))) back = null;
+  backB.hidden = !row || !back;
+  if (back) backB.textContent = `◀ BACK TO ${cards.indexOf(cardFor(back)) + 1}${typed(Number(back)) ? " · YOUR DRAFT" : ""}`;
+  focusB.setAttribute("aria-pressed", mode);
+  const counted = row && (stacked || mode);
+  stepUp.hidden = stepDown.hidden = !counted;
+  if (!counted) {
     if (pill.parentElement === nav) document.querySelector(".qwrap")?.append(pill);
-    pill.hidden = !(fresh.length || hidden.length) || list.scrollHeight <= list.clientHeight;
+    pill.classList.remove("quiet");
+    pill.onclick = () => follow(nextNew ?? hidden[0]);
+    pill.hidden = stacked || !(fresh.length || hidden.length) || list.scrollHeight <= list.clientHeight;
     pill.textContent = news && !hidden.length ? news : `+${hidden.length} MORE OUT OF VIEW${news && ` · ${news}`}`;
     return;
   }
-  // In the flow above the list, so it comes and goes only when the list stops or starts being longer than the screen.
-  const shows = !list.hidden && cards.length > 1 && view.height > innerHeight - line;
-  if (!shows) { nav.remove(); pill.hidden = true; return; }
-  if (!nav.isConnected) { list.before(nav); nav.firstElementChild.after(pill); }
-  const i = cards.findIndex((el) => el.getBoundingClientRect().bottom > line + 60);
-  const here = i < 0 ? cards.length - 1 : i;
+  if (pill.parentElement !== nav) nav.firstElementChild.after(pill);
   pill.hidden = false;
   pill.classList.toggle("quiet", !fresh.length);
-  pill.textContent = `${here + 1} OF ${cards.length}${news && ` · ${news}`}`;
-  nav.querySelector('[data-step="-1"]').disabled = here === 0 && cards[0].getBoundingClientRect().top >= line - 1;
-  nav.querySelector('[data-step="1"]').disabled = here === cards.length - 1;
-  nav.onclick = (e) => {
-    const step = Number(e.target.closest("[data-step]")?.dataset.step);
-    if (!step) return;
-    // ▲ first goes back to the top of the card you are inside; ▼ always to the next one.
-    const inside = step < 0 && cards[here].getBoundingClientRect().top < line - 8;
-    go(inside ? cards[here] : cards[here + step]);
-  };
-  if (!fresh.length) pill.onclick = () => go(cards[here + 1]);
+  pill.textContent = gone || overClosed ? `${cards.length} WAITING${news && ` · ${news}`}` : `${i + 1} OF ${cards.length}${news && ` · ${news}`}`;
+  stepUp.disabled = mode ? stepFrom(-1) == null : overClosed || (i === 0 && cards[0].getBoundingClientRect().top >= line - 1);
+  stepDown.disabled = mode ? stepFrom(1) == null : i === cards.length - 1;
+  pill.onclick = () => (fresh.length ? follow(nextNew) : mode ? null : go(cards[i + 1]));
 }
+// A step in FOCUS. A card that has closed goes with the step when it holds no words of yours, or when you discard them.
+// From one there is always somewhere to go: the card after it, else the one before, else the empty list.
+export function focusStep(n, discard = false) {
+  const gone = leftOnStage(), drop = gone && (discard || !holdsWords(gone)), id = stepFrom(n) ?? (gone ? stepFrom(-n) : null);
+  if (id == null && !drop) {
+    if (gone) toast("NOTHING ELSE IS OPEN. YOUR WORDS STAY HERE UNTIL YOU COPY OR DISCARD THEM.");
+    return;
+  }
+  if (drop) dropLeft(gone);
+  focusTo(id);
+  renderBelow();
+}
+// NEXT, and NOT YET in FOCUS: if the step brings another card, it comes under the finger that pressed.
+export function stepOn() {
+  const was = focused();
+  focusStep(1);
+  if (focused() !== was) cardChanged();
+}
+nav.addEventListener("click", (e) => {
+  const step = Number(e.target.closest("[data-step]")?.dataset.step);
+  if (e.target.closest("[data-focus]")) toggleFocus();
+  else if (e.target.closest("[data-back]")) { const el = cardFor(back); back = null; show(el); renderBelow(); }
+  else if (step && focusOn()) focusStep(step);
+  else if (step) {
+    const cards = liveCards(), i = cards.indexOf(here), line = eyeLine();
+    // ▲ first goes back to the top of the card you are inside; ▼ always to the next one.
+    const within = step < 0 && here?.getBoundingClientRect().top < line - 8;
+    go(within ? here : cards[i + step]);
+  }
+});
+// From the list to one question and back: the card under your eye is the one you stay on, and it stays where it is.
+function toggleFocus() {
+  const on = !focusOn(), el = on ? here : cardFor(focused()) ?? leftOnStage(), top = el?.getBoundingClientRect().top;
+  setFocus(on, el ? Number(el.dataset.ask) : null);
+  if (on && el) focusTo(Number(el.dataset.ask));
+  else if (el?.isConnected) {
+    if (el.classList.contains("parked")) showParked();
+    arrive({ next: el, top });
+  }
+  renderBelow();
+  remember();
+}
+// ANSWER IN NEEDS YOU and a question's own link: that question, in either mode, on its floor if the list leaves it out.
+on("needs:go", (id) => {
+  const a = S?.open.find((x) => x.id === id);
+  if (!a) return;
+  if (!pick(S.open).includes(a)) enter(a.floor);
+  const el = cardFor(id);
+  if (!el) return;
+  follow(el);
+  el.classList.remove("flash");
+  void el.offsetWidth;
+  el.classList.add("flash");
+});
+// The arrow keys, when you are not typing and nothing else has them.
+document.addEventListener("keydown", (e) => {
+  const step = { ArrowDown: 1, ArrowUp: -1 }[e.key];
+  if (!step || !focusOn() || e.defaultPrevented || e.metaKey || e.ctrlKey || e.altKey || e.shiftKey || $("hud").hidden) return;
+  if (document.documentElement.classList.contains("sheetopen")) return; // not the question behind a sheet
+  const t = e.target;
+  if (t !== document.body && !t.closest?.("#hud, .asknav")) return;
+  if (t.closest?.("input, textarea, select, [contenteditable]")) return;
+  e.preventDefault();
+  // A card taller than the window is read first: the step comes once its end is in view.
+  const card = $("hud").querySelector(":scope > .ask.on")?.getBoundingClientRect();
+  if (card) {
+    const edge = pageScrolls() ? innerHeight : $("hud").getBoundingClientRect().bottom, line = eyeLine();
+    const rest = step > 0 ? card.bottom - edge : line - card.top;
+    if (rest > 1 && scrollOn(step * Math.min(rest, (edge - line) * 0.8))) return;
+  }
+  focusStep(step);
+});
+$("hud").addEventListener("click", (e) => {
+  if (e.target.closest("[data-left-next]")) { stepOn(); return; }
+  if (!e.target.closest("[data-left-drop]")) return;
+  const card = e.target.closest(".ask");
+  if (leftOnStage() === card) focusStep(1, true); else { dropLeft(card); renderBelow(); }
+  cardChanged();
+});
 $("hud").addEventListener("scroll", renderBelow, { passive: true });
 addEventListener("scroll", () => { if (pageScrolls()) renderBelow(); }, { passive: true });
 new ResizeObserver(renderBelow).observe($("hud"));
@@ -77,6 +189,10 @@ export function canSend(a, d) {
 on("attach", (key) => {
   const a = S?.open.find((x) => String(x.id) === key), btn = document.querySelector(`[data-ask="${CSS.escape(key)}"] .send`);
   if (a && btn) btn.disabled = !canSend(a, drafts.get(a.id) || {});
+  // Parked with the drafts: what a closed card says about its question.
+  if (a && hasImages(a.id) && !drafts.has(a.id)) drafts.set(a.id, {});
+  const card = cardFor(key);
+  if (card) markCard(card);
 });
 
 const KIND_LABEL = { decision: "QUESTION", action: "TO DO", info: "FYI" };
@@ -116,7 +232,7 @@ function answerHTML(a) {
 function metaHTML(a, tags, page) {
   const want = a.secrets ?? [];
   return `<div class="meta">
-        ${tags ? floorTagHTML(S, a.floor) : ""}${a.lane ? `<button class="tag lane" data-select="${esc(a.lane)}">${esc(a.lane)}</button>` : ""}${forHTML(a)}
+        ${tags ? floorTagHTML(S, a.floor) : ""}${a.lane ? `<button class="tag lane" data-select="${esc(a.lane)}" title="${esc(a.lane)}">${esc(a.lane)}</button>` : ""}${forHTML(a)}
         <span class="tag kind ${esc(a.kind)}">${esc(KIND_LABEL[a.kind] ?? a.kind.toUpperCase())}</span>
         ${want.length ? `<span class="tag secret">SECRETS</span>` : ""}
         ${page ? `<a class="tag pageopen" href="#page/asks/${a.id}" title="Open the page at full width">OPEN PAGE ▶</a>` : ""}
@@ -184,16 +300,17 @@ function syncCard(card, a, read, answer, shape) {
   const due = a.due || "", lane = a.lane || "";
   if (card.dataset.due !== String(due)) card.dataset.due = due;
   if (card.dataset.lane !== lane) card.dataset.lane = lane;
+  if (card.dataset.askFloor !== (a.floor ?? "")) card.dataset.askFloor = a.floor ?? "";
 }
 function newCard(a, cls, read, answer, shape) {
-  const card = nodes(`<article class="${cls}" data-ask="${a.id}" data-lane="${esc(a.lane || "")}" data-created="${a.created_at}" data-due="${a.due || ""}">${read}${answer()}</article>`).firstElementChild;
+  const card = nodes(`<article class="${cls}" data-ask="${a.id}" data-lane="${esc(a.lane || "")}" data-ask-floor="${esc(a.floor ?? "")}" data-created="${a.created_at}" data-due="${a.due || ""}">${read}${answer()}</article>`).firstElementChild;
   shown.set(card, { read, shape });
   restoreSecrets(card);
   return card;
 }
 
 const cards = new Map(); // an ask's id -> its card in the list
-let shownHead = null;
+let shownHead = null, restored = false, shownScope = "";
 function renderList() {
   const hud = $("hud");
   // Inside a floor (docs/floors.md): that floor's asks; the scope row over the list says what other floors hold.
@@ -201,8 +318,8 @@ function renderList() {
   const here = scope().all ? null : floorById(S, scope().floor);
   // The count lives in the top bar now; the list only needs words when it is empty.
   const head = open.length ? "" : here ? emptyFloorHTML(here) : `<div class="box"><h2>NOTHING NEEDS YOU</h2><div style="color:var(--muted);font-size:14px">Every worker is either at its desk or waiting on HQ or CI. Decisions and things only you can do land here.</div></div>`;
-  for (const id of secretDrafts.keys()) if (!S.open.some((a) => a.id === id)) secretDrafts.delete(id);
-  for (const key of imageKeys()) if (/^\d+$/.test(key) && !S.open.some((a) => String(a.id) === key)) clearImages(key);
+  const where = JSON.stringify(scope()), entered = where !== shownScope;
+  shownScope = where;
   let changed = false, leftFor = null;
   if (head !== shownHead) {
     shownHead = head;
@@ -211,14 +328,47 @@ function renderList() {
     changed = true;
   }
   const wanted = new Set(open.map((a) => a.id));
+  const isOpen = (id) => S.open.some((a) => a.id === id);
   for (const [id, card] of cards) {
     if (wanted.has(id)) continue;
-    leftFor = beforeRemove(card) ?? leftFor;
-    card.remove();
     cards.delete(id);
     changed = true;
+    // It closed without you, with your words in it or on the stage: it says so where it is, and you move on from it.
+    const words = !!(drafts.get(id)?.text || "").trim(), pasted = Object.values(secretDrafts.get(id) ?? {}).some(Boolean), pictures = hasImages(id);
+    if (!isOpen(id) && !isLeaving(id) && (words || pasted || pictures || (focused() === id && open.length))) {
+      toast(words ? "A QUESTION WITH YOUR DRAFT CLOSED. YOUR WORDS STAY ON ITS CARD." : pictures ? "A QUESTION WITH YOUR PICTURE CLOSED. THE PICTURE WAS NOT SENT." : "THIS QUESTION CLOSED.");
+      if (onScreen(card)) cardChanged();
+      turnLeft(card, id, { pasted, pictures });
+      continue;
+    }
+    leftFor = beforeRemove(card, !isOpen(id)) ?? leftFor;
+    card.remove();
+    // Nothing of yours is on it: a pick means nothing once its question has gone.
+    if (!isOpen(id)) drafts.delete(id);
   }
-  let at = hud.querySelector(":scope > .ask");
+  // After a reload: what you left on a question that closed meanwhile, however long ago, newest first, and the question on
+  // the stage if it is the one. The words stay until you discard them; a bare pick does not.
+  const parkedNow = !restored && [...drafts.keys()].filter((id) => !isOpen(id) && ((drafts.get(id)?.text || "").trim() || hasImages(id))).sort((a, b) => a - b);
+  if (parkedNow) {
+    restored = true;
+    const known = focused() && open.length && !isOpen(focused()) && S.answered?.some((x) => x.id === focused()) ? [focused()] : [];
+    for (const id of new Set([...parkedNow, ...known])) {
+      const card = leftCard(id);
+      card.classList.toggle("parked", parkedNow.includes(id));
+      hud.prepend(card);
+      turnLeft(card, id, { pictures: hasImages(id) });
+      if (focused() === id) card.classList.add("on");
+      changed = true;
+    }
+    for (const id of [...drafts.keys()]) if (!isOpen(id) && !parkedNow.includes(id) && !known.includes(id)) drafts.delete(id);
+  }
+  if (syncLeft()) changed = true;
+  if (parkedNow?.length) toast(focusOn() ? "A QUESTION WITH YOUR DRAFT CLOSED WHILE YOU WERE AWAY. IT STAYS ON ITS CARD." : toldAfterReload());
+  for (const id of secretDrafts.keys()) if (!isOpen(id)) secretDrafts.delete(id);
+  for (const key of imageKeys()) if (/^\d+$/.test(key) && !S.open.some((a) => String(a.id) === key)) clearImages(key);
+  // A card that has closed stays where it is among the others.
+  const skipLeft = (el) => { while (el?.classList.contains("left")) el = el.nextElementSibling; return el; };
+  let at = skipLeft(hud.querySelector(":scope > .ask"));
   for (const a of open) {
     // An ask with a page shows it under its text (ask-page.js); on the stage, its answer row goes with it.
     const page = S.askPages?.[a.id], onStage = page && staged === a.id;
@@ -236,14 +386,15 @@ function renderList() {
       watchCard(card);
       changed = true;
     }
-    if (card === at) { at = at.nextElementSibling; continue; }
+    if (card === at) { at = skipLeft(at.nextElementSibling); continue; }
     // Moved with moveBefore where there is one: a frame keeps running and the focus stays.
     if (card.isConnected && hud.moveBefore) hud.moveBefore(card, at); else hud.insertBefore(card, at);
     changed = true;
   }
   if (!changed) { settle(); return; }
   fillFrames(hud);
-  if (leftFor?.next.isConnected) arrive(leftFor); else hold();
+  syncFocus(open.map((a) => a.id), isOpen);
+  if (leftFor?.next.isConnected && !focusOn()) arrive(leftFor); else hold(entered);
   settle();
   tick();
   renderBelow();

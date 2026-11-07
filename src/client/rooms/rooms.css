@@ -36,7 +36,7 @@
 @media (pointer: coarse) { .nrlane, .nracts .btn-s { min-height: 44px; } html .nrrow .levels { font-size: 16px; } }
 .rlist h4 { margin: 6px 0 0; font: 8px/1 var(--pixel); color: var(--muted); }
 .rrow { display: grid; gap: 6px; padding: 8px 10px; border-radius: 8px; border: 2px solid var(--rule); cursor: pointer; min-width: 0; }
-.rrow:hover { background: var(--lift); border-color: var(--edge-2); }
+@media (hover: hover) { .rrow:hover { background: var(--lift); border-color: var(--edge-2); } }
 .rrow:focus-visible { outline: 2px solid var(--blue); outline-offset: 1px; }
 .rrow.unread { background: var(--amber-tint); border-color: var(--amber-edge); }
 .rrow.here { border-color: var(--blue); background: var(--blue-tint); }
@@ -55,7 +55,7 @@
 /* a lane: its status colour, name, level and role; a tap selects its worker in the office */
 .rooms .people, .roomview .people, .roomview .works { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
 .rlane { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; padding: 3px 7px 3px 5px; border: 2px solid var(--edge); border-radius: 6px; background: var(--box); font: 700 13px/1.2 var(--text); }
-.rlane:hover { background: var(--lift); }
+@media (hover: hover) { .rlane:hover { background: var(--lift); } }
 .rlane i { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 2px; }
 .rlane b { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .rlane .lv, .rlane .role { font: 6px/1 var(--pixel); color: var(--muted); }
@@ -82,7 +82,7 @@
 .rvjump { display: none; }
 .rvtab { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 6px; max-width: 230px; padding: 6px 8px; border: 2px solid var(--edge-2); border-radius: 6px; background: var(--box); color: var(--ink); font: 8px/1.2 var(--pixel); text-decoration: none; }
 .rvtab span:first-child { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.rvtab:hover { background: var(--lift); border-color: var(--edge); }
+@media (hover: hover) { .rvtab:hover { background: var(--lift); border-color: var(--edge); } }
 .rvtab.on { background: var(--ink); border-color: var(--ink); color: var(--on-ink); }
 .rvtab.unread { border-color: var(--amber-edge); background: var(--amber-tint); }
 .rvtab .tag { padding: 3px 4px; font-size: 7px; }
@@ -106,6 +106,9 @@
 .roomview.folded .rvbody { grid-template-columns: minmax(0, 1fr); }
 .roomview.folded .rvrail { display: none; }
 .rvchat { display: grid; grid-template-rows: minmax(0, 1fr) auto; gap: 8px; min-width: 0; min-height: 0; }
+/* nothing in the open rail sets its width: a long project name is cut by its own ellipsis, not the rail */
+.roomview:not([hidden]) .rvrail > * { min-width: 0; }
+.roomview:not([hidden]) :is(.acc, .accbody) { grid-template-columns: minmax(0, 1fr); }
 .rvrail { display: grid; align-content: start; gap: 10px; min-width: 0; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding-right: 2px; }
 .rmount:empty { display: none; }
 .rmount { display: grid; gap: 10px; min-width: 0; }
@@ -130,7 +133,8 @@
 .bver { display: grid; grid-template-columns: 56px 1fr; align-items: center; gap: 8px; padding: 6px 8px; border: 0; border-radius: 4px; background: none; color: var(--ink); text-align: left; text-decoration: none; font: inherit; cursor: pointer; min-height: 32px; }
 .bver b { font: 8px/1.4 var(--pixel); }
 .bver span { font-size: 12px; color: var(--muted); }
-.bver:hover, .bver.here { background: var(--blue-tint); }
+.bver.here { background: var(--blue-tint); }
+@media (hover: hover) { .bver:hover { background: var(--blue-tint); } }
 .bold { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 6px 8px; border-radius: 6px; background: var(--amber-tint); border: 2px solid var(--amber-edge); font-size: 12px; }
 .bold > span { flex: 1; min-width: 0; }
 .bold b { display: block; font: 8px/1.6 var(--pixel); }
@@ -208,11 +212,16 @@
 }
 @media (max-width: 1150px) and (pointer: coarse) {
   html .rto select, html .radd input[type=url], html .radd input[type=text] { font-size: 16px; }
-  .radd .rpick, .radd button[type=submit] { min-height: 34px; display: inline-flex; align-items: center; }
+  .radd .rpick, .radd button[type=submit] { min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
   .rlane { padding-block: 5px; }
   .rvtab, .rvptabs .tab { min-height: 44px; }
   .rvbar .back { min-height: 44px; }
   .rlane { min-height: 44px; }
+  /* a tile is one thing to tap: it opens the room */
+  .rrow .rlane { min-height: 0; pointer-events: none; }
+  /* the composer's focus folds the strip, so the chat keeps the room while the keyboard is up */
+  .roomview:has(.rsend textarea:focus) .rvpix { display: none; }
+  .rfolder { display: none; }
 }
 @media (max-width: 640px) {
   .rlane .lv, .rlane .role { flex: none; white-space: nowrap; }
@@ -234,5 +243,6 @@
   .rbrief .k > :first-child { flex: none; white-space: nowrap; }
   .opts2.nracts { display: grid; grid-template-columns: minmax(0, 1fr); }
   .nrlane { flex: 1 1 100%; line-height: 1.4; }
+  .nrlanes { max-height: none; overflow: visible; }
   .rshelf .cards { grid-template-columns: minmax(0, 1fr); }
 }

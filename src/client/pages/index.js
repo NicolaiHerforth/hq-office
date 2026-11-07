@@ -15,6 +15,7 @@ import { emit, on } from "../core/bus.js";
 import { themedSrc } from "./theme.js";
 import { navigateFrame } from "./frame-nav.js";
 import { PAGE, closeSide, current, escIsFor, leaveField } from "../core/stage.js";
+import { exportButton } from "../brief-export/button.js";
 
 export const SANDBOX = "allow-scripts allow-popups allow-popups-to-escape-sandbox allow-forms allow-modals allow-downloads";
 const stage = document.querySelector(".stage");
@@ -66,7 +67,7 @@ function route() {
   stage.classList.add("inpage");
   document.documentElement.classList.add("pageopen");
   // An ask's page has its answer row docked under it (questions/questions.js) where other pages have comments.
-  setHTML(view, `<div class="pvbar"><button class="btn-s" type="button" data-page-back>◀ BACK</button><b class="pvtitle">${esc(p.title)}</b><span class="pvvbtn"></span>${p.ask ? "" : `<button class="btn-s" type="button" data-comments-toggle="${esc(p.key)}">COMMENTS</button>`}${SPLIT_BUTTON}<button class="btn-s wideonly" type="button" data-view-full>FULL SCREEN</button><a class="btn-s" href="${esc(p.src)}" target="_blank" rel="noopener">OPEN IN NEW TAB</a><div class="pvvers" hidden></div></div><div class="pvold"${p.v ? "" : " hidden"}></div>${frameHTML(p.src, p.title)}${p.ask ? `<aside class="box askdock" data-askdock="${p.ask}" aria-label="Answer"></aside>` : `<aside class="cmount" data-comments="${esc(p.key)}"></aside>`}`);
+  setHTML(view, `<div class="pvbar"><button class="btn-s" type="button" data-page-back>◀ BACK</button><b class="pvtitle">${esc(p.title)}</b><span class="pvvbtn"></span>${p.ask ? "" : `${exportButton(p.key, p.v)}<button class="btn-s" type="button" data-comments-toggle="${esc(p.key)}">COMMENTS</button>`}${SPLIT_BUTTON}<button class="btn-s wideonly" type="button" data-view-full>FULL SCREEN</button><a class="btn-s" href="${esc(p.src)}" target="_blank" rel="noopener">OPEN IN NEW TAB</a><div class="pvvers" hidden></div></div><div class="pvold"${p.v ? "" : " hidden"}></div>${frameHTML(p.src, p.title)}${p.ask ? `<aside class="box askdock" data-askdock="${p.ask}" aria-label="Answer"></aside>` : `<aside class="cmount" data-comments="${esc(p.key)}"></aside>`}`);
   if (p.ask) emit("askdock:mount", view.querySelector(".askdock"));
   else emit("comments:mount", view.querySelector(".cmount"));
   emit("page:stage", p);

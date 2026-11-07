@@ -16,6 +16,7 @@ import { enter, officeFloor, pick, tagged } from "../core/scope.js";
 import { floorById } from "../core/floors.js";
 import { frameHTML, SPLIT_BUTTON } from "../pages/index.js";
 import { briefId, closeSide, escIsFor, leaveField } from "../core/stage.js";
+import { exportButton } from "../brief-export/button.js";
 
 const list = $("briefs");
 const stage = document.querySelector(".stage");
@@ -79,7 +80,7 @@ function show(b) {
   const page = !b.loading && b.html;
   const meta = page ? `<span class="bvmeta">${floorChip(b.floor)}<span class="when">${esc(when(b.at))}</span><span class="by">by ${esc(b.by)}</span></span>` : `<span class="spacer"></span>`;
   setHTML(view, `<div class="bvbar"><button class="btn-s" type="button" data-brief-back>◀ BACK</button>${meta}`
-    + (b.loading ? "" : `<button class="btn-s" type="button" data-comments-toggle="briefs/${b.id}">COMMENTS</button>${SPLIT_BUTTON}<button class="btn-s wideonly" type="button" data-view-full>${document.fullscreenElement === view ? "EXIT FULL SCREEN" : "FULL SCREEN"}</button><a class="btn-s wideonly" href="./#brief/${b.id}" target="_blank" rel="noopener" title="This brief in a window of its own, beside a room or a lane">NEW WINDOW</a>`)
+    + (b.loading ? "" : `${exportButton(`briefs/${b.id}`)}<button class="btn-s" type="button" data-comments-toggle="briefs/${b.id}">COMMENTS</button>${SPLIT_BUTTON}<button class="btn-s wideonly" type="button" data-view-full>${document.fullscreenElement === view ? "EXIT FULL SCREEN" : "FULL SCREEN"}</button><a class="btn-s wideonly" href="./#brief/${b.id}" target="_blank" rel="noopener" title="This brief in a window of its own, beside a room or a lane">NEW WINDOW</a>`)
     + `<a class="btn-s" data-brief-step="-1">NEWER</a><a class="btn-s" data-brief-step="1">OLDER</a></div>`
     + (b.loading ? `<div class="empty">LOADING…</div>`
       : page ? frameHTML(`/briefs/${b.id}.html`, b.title)

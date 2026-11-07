@@ -11,7 +11,7 @@
 .opts2 .btn-s { font-size: 7px; padding: 5px 6px; }
 .btn-s.on { background: var(--ink); color: var(--on-ink); }
 /* the hover colour under on-ink text would read 1:1, and a finger leaves hover behind after a tap */
-.btn-s.on:hover:not(:disabled) { background: var(--ink); }
+@media (hover: hover) { .btn-s.on:hover:not(:disabled) { background: var(--ink); } }
 .sfoot { display: flex; justify-content: flex-end; }
 .srow .levels { flex: 1 1 180px; min-width: 0; border: 3px solid var(--edge-2); border-radius: 6px; padding: 4px 8px; font: 16px/1.3 var(--text); background: var(--field); color: var(--ink); }
 .srow .levels:focus { outline: none; border-color: var(--edge); }
@@ -45,4 +45,3 @@
   .settings .shead .k { font: 10px/1 var(--pixel); letter-spacing: 1px; }
   .settings .srow > .k { font: 8px/1.4 var(--pixel); color: var(--muted); }
 }
-@media (max-width: 640px) { .settings { left: max(8px, env(safe-area-inset-left, 0px)); right: max(8px, env(safe-area-inset-right, 0px)); bottom: calc(8px + env(safe-area-inset-bottom, 0px)); width: auto; max-width: none; max-height: calc(100dvh - 16px); } }

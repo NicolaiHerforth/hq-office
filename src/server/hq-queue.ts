@@ -118,8 +118,24 @@ function senderOf(text: string) {
 
 // Claude Code hands the hook a long message as a paste, <pasted_content id="X">TEXT</pasted_content id="X">, and shows
 // it in the input box as a "[Pasted text #N]" token. The message is TEXT.
-const PASTE = /<pasted_content id="([^"]*)">\n?([\s\S]*?)\n?<\/pasted_content id="\1">/g;
-const typed = (prompt: string) => prompt.replace(PASTE, "$2").trim();
+// A prompt cut at its pastes: [text, TEXT, text, TEXT, ..., text]. An opening with no close of its id left is skipped
+// at once, so a prompt full of them is read once.
+function cutAtPastes(prompt: string) {
+  const lastClose = new Map<string, number>();
+  for (const c of prompt.matchAll(/<\/pasted_content id="([^"]*)">/g)) lastClose.set(c[1], c.index);
+  const open = /<pasted_content id="([^"]*)">/g, parts: string[] = [];
+  let at = 0;
+  for (let m; (m = open.exec(prompt));) {
+    if ((lastClose.get(m[1]) ?? -1) < open.lastIndex) continue;
+    const close = `</pasted_content id="${m[1]}">`, end = prompt.indexOf(close, open.lastIndex);
+    const from = open.lastIndex + (prompt[open.lastIndex] === "\n" ? 1 : 0);
+    parts.push(prompt.slice(at, m.index), prompt.slice(from, end > from && prompt[end - 1] === "\n" ? end - 1 : end));
+    at = open.lastIndex = end + close.length;
+  }
+  parts.push(prompt.slice(at));
+  return parts;
+}
+export const typed = (prompt: string) => cutAtPastes(prompt).join("").trim();
 // The HUD's own messages, Claude Code's own (a background task's end), commands, URGENT and empty prompts go straight
 // in; anything else waits in the queue.
 const straightIn = (p: string) => !p || /^HUD[\s:]/.test(p) || /^<task-notification>/.test(p) || /^\//.test(p) || /^URGENT\b/i.test(p);
@@ -146,12 +162,21 @@ async function hqBox(floor: string): Promise<string | null> {
   return null;
 }
 // Whether the box holds exactly this held prompt (whitespace aside: the box wraps it), a paste shown as its token.
-function boxHolds(box: string, prompt: string) {
+export function boxHolds(box: string, prompt: string) {
   const flat = (s: string) => s.replace(/\s+/g, "");
-  const esc = (s: string) => flat(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-  const parts = prompt.trim().split(new RegExp(PASTE.source)).filter((_, i) => i % 3 !== 1);
-  const re = parts.map((x, i) => (i % 2 ? "\\[Pastedtext#\\d+(\\+\\d+lines)?\\]" : esc(x))).join("");
-  return new RegExp(`^${re}$`).test(flat(box));
+  const text = flat(box), token = /\[Pastedtext#\d+(\+\d+lines)?\]/y;
+  let at = 0;
+  for (const [i, part] of cutAtPastes(prompt.trim()).entries()) {
+    if (i % 2) {
+      token.lastIndex = at;
+      if (!token.test(text)) return false;
+      at = token.lastIndex;
+    } else {
+      if (!text.startsWith(flat(part), at)) return false;
+      at += flat(part).length;
+    }
+  }
+  return at === text.length;
 }
 async function hqIdle(floor: string) {
   try {

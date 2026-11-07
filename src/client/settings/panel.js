@@ -11,6 +11,7 @@ import { ACCESSORIES } from "../room/accessory-table.js";
 import { wornCache } from "../room/accessories.js";
 import { THEMES, THEME_CHOICES } from "../room/themes.js";
 import { floorsRow } from "./floors.js";
+import { sheet, sheetMode } from "../core/sheet.js";
 
 // SETTINGS opens a panel of choices. Each choice has a default, and RESET puts them all back.
 const SETTING_OPTIONS = {
@@ -31,7 +32,7 @@ function renderSettings() {
     `<button class="btn-s ${settings[key] === v ? "on" : ""}" type="button" data-set="${key}" data-val="${esc(v)}">${esc(label(key, v))}</button>`).join("")}</div></div>`;
   // With two or more floors, FLOORS comes first: it is what the owner opens SETTINGS for most.
   const floorsFirst = (S?.floors?.length ?? 0) >= 2;
-  $("settings").innerHTML = `<div class="shead"><b class="k">SETTINGS</b><span class="spacer"></span><button class="btn-s" type="button" data-close>CLOSE</button></div>`
+  $("settings").innerHTML = `<div class="shead"><b class="k">SETTINGS</b><span class="spacer"></span><button class="${sheetMode() ? "spx" : "btn-s"}" type="button" data-close aria-label="Close">${sheetMode() ? "✕" : "CLOSE"}</button></div>`
     + (floorsFirst ? floorsRow() : "")
     + row("hero") + row("season") + row("hat") + row("performance")
     // The lane tree: what each level is called (from the top: lanes under HQ first; deeper lanes take the last
@@ -94,6 +95,7 @@ on("settings", () => {
   wornCache.clear();
   if (!$("settings").hidden) renderSettings();
 });
+sheet($("settings"), () => { $("settings").hidden = true; });
 $("settingsBtn").addEventListener("click", () => {
   const panel = $("settings");
   panel.hidden = !panel.hidden;

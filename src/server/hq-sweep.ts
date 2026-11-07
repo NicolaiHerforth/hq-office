@@ -67,7 +67,7 @@ const waitMin = (minutes: number, floor: string) => Math.min(MAX_WAIT_MIN, minut
 function findings(floor: string): string | null {
   // A lane that is a floor's HQ is never reported to an HQ as one of its lanes: it is the HQ.
   const notHq = <T extends { name: string }>(rows: T[]) => rows.filter((l) => !isHqAgent(l.name));
-  const lanes = notHq(db.query("SELECT name, herdr FROM lanes WHERE herdr IN ('idle', 'done') AND bg IS NULL AND phase != 'done' AND floor = ? ORDER BY name").all(floor) as { name: string }[]);
+  const lanes = notHq(db.query("SELECT name, herdr FROM lanes WHERE herdr IN ('idle', 'done') AND bg IS NULL AND phase NOT IN ('done', 'parked') AND floor = ? ORDER BY name").all(floor) as { name: string }[]);
   // Housekeeping: lanes marked done with nothing open (no open question), each with the folder its agent works in.
   const done = notHq(db.query("SELECT l.name FROM lanes l WHERE l.phase = 'done' AND l.floor = ? AND NOT EXISTS (SELECT 1 FROM asks a WHERE a.lane = l.name AND a.status = 'open') ORDER BY l.name").all(floor) as { name: string }[]);
   const gone = notHq(db.query("SELECT name FROM lanes WHERE herdr = 'gone' AND phase NOT IN ('done', 'parked') AND floor = ? ORDER BY name").all(floor) as { name: string }[]);

@@ -1,7 +1,7 @@
 // HTML PAGES: a room's .html file, a room brief that is an HTML document and a floor brief that is one are served as
 // pages under a sandbox policy without allow-same-origin (an opaque origin: no access to the HUD, its data or its
 // storage), with secret values masked. Anything that is not a page is not served as one. A stub herdr gives HQ its pane.
-import { afterAll, beforeAll, expect, test } from "bun:test";
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -243,4 +243,60 @@ test("every page address takes ?theme=: a shelf page, an older version, a room b
   }
   const v = (await get("/api/rooms/pricing/versions?brief=1")).versions.find((x: any) => x.html);
   expect(await (await fetch(`${server.base}/rooms/pricing/brief.html?v=${v.v}&theme=light`)).text()).toContain(`data-theme="light"`);
+});
+
+describe("themed: what a page writes on its <html> or around it", () => {
+  const BODY = `<head><title>t</title></head><body><p id="p">words</p></body></html>`;
+  // The real root, as a browser's parser finds it: every attribute with its value as written.
+  const rootOf = (html: string) => {
+    const attrs: Record<string, string> = {};
+    let seen = false;
+    new HTMLRewriter().on("html", { element(el) { if (seen) return; seen = true; for (const [k, v] of el.attributes) attrs[k] = v; } }).transform(html);
+    return attrs;
+  };
+  const once = (out: string) => expect(out.split(`<p id="p">words</p>`).length).toBe(2);
+
+  for (const value of ["cost $& more", "a$'b", "a$`b", "US$$5", "$1 and $2"]) {
+    test(`a replacement pattern in an attribute stays as written: ${value}`, () => {
+      const out = themed(`<!doctype html><html data-x="${value}">${BODY}`, "dark");
+      expect(rootOf(out)).toEqual({ "data-theme": "dark", "data-x": value });
+      once(out);
+    });
+    test(`and in its own style: ${value}`, () => {
+      const out = themed(`<!doctype html><html style="--x: '${value}'" data-theme="light">${BODY}`, "dark");
+      expect(rootOf(out)).toEqual({ "data-theme": "dark", style: `color-scheme: dark; --x: '${value}'` });
+      once(out);
+    });
+  }
+  test("a > inside an attribute does not end the tag: the scheme lands on the root", () => {
+    const out = themed(`<!doctype html><html data-x="a>b" data-theme="light">${BODY}`, "dark");
+    expect(rootOf(out)).toEqual({ "data-theme": "dark", "data-x": "a>b", style: "color-scheme: dark" });
+    once(out);
+    expect(out).not.toContain(`b" data-theme`);
+  });
+  test("its own style after a > is kept, in single quotes too", () => {
+    expect(rootOf(themed(`<!doctype html><html data-x='a>b' data-theme="dark" style='background: red'>${BODY}`, "light"))).toEqual({ "data-theme": "light", "data-x": "a>b", style: "color-scheme: light; background: red" });
+  });
+  test("words that look like attributes inside a value are not touched", () => {
+    const out = themed(`<!doctype html><html data-x=" data-theme='no' style='no'" data-theme="dark">${BODY}`, "light");
+    expect(rootOf(out)).toEqual({ "data-theme": "light", "data-x": " data-theme='no' style='no'", style: "color-scheme: light" });
+  });
+  test("an <html> in a leading comment is not the root: the theme reaches the real one", () => {
+    const out = themed(`<!-- <html> --><!doctype html><html lang="da">${BODY}`, "dark");
+    expect(rootOf(out)).toEqual({ "data-theme": "dark", lang: "da" });
+    expect(out).toStartWith("<!-- <html> -->");
+  });
+  test("an <html> in a script before the root is not the root either", () => {
+    const out = themed(`<!doctype html><script>var s = "<html>";</script><html lang="da">${BODY}`, "dark");
+    expect(out).toContain(`var s = "<html>";`);
+    expect(rootOf(out)["data-theme"]).toBe("dark");
+  });
+  test("what it always did stays: a plain root, a page with no <html>, no theme at all", () => {
+    expect(themed(`<!doctype html><html lang="da">${BODY}`, "dark")).toBe(`<!doctype html><html data-theme="dark" lang="da">${BODY}`);
+    expect(themed(`<!doctype html><html lang="da">${BODY}`, "light")).toBe(`<!doctype html><html data-theme="light" lang="da" style="color-scheme: light">${BODY}`);
+    expect(themed(`<!doctype html>${BODY}`, "dark")).toBe(`<!doctype html><html data-theme="dark">${BODY}`);
+    const same = `<!doctype html><html data-x="$&">${BODY}`;
+    expect(themed(same, null)).toBe(same);
+    expect(themed(same, "sepia")).toBe(same);
+  });
 });

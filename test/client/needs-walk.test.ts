@@ -47,6 +47,8 @@ for (const anchoring of [false, true]) {
       await page.s("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
     }
     async function tap(sel: string) {
+      // A card that has just changed takes no press for a moment (needs-gate.test.ts).
+      await until(`!document.documentElement.classList.contains("unready")`);
       const r = await ev(`(() => { const e = ${sel}; const r = e.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; })()`);
       await tapAt(r.x, r.y);
     }
@@ -322,10 +324,14 @@ for (const anchoring of [false, true]) {
       expect(await ev(`Math.abs(${card(all[all.indexOf(id) + 1])}.getBoundingClientRect().top) > 1500`)).toBe(true);
     });
 
-    test("with the list ending above the middle of the screen, what is under it stays put as the list grows", async () => {
+    test("with the list ending above the middle of the screen and a card still on it, that card holds as the list grows", async () => {
       await ev(`scrollBy(0, document.querySelector(".tell").getBoundingClientRect().top - 12)`);
       await settle();
-      const top = `document.querySelector(".tell").getBoundingClientRect().top`;
+      const last = `[...document.querySelectorAll("#hud > .ask")].at(-1)`;
+      expect(await ev(`(() => { const r = ${last}.getBoundingClientRect(); return r.bottom > document.querySelector(".asknav").getBoundingClientRect().bottom && r.bottom <= innerHeight / 2; })()`)).toBe(true);
+      // Where there is no scroll anchoring, as on iOS Safari, it is the card. Chrome's own anchoring keeps what is under the list.
+      const lastId = await ev(`${last}.dataset.ask`);
+      const top = anchoring ? `document.querySelector(".tell").getBoundingClientRect().top` : `document.querySelector('#hud > .ask[data-ask="${lastId}"]').getBoundingClientRect().top`;
       const before = await ev(top);
       const n = await ev(`document.querySelectorAll("#hud .ask").length`);
       await newAsk(10);

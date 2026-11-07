@@ -50,7 +50,7 @@ test("the script reports swap and free disk, and leaves the temp walk to its own
   const t = run("temp");
   expect(Number(t.temp_gb)).toBeGreaterThanOrEqual(0);
   expect(Object.keys(t)).toEqual(["temp_gb"]);
-});
+}, 60_000); // It walks this machine's real temp folders, however large they have grown.
 
 test("a database from before the columns keeps its rows, with the new readings empty", async () => {
   const rows = await history();

@@ -31,6 +31,7 @@ const LANES: [string, string, string, string][] = [
 ];
 const URL_LONG = "https://example.com/a/very/long/path/that/never/breaks/because/it/has/no/spaces/at/all/and/goes/on/and/on/report.html?with=query&and=more";
 const WIDE_TABLE = "| Region | Requests per second | Error rate | p50 latency | p99 latency | Owner of the service |\n|---|---|---|---|---|---|\n| eu-west-1 | 1200 | 0.02% | 41 ms | 390 ms | payments-webhook-retry |\n| us-east-1 | 3400 | 0.11% | 38 ms | 512 ms | checkout-tax-rounding |";
+const SMALL_TABLE = "| Region | Errors |\n|---|---|\n| eu | 2 |";
 const CODE = "```\nbun test test/client/mobile-overflow.test.ts --timeout 120000 --bail --only-failures --preload ./a/very/long/path/to/some/setup/file.ts\n```";
 const RICH = `## Where we are\n\nThe long string ${URL_LONG} sits in a sentence, next to [a link](${URL_LONG}) and \`a_very_long_inline_code_span_that_will_not_break_on_its_own_at_all_in_any_browser\`.\n\n${WIDE_TABLE}\n\n${CODE}\n\n- A list item that is long enough to wrap on a phone, and then some more words on top of those.\n- [x] A done thing\n\n> A quote that also runs on for a while, so it has to wrap inside its bar on a narrow screen.`;
 const HTML_PAGE = `<!doctype html><html><body><h1>The rollout plan</h1><p>Two phases over two weeks.</p></body></html>`;
@@ -105,8 +106,9 @@ export async function startOffice(root: string) {
   for (let i = 1; i <= 7; i++) await post(`/api/asks/${asked.id}/comment`, { text: i === 7 ? `A long comment. ${URL_LONG}` : `Note ${i}` });
   await post("/api/asks", { lane: "crm-dedupe", kind: "action", title: "supercalifragilisticexpialidocious_action_with_no_spaces_at_all_for_the_title_of_this_ask" });
   await post("/api/asks", { lane: "ops-tls", kind: "decision", title: "Rotate now?", options: ["Yes", "No"] });
+  for (const n of [1, 2, 3]) await post("/api/asks", { lane: "ledger-audit", kind: "decision", title: `Audit step ${n}: go on?`, options: ["Go on", "Stop here"], recommended: "Go on" });
   await post("/api/asks", { lane: "ops-tls", kind: "action", title: "A long body", body: "A long question body that takes up room on a small screen. ".repeat(12) });
-  for (let i = 1; i <= 6; i++) await post("/api/updates", { lane: i % 2 ? LONG_LANE : "crm-dedupe", title: i === 3 ? `A_very_long_update_title_with_no_spaces_that_goes_on_past_the_edge_of_the_phone_screen_${i}` : `Update ${i}: halfway there`, body: i % 3 === 0 ? RICH : "Two lines of news.\nThe second line." });
+  for (let i = 1; i <= 6; i++) await post("/api/updates", { lane: i % 2 ? LONG_LANE : "crm-dedupe", title: i === 3 ? `A_very_long_update_title_with_no_spaces_that_goes_on_past_the_edge_of_the_phone_screen_${i}` : `Update ${i}: halfway there`, body: i % 3 === 0 ? RICH : i === 1 ? SMALL_TABLE : "Two lines of news.\nThe second line." });
   await post("/api/notes", { text: `Keep going. ${URL_LONG}` });
   await post("/api/notes", { text: "Short note." });
 
@@ -155,7 +157,8 @@ export type Tab = Awaited<ReturnType<typeof openPhone>>;
 export async function openPhone(chrome: Awaited<ReturnType<typeof startChrome>>, errors: string[]) {
   const page = await newSession(chrome.cdp, errors);
   const ev = (e: string) => page.evaluate(e);
-  const until = async (expr: string, ms = 8000) => {
+  // The page says when: ms only stops a wait that will never end, so a loaded machine is slow, not a failure.
+  const until = async (expr: string, ms = 90_000) => {
     for (const end = Date.now() + ms; Date.now() < end; await Bun.sleep(40)) if (await ev(expr).catch(() => false)) return true;
     throw new Error(`timed out waiting for ${expr}`);
   };
@@ -172,8 +175,19 @@ export async function openPhone(chrome: Awaited<ReturnType<typeof startChrome>>,
       await page.s("Page.navigate", { url: "about:blank" });
       const seed = await page.s("Page.addScriptToEvaluateOnNewDocument", { source: `if (window === top && location.protocol === "http:") { sessionStorage.clear(); localStorage.clear(); for (const [k, v] of Object.entries(${JSON.stringify(stored)})) localStorage.setItem(k, v); }` });
       await page.s("Page.navigate", { url: `${base}/${hash}` });
-      await until(`!!document.getElementById("lastNote")?.innerHTML && !!document.querySelector("#menuDrop .seg.on[data-set-theme]")`);
+      // Every feature is a module script in the shell, so "complete" means they have all run; lastNote that a state came.
+      await until(`document.readyState === "complete" && !!document.getElementById("lastNote")?.innerHTML && !!document.querySelector("#menuDrop .seg.on[data-set-theme]")`);
       await page.s("Page.removeScriptToEvaluateOnNewDocument", { identifier: seed.identifier });
+    },
+    // Nothing is still moving and the fonts have landed: two frames after, what is measured is what stays.
+    async rest() {
+      await until(`document.getAnimations().every((a) => a.playState !== "running" || a.effect?.getComputedTiming?.().iterations === Infinity)`);
+      await ev(`document.fonts.ready.then(() => new Promise((ok) => requestAnimationFrame(() => requestAnimationFrame(() => ok(true)))))`);
+    },
+    async tapAt(x: number, y: number) {
+      await page.s("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+      await page.s("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      await Bun.sleep(120);
     },
     // A finger on the first match that is on the screen, where nothing covers it.
     async tap(sel: string) {
@@ -210,8 +224,18 @@ export type Surface = {
 const room = "#room/pay-migration";
 // On a phone the first tap opens a floor's row, the second goes in.
 const enterFloor = async (t: Tab) => { await t.tap('.tgo[data-floor-go="pay"]'); await t.tap('.tenterb[data-floor-go="pay"]'); await t.until(`!document.querySelector(".building") || document.querySelector(".building").getBoundingClientRect().height === 0`); };
+// Words left on closed questions, parked as a reload parks them: back, they wait behind one row at the top of the list.
+const closedRow = async (t: Tab) => {
+  await t.ev(`import("/src/client/questions/drafts.js").then((m) => { for (const id of [900001, 900002, 900003]) m.drafts.set(id, { text: "Words that were not sent, and they go on for a line or two so the box has something to hold.", about: { title: "A question with a very long title that closed while you were away from this page", who: ${JSON.stringify(LONG_LANE)} } }); })`);
+  await t.ev(`(setTimeout(() => location.reload(), 0), true)`);
+  await Bun.sleep(300);
+  await t.until(`document.readyState === "complete" && !!document.querySelector(".leftrow [data-left-open]")`);
+};
+
 export const SURFACES: Surface[] = [
   { name: "needs-you", shows: "#hud .ask" },
+  { name: "closed-row", go: closedRow, shows: ".leftrow [data-left-all]" },
+  { name: "closed-row-open", go: async (t) => { await closedRow(t); await t.tap("[data-left-open]"); }, shows: ".ask.parked [data-left-drop]" },
   { name: "ledger", shows: ".ledger [data-ledger-more]" },
   { name: "ledger-all", go: (t) => t.tap(".ledger [data-ledger-more]"), shows: ".ledger .lc:nth-of-type(7)" },
   { name: "building-row", go: (t) => t.tap('.tgo[data-floor-go="pay"]'), shows: ".ftile.pic .tenterb" },
@@ -232,6 +256,7 @@ export const SURFACES: Surface[] = [
   { name: "room-shelf", hash: () => room, go: (t) => t.tap('[data-ptab="shelf"]'), shows: ".roomview .rshelf" },
   { name: "done-means", hash: () => room, go: (t) => t.tap('[data-ptab="brief"]'), shows: ".roomview .acc" },
   { name: "brief", hash: (o) => `#brief/${o.ids.brief}`, shows: ".briefview h1, .briefview .bvbody" },
+  { name: "export", hash: (o) => `#brief/${o.ids.brief}`, go: (t) => t.tap(".bvbar [data-export]"), shows: ".xpanel [data-export-as]", sheet: ".xpanel" },
   { name: "brief-comments", hash: (o) => `#brief/${o.ids.brief}`, stored: { "hq-comments-open": "1" }, shows: ".cmount .cthread, .cmount textarea" },
   { name: "page", hash: (o) => `#page/rooms/pay-migration/files/${o.ids.shelf}`, shows: ".pageview iframe" },
   { name: "page-comments", hash: (o) => `#page/rooms/pay-migration/files/${o.ids.shelf}`, go: (t) => t.tap(".pageview [data-comments-toggle]"), shows: ".pageview .cmount textarea", sheet: ".cmount.open" },
@@ -241,7 +266,15 @@ export const SURFACES: Surface[] = [
   { name: "menu", go: (t) => t.tap("#menuBtn"), shows: "#menuDrop:not([hidden])", sheet: "#menuDrop" },
   { name: "secrets", go: async (t) => { await t.tap("#menuBtn"); await t.tap("#secretsBtn"); }, shows: ".spanel:not([hidden])", sheet: ".spanel" },
   { name: "settings", go: async (t) => { await t.tap("#menuBtn"); await t.tap("#settingsBtn"); }, shows: "#settings:not([hidden])", sheet: "#settings" },
-  { name: "subs", go: (t) => t.tap("#subsBtn"), shows: "#subsDrop:not([hidden])" },
+  { name: "subs", go: (t) => t.tap("#subsBtn"), shows: "#subsDrop:not([hidden])", sheet: "#subsDrop" },
+  { name: "tell-sheet", go: async (t) => { await t.tap("#menuBtn"); await t.tap("#menuTell"); }, shows: ".tell.sheet textarea", sheet: ".tell" },
+  { name: "close-room-confirm", hash: () => room, go: (t) => t.tap("[data-room-close]"), shows: ".confirm:not([hidden])", sheet: ".confirm" },
+  { name: "secret-delete-confirm", go: async (t) => { await t.tap("#menuBtn"); await t.tap("#secretsBtn"); await t.tap('[data-secret-rm]'); }, shows: ".confirm:not([hidden])", sheet: ".confirm" },
+  { name: "brief-comment-sheet", hash: (o) => `#brief/${o.ids.brief}`, go: (t) => t.tap(".bvbar [data-comments-toggle]"), shows: ".cmount.open textarea", sheet: ".cmount.open" },
+  { name: "message-reply", stored: { "hq-qtab": "messages" }, go: (t) => t.tap("#msgs [data-reply]"), shows: "#msgs [data-rbox] textarea" },
+  { name: "shelf-add", hash: () => room, go: async (t) => { await t.tap('[data-ptab="shelf"]'); await t.tap(".rshelf .addbtn"); }, shows: ".radd input[type=url]" },
+  { name: "room-versions", hash: () => room, go: async (t) => { await t.tap('[data-ptab="brief"]'); }, shows: ".roomview .rbrief" },
+  { name: "toast-long", go: async (t) => { await t.ev(`import("/src/client/core/dom.js").then((m) => m.toast("DELETED AN_API_TOKEN_WITH_A_VERY_LONG_NAME_THAT_GOES_ON_AND_ON_AND_ON."))`); }, shows: ".toast" },
 ];
 
 // ---- what spills ----
@@ -320,7 +353,7 @@ export const MEASURE = `(() => {
 // are other kinds: a chosen tab, an alarm on COMMENTS, a destructive action, one that says it is unavailable.
 export const KINDS = {
   primary: ".send:not(:disabled), .ftile.pic .tenterb, .fpanel .fpacts .btn-s.on, .nracts .btn-s.on",
-  secondary: ".btn, .btn-s:not(.on, .off, .rclose, .new, [data-fp-rm], [data-del]), .copy, .tab:not(.on), .fswitch .fbtn, .fledit, .cmount .cjump, .bgrid .fslot",
+  secondary: ".btn, .btn-s:not(.on, .off, .rclose, .new, .danger, [data-fp-rm], [data-del]), .copy, .tab:not(.on), .fswitch .fbtn, .fledit, .cmount .cjump, .bgrid .fslot",
   close: ".spx, .cardx, .fpx, .cclose",
 };
 export const LOOKS = `(() => {
@@ -352,6 +385,7 @@ export const AUDIT = `(() => {
     if (e.tagName === "A" && s.display === "inline" && e.parentElement.textContent.trim().length > e.textContent.trim().length) continue;
     const r = e.getBoundingClientRect();
     if (e.matches("input[type=checkbox], input[type=radio]") && e.closest("label")?.getBoundingClientRect().height >= 44) continue;
+    if (s.pointerEvents === "none") continue; // a tap goes through it, to what holds it
     if (r.height < 44 || r.width < 44) taps.push({ el: name(e), w: Math.round(r.width), h: Math.round(r.height), text: (e.textContent || e.getAttribute("aria-label") || "").trim().slice(0, 24) });
   }
   const cuts = [], scrollers = [];
@@ -394,6 +428,6 @@ export const WIDEST_COUNTS = `(() => { for (const [id, n] of [["qtCount", 87], [
 export const openSurface = async (t: Tab, o: Office, s: Surface) => {
   await t.load(o.base, s.hash?.(o) ?? "", s.stored ?? {});
   if (s.go) await s.go(t, o);
-  await t.until(`!!document.querySelector(${JSON.stringify(s.shows)})`, 6000);
-  await Bun.sleep(150);
+  await t.until(`!!document.querySelector(${JSON.stringify(s.shows)})`);
+  await t.rest();
 };

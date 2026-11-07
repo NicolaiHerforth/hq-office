@@ -5,12 +5,13 @@
 // at that floor and puts the cursor in the box.
 import { $, toast } from "../core/dom.js";
 import { post } from "../core/net.js";
-import { attachButton, chipsHTML, clearImages, hasImages, notReady, withImages } from "../images/images.js";
+import { attachButton, attachedTo, chipsHTML, clearImages, hasImages, notReady, withImages } from "../images/images.js";
 import { esc, setHTML } from "../core/format.js";
 import { S } from "../core/state.js";
 import { on } from "../core/bus.js";
 import { cut, firstFloor, floorById, floorsOf, linkOf, multi } from "../core/floors.js";
 import { scope } from "../core/scope.js";
+import { sheet, sheetMode } from "../core/sheet.js";
 
 const PLACEHOLDER = $("noteText").placeholder;
 const LAST = "hq-tell-floor";
@@ -30,23 +31,36 @@ function remember(floor) {
   try { localStorage.setItem(LAST, floor); } catch {}
 }
 
+// The box stays live while a note goes: what comes out of it is what went, and only if the box still starts with it.
+let sending = null; // what is going. The sheet stays up until the note has gone: a second SEND must not send it twice
 $("compose").addEventListener("submit", async (e) => {
   e.preventDefault();
-  const typed = $("noteText").value.trim();
-  if (!typed && !hasImages("note")) return;
+  const box = $("noteText"), raw = box.value, typed = raw.trim();
+  if (sending !== null) { toast(raw === sending ? "STILL SENDING." : "STILL SENDING THE LAST ONE. THIS STAYS HERE; SEND IT WHEN THAT HAS GONE."); return; }
+  if (!typed && !hasImages("note")) {
+    if (tellOver()) { toast("NOTHING TO SEND YET."); box.focus({ preventScroll: true }); }
+    return;
+  }
   const wait = notReady("note");
   if (wait) { toast(wait); return; }
-  const floor = tellFloor();
+  sending = raw;
+  const floor = tellFloor(), pictures = attachedTo("note");
   try {
     const urgent = S?.queue?.on && $("tellUrgent").getAttribute("aria-pressed") === "true";
     await post("/api/notes", { text: withImages("note", typed), ...(floor ? { floor } : {}), ...(urgent ? { urgent: true } : {}) });
     $("tellUrgent").setAttribute("aria-pressed", "false");
     if (floor) remember(floor);
-    $("noteText").value = ""; $("noteText").style.height = ""; clearImages("note");
+    if (box.value.startsWith(raw)) box.value = box.value.slice(raw.length).trimStart();
+    box.style.height = "";
+    clearImages("note", pictures);
     const f = multi(S) ? floorById(S, floor) : null, to = f ? `${f.name.toUpperCase()} HQ` : "HQ";
-    toast(S?.queue?.on && !urgent ? `IN ${to}'S QUEUE.` : linkOf(S, floor)?.ok === false ? `KEPT. ${to} ISN'T RECEIVING; IT GOES WHEN IT IS BACK.` : f?.starting ? `KEPT. IT GOES WHEN ${to} RUNS.` : `SENT TO ${to}.`);
+    const said = S?.queue?.on && !urgent ? `IN ${to}'S QUEUE.` : linkOf(S, floor)?.ok === false ? `KEPT. ${to} ISN'T RECEIVING; IT GOES WHEN IT IS BACK.` : f?.starting ? `KEPT. IT GOES WHEN ${to} RUNS.` : `SENT TO ${to}.`;
+    const left = box.value.trim() || hasImages("note");
+    toast(left ? `${said} ${boxInView() ? "WHAT YOU ADDED SINCE IS STILL HERE." : "TELL HQ HAS WHAT YOU ADDED SINCE."}` : said);
     renderTell();
-  } catch (err) { toast(err.message); }
+    if (!left) closeTell();
+  } catch (err) { toast(`NOT SENT: ${err.message}. ${boxInView() ? "YOUR WORDS ARE STILL HERE." : "TELL HQ HAS YOUR WORDS."}`); }
+  sending = null;
 });
 $("noteText").addEventListener("keydown", (e) => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) $("compose").requestSubmit(); });
 // The attach button, the same on every send box, and what was attached before a reload. The whole TELL HQ panel
@@ -105,3 +119,16 @@ document.addEventListener("click", (e) => {
   box.focus();
 });
 on("scope", () => { if (override && override.in !== scope().floor) override = null; renderTell(); });
+
+// From MENU on a phone: TELL HQ opens over the page, so the box at its foot is not a scroll away, and goes back only when
+// the note has gone. MENU itself is at the top of the page: from inside a long list, reaching it costs the way up.
+const tellBox = document.querySelector(".tell");
+const tellOver = () => tellBox.classList.contains("over");
+const closeTell = () => tellBox.classList.remove("over");
+// On a phone the box is at the foot of a long page unless the sheet is up.
+const boxInView = () => tellOver() || !sheetMode();
+sheet(tellBox, closeTell, tellOver);
+export function openTell() {
+  tellBox.classList.add("over");
+  $("noteText").focus({ preventScroll: true });
+}

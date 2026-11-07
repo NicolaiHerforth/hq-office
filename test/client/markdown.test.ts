@@ -162,6 +162,45 @@ test.skipIf(!chromeFound)("mdClip never cuts a code fence nor hides a code box b
   expect(open.code[0]).toBe("line of code\n".repeat(30).trimEnd());
 });
 
+test.skipIf(!chromeFound)("a body of a great many lines or backticks renders: nothing spreads them into one call", async () => {
+  const sizes = await page.evaluate(`(async () => {
+    const m = await import("/src/client/core/markdown.js");
+    return [m.md("- a\\n" + "  - b\\n".repeat(200000)).length, m.fence("\`a ".repeat(200000)).length];
+  })()`);
+  expect(sizes[0]).toBeGreaterThan(200000);
+  expect(sizes[1]).toBeGreaterThan(400000);
+});
+
+test.skipIf(!chromeFound)("lists and quotes nest 30 levels; past that what is left is its text, escaped", async () => {
+  const got = await page.evaluate(`(async () => {
+    const m = await import("/src/client/core/markdown.js");
+    const list = (n) => { let s = ""; for (let i = 0; i < n; i++) s += "  ".repeat(i) + "- **a**<b>\\n"; return s; };
+    const count = (html, tag) => html.split("<" + tag + ">").length - 1;
+    const quote30 = m.md(">".repeat(30) + " **a**<b>"), quote31 = m.md(">".repeat(31) + " **a**<b>"), quoteMany = m.md(">".repeat(5000) + " **a**<b>");
+    const list30 = m.md(list(30)), listMany = m.md(list(3000));
+    return {
+      quote30: [count(quote30, "blockquote"), quote30.includes("<b>a</b>")],
+      quote31: [count(quote31, "blockquote"), quote31.includes("<p>**a**&lt;b&gt;</p>")],
+      quoteMany: [count(quoteMany, "blockquote"), quoteMany.includes("&gt;")],
+      list30: [count(list30, "ul"), count(list30, "b")],
+      listMany: [count(listMany, "ul"), listMany.includes("- **a**&lt;b&gt;"), listMany.includes("<b>x")],
+    };
+  })()`);
+  expect(got.quote30).toEqual([30, true]);
+  expect(got.quote31).toEqual([31, true]);
+  expect(got.quoteMany).toEqual([31, true]);
+  expect(got.list30).toEqual([30, 30]);
+  expect(got.listMany).toEqual([31, true, false]);
+});
+
+test.skipIf(!chromeFound)("a line of millions of marks, too long for the rule search, comes out as its text", async () => {
+  const out = await page.evaluate(`(async () => {
+    const m = await import("/src/client/core/markdown.js");
+    return m.md("- ".repeat(4200000) + "<b>").slice(-15);
+  })()`);
+  expect(out).toBe("- &lt;b&gt;</p>");
+});
+
 test.skipIf(!chromeFound)("no errors on the page", () => {
   expect(errors).toEqual([]);
 });

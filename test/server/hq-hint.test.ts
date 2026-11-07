@@ -34,10 +34,11 @@ async function office(hint: string | undefined) {
     expect(res.status).toBe(200);
     return res.json();
   };
-  // The stub runs after the request returns: wait for the prompt that contains `part`.
+  // The stub runs after the request returns: wait for the prompt that contains `part`. Only a record with its end counts,
+  // since the stub may have written half of one.
   const prompt = async (part: string) => {
     for (let i = 0; i < 60; i++) {
-      const all = existsSync(log) ? readFileSync(log, "utf8").split("\n<<END>>\n").filter(Boolean) : [];
+      const all = existsSync(log) ? readFileSync(log, "utf8").split("\n<<END>>\n").slice(0, -1) : [];
       const hit = all.find((p) => p.includes(part));
       if (hit) return hit;
       await Bun.sleep(50);

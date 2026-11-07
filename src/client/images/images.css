@@ -1,12 +1,12 @@
 /* Attachments on a send box: the attach button in the composer's bottom row, the tray of thumbnails and file chips
    on top, the drop highlight, the preview. */
 .attach { position: relative; flex: 0 0 auto; display: grid; place-items: center; width: 36px; height: 28px; border-radius: 8px; color: var(--ink); cursor: pointer; }
-.attach:hover { background: var(--hover-4); }
+@media (hover: hover) { .attach:hover { background: var(--hover-4); } }
 .attach:has(input:focus-visible) { box-shadow: 0 0 0 2px var(--blue); }
 .attach input { position: absolute; width: 1px; height: 1px; opacity: 0; overflow: hidden; clip-path: inset(50%); font-size: 16px; }
 .attach svg { width: 30px; height: 26px; fill: currentColor; }
 .attach .ring { fill: var(--field); }
-.attach:hover .ring { fill: var(--hover-4); }
+@media (hover: hover) { .attach:hover .ring { fill: var(--hover-4); } }
 .attach .plus { fill: var(--green); }
 /* the tray: thumbnails in a row that scrolls sideways, room above and to the right for each remove badge */
 .chips:empty { display: none; }
@@ -43,7 +43,7 @@ a.cimg { cursor: pointer; }
 .chip .cx { position: absolute; top: -12px; right: -12px; z-index: 1; display: grid; place-items: center; width: 32px; height: 32px; padding: 0; border: 0; background: none; }
 .chip .cx span { display: grid; place-items: center; width: 20px; height: 20px; border-radius: 50%; background: var(--ink); color: var(--on-ink); box-shadow: 0 0 0 2px var(--ring); }
 .chip .cx svg { width: 8px; height: 8px; fill: currentColor; }
-.chip .cx:hover span { background: var(--red); }
+@media (hover: hover) { .chip .cx:hover span { background: var(--red); } }
 .chips .why { padding: 0 12px; font-size: 13px; line-height: 1.35; color: var(--red-text); overflow-wrap: anywhere; }
 /* the preview: the image as large as the screen allows; tap outside or the close button */
 dialog.preview { width: 100vw; height: 100vh; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: 56px 16px 24px; border: 0; background: var(--scrim-full); color: var(--on-fill); outline: none; }
@@ -53,11 +53,12 @@ dialog.preview figure { display: grid; justify-items: center; gap: 10px; margin:
 dialog.preview img { display: block; max-width: 100%; max-height: calc(100vh - 120px); max-height: calc(100dvh - 120px); border: 3px solid var(--box); border-radius: 8px; background: var(--img-bg); object-fit: contain; }
 dialog.preview figcaption { font: 8px/1.4 var(--pixel); color: var(--on-bg-3); overflow-wrap: anywhere; text-align: center; }
 .pclose { position: fixed; top: max(12px, env(safe-area-inset-top)); right: max(12px, env(safe-area-inset-right)); display: grid; place-items: center; width: 44px; height: 44px; padding: 0; background: var(--box); color: var(--ink); border: 3px solid var(--edge); border-radius: 8px; }
-.pclose:hover { background: var(--lift); }
+@media (hover: hover) { .pclose:hover { background: var(--lift); } }
 .pclose svg { width: 18px; height: 18px; fill: currentColor; }
 /* a finger: 64px thumbnails, a 44px photo button, a roomier field and SEND as tall as before */
 @media (pointer: coarse) {
   .chips .tray { --t: 64px; }
+  .chip .cx { top: -14px; right: -14px; } /* its 44 px target stops short of the thumb's middle, which opens the picture */
   .chip .cx span { width: 22px; height: 22px; }
   .attach { width: 44px; height: 44px; }
   .reply textarea { min-height: calc(1.4em + 9px); max-height: calc(7em + 9px); padding: 9px 14px 0; }

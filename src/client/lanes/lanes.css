@@ -20,7 +20,8 @@
 .lbrow .lbx { grid-column: 1 / -1; grid-row: 2; }
 .lbrow .lbt { grid-row: 1; grid-column: -2 / -1; }
 .lbrow .lbn { overflow: hidden; text-overflow: ellipsis; }
-.lbrow:hover, .lbchip:hover, .lbrow.on, .lbchip.on { background: var(--hover); }
+.lbrow.on, .lbchip.on { background: var(--hover); }
+@media (hover: hover) { .lbrow:hover, .lbchip:hover { background: var(--hover); } }
 .lbrow:focus-visible, .lbchip:focus-visible { outline: 3px solid var(--blue); outline-offset: -3px; }
 .lbsw { width: 8px; height: 8px; border-radius: 2px; align-self: center; }
 .lbn { font: 8px/1.2 var(--pixel); letter-spacing: .5px; white-space: nowrap; }

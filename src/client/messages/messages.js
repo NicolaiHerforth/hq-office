@@ -1,5 +1,5 @@
 // The MESSAGES tab: one thread of HQ's updates, your notes and your answers to HQ's questions, with replies.
-import { $, keepPlace, keepScroll, pageScrolls, phone, showEdges, toast } from "../core/dom.js";
+import { $, keepPlace, keysHint, pageScrolls, phone, toast } from "../core/dom.js";
 import { S } from "../core/state.js";
 import { clock, esc, setHTML } from "../core/format.js";
 import { mdClip, mdInline } from "../core/markdown.js";
@@ -26,12 +26,15 @@ export function setReply(to, text) { replyTo = to; replyText = text; }
 const readSent = new Set(), msgFresh = new Set();
 const short = (s, n) => { const t = String(s ?? "").replace(/```[\s\S]*?```/g, "[code]").replace(/\s+/g, " ").trim(); return t.length > n ? t.slice(0, n - 1) + "…" : t; };
 
+// Your place in NEEDS YOU, kept while another tab shows: the tabs stick on a phone, so MESSAGES and back is two taps from
+// anywhere in the list and must not cost the card you were on.
+let needsPlace = null;
 export function setQTab(t) {
   if (t === qTab) return;
-  // Where the page scrolls: a list you were in starts at its tabs, MESSAGES at its newest message; with the list
-  // above the screen, what is on screen stays where it is. On a phone the thread scrolls itself: it opens at its
-  // newest message, and the page scrolls (no further than the tabs) until the thread and Tell HQ under it show.
+  // Where the page scrolls: NEEDS YOU comes back to the card you left, another list starts at its tabs, MESSAGES at its
+  // newest message; with the list above the screen, what is on screen stays where it is.
   const wrap = $("qtabs").parentElement, was = pageScrolls() ? wrap.getBoundingClientRect() : null;
+  if (qTab === "questions") needsPlace = keepPlace($("hud"), "data-ask");
   if (qTab === "messages") msgFresh.clear();
   qTab = t;
   try { localStorage.setItem("hq-qtab", t); } catch {}
@@ -43,7 +46,7 @@ export function setQTab(t) {
   if (!was) return;
   const now = wrap.getBoundingClientRect();
   if (was.bottom <= 0) scrollBy(0, now.bottom - was.bottom);
-  else if (t === "messages" && phone()) scrollBy(0, Math.min(now.top, Math.max(0, wrap.parentElement.getBoundingClientRect().bottom - innerHeight + 8)));
+  else if (t === "questions" && needsPlace?.()) return;
   else if (t !== "messages" && now.top < 0) scrollBy(0, now.top);
 }
 export function renderQTabs() {
@@ -126,7 +129,7 @@ function msgItem(m, nameParent) {
 function replyBox(m) {
   return `<div class="thread rbox" data-rbox>
       <div class="quote">↩ ${m.who} ${clock(m.at)}: ${mdInline(short(m.title || m.text, 90), { links: false })}</div>
-      ${composer("reply", `<textarea name="reply" rows="1" placeholder="Your reply. ⌘↩ sends, Esc closes.">${esc(replyText)}</textarea>`, `<button class="send go" type="button" data-rsend ${replyText.trim() || hasImages("reply") ? "" : "disabled"}>SEND</button>`)}
+      ${composer("reply", `<textarea name="reply" rows="1" placeholder="Your reply.${keysHint(" ⌘↩ sends, Esc closes.")}">${esc(replyText)}</textarea>`, `<button class="send go" type="button" data-rsend ${replyText.trim() || hasImages("reply") ? "" : "disabled"}>SEND</button>`)}
     </div>`;
 }
 // Two levels of indent at most. Under the second level, every deeper reply sits at that level and names its parent.
@@ -139,8 +142,7 @@ function msgNode(m, depth) {
 }
 // Built only when the state changes or you act on the list, never per frame. Reading sends nothing to HQ:
 // it only marks the shown updates read, the same call the FROM HQ tab makes.
-let msgAtEnd = false, msgSetTop = -1;
-function msgToBottom(box) { box.scrollTop = box.scrollHeight; msgSetTop = box.scrollTop; }
+let msgAtEnd = false, msgInput = false;
 export function renderMsgs() {
   if (qTab !== "messages" || !S) return;
   const box = $("msgs");
@@ -153,20 +155,14 @@ export function renderMsgs() {
   }
   const caret = document.activeElement?.closest?.("[data-rbox]") ? document.activeElement.selectionStart : null;
   const html = (msgModel().roots.map((m) => msgNode(m, 0)).join("") || `<div class="empty">No messages yet. HQ's updates, your notes and your answers land here.</div>`);
-  if (phone()) {
-    // The thread scrolls itself (core/layout.css): at the newest message (just opened, or within 40px of it), stay
-    // on it; reading older ones, what you read stays where it is, whatever lands above or below.
-    const pinned = msgStick || box.scrollHeight - box.scrollTop - box.clientHeight < 40, place = pinned ? null : keepScroll(box, "data-msg");
-    setHTML(box, html);
-    if (pinned) msgToBottom(box); else place();
-    msgAtEnd = pinned;
-    showEdges(box);
-  } else if (pageScrolls()) {
+  if (pageScrolls()) {
     // The page scrolls, not the thread: on the newest message (just opened, or already there), stay on it;
     // reading older ones, what you read stays where it is.
     const pinned = msgStick || atNewest(box), place = pinned ? null : keepPlace(box, "data-msg");
     setHTML(box, html);
     if (pinned) showNewest(box); else place();
+    msgAtEnd = pinned;
+    if (pinned) msgInput = false;
   } else {
     const atBottom = msgStick || box.scrollHeight - box.scrollTop - box.clientHeight < 40;
     const top = box.scrollTop;
@@ -217,18 +213,12 @@ $("msgs").addEventListener("click", (e) => {
   const send = e.target.closest("[data-rsend]");
   if (send) sendReply(send);
 });
-// Fonts landing or an image loading reflow the thread with no scroll event, which would leave the newest message cut:
-// at the end, it stays at the end. The page's own move fires a scroll event later, which is not you moving away.
-const msgToEnd = () => { if (msgAtEnd && qTab === "messages" && phone()) { msgToBottom($("msgs")); showEdges($("msgs")); } };
-$("msgs").addEventListener("scroll", () => {
-  const box = $("msgs");
-  if (box.scrollTop !== msgSetTop) msgAtEnd = box.scrollHeight - box.scrollTop - box.clientHeight < 40;
-  msgSetTop = -1;
-  showEdges(box);
-}, { passive: true });
-document.fonts?.addEventListener?.("loadingdone", msgToEnd);
-$("msgs").addEventListener("load", msgToEnd, true);
-new ResizeObserver(msgToEnd).observe($("msgs"));
+// Fonts landing or an image loading grow the thread with no scroll event, which would leave the newest message cut: at
+// the end, it stays at the end. Moving the page yourself decides that afresh.
+// Only you can leave the end: the browser's own scroll anchoring moves the page too, and a scroll event cannot tell them apart.
+for (const type of ["touchstart", "wheel", "keydown", "pointerdown"]) addEventListener(type, () => { msgInput = true; }, { passive: true, capture: true });
+addEventListener("scroll", () => { if (msgInput && qTab === "messages" && pageScrolls()) msgAtEnd = atNewest($("msgs")); }, { passive: true });
+new ResizeObserver(() => { if (msgAtEnd && qTab === "messages" && pageScrolls()) showNewest($("msgs")); }).observe($("msgs"));
 $("msgs").addEventListener("input", (e) => {
   if (!e.target.closest("[data-rbox]") || e.target.tagName !== "TEXTAREA") return;
   replyText = e.target.value;

@@ -25,7 +25,7 @@
 .tag.pr.draft { background: var(--chip-2); color: var(--muted); }
 .tag.muted { background: var(--chip); color: var(--muted); }
 .stall { display: grid; gap: 4px; padding: 8px 12px; background: var(--red); color: var(--on-fill); border: 3px solid var(--red-edge); border-radius: 8px; text-align: left; font: inherit; }
-.stall:hover { filter: brightness(1.05); }
+@media (hover: hover) { .stall:hover { filter: brightness(1.05); } }
 .stall .k { font: 8px/1.4 var(--pixel); }
 .stall .row { font-size: 13px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .stall .row > b:first-child { font: 8px/1 var(--pixel); margin-right: 6px; }

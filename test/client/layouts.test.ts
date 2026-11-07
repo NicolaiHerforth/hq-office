@@ -157,9 +157,10 @@ test.skipIf(!chromeFound)("on a phone the board stacks, WAITING ON YOU first, wi
   await Bun.sleep(400); // the slide-in has ended
   expect(await ev(`(() => { const b = document.getElementById("card").getBoundingClientRect(); return b.left >= 0 && b.right <= innerWidth && b.bottom <= innerHeight && b.top >= 0; })()`)).toBe(true);
   await ev(`document.querySelector("[data-card-close]").click()`);
-  // MENU is on the title's row, and opens as a sheet inside the screen
-  expect(await ev(`Math.abs(document.getElementById("menuBtn").getBoundingClientRect().top - document.querySelector(".top .title").getBoundingClientRect().top) < 12`)).toBe(true);
+  // MENU is on the floor's row, and opens as a sheet inside the screen
+  expect(await ev(`Math.abs(document.getElementById("menuBtn").getBoundingClientRect().top - document.querySelector(".floornav").getBoundingClientRect().top) < 12`)).toBe(true);
   await ev(`document.getElementById("menuBtn").click()`);
+  await Bun.sleep(260); // a sheet's motion has ended
   expect(await ev(`(() => { const b = document.getElementById("menuDrop").getBoundingClientRect(); return b.left >= 0 && b.right <= innerWidth && b.bottom <= innerHeight; })()`)).toBe(true);
   await ev(`document.getElementById("menuBtn").click()`);
   await ev(`localStorage.setItem("hq-layout", "office")`);

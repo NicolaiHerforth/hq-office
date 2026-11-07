@@ -44,18 +44,6 @@
   .qtabs { position: sticky; top: 0; z-index: 5; margin-block: -8px -4px; padding-block: 8px 4px; background: var(--bg); }
   html .reply textarea, html .compose textarea, html .sin { font-size: 16px; }
   html .log { max-height: none; overflow: visible; }
-  /* MESSAGES has a bounded height and scrolls inside itself, so the page around it stays in reach (heights measured
-     at 390x664 and 390x844): the thread leaves room for its tabs above it and Tell HQ under it on one screen.
-     Momentum on, and reaching an end does not drag the page. It lays out as a block so a fade can stick to each end
-     without taking space: it shows where there is more that way (data-more, set by messages.js). The fades stay
-     inside the box's inner frame. */
-  html .msgs { display: block; overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
-  html .msgs { max-height: max(240px, calc(100vh - 250px)); max-height: max(240px, calc(100svh - 250px)); }
-  html .msgs > * + * { margin-top: 8px; }
-  html .msgs::before, html .msgs::after { content: ""; display: block; position: sticky; z-index: 1; pointer-events: none; opacity: 0; transition: opacity .15s; height: 36px; }
-  html .msgs::before { top: 5px; margin: -7px -9px -29px; background: linear-gradient(var(--box), transparent); }
-  html .msgs::after { bottom: 5px; margin: -29px -9px -7px; background: linear-gradient(transparent, var(--box)); }
-  html [data-more~="up"]::before, html [data-more~="down"]::after { opacity: 1; }
 }
 .under { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
 /* OFFICE, the default: no panel under the office. */

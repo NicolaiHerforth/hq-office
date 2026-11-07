@@ -10,6 +10,7 @@ import { mdInline } from "../core/markdown.js";
 import { pick } from "../core/scope.js";
 import { on } from "../core/bus.js";
 import { open } from "../core/stage.js";
+import { sheet } from "../core/sheet.js";
 
 const stage = document.querySelector(".stage");
 let box = null, form = null;
@@ -56,6 +57,7 @@ export function openNewRoom() {
     box.setAttribute("role", "dialog");
     box.setAttribute("aria-label", "New room");
     stage.append(box);
+    sheet(box, closeNewRoom);
     wire();
   }
   form = { title: "", owner: "", members: new Set(), issue: "", pr: "", text: "", busy: false, error: "" };

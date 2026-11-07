@@ -9,6 +9,7 @@ import { mdInline } from "../core/markdown.js";
 import { S } from "../core/state.js";
 import { MOOD_WORD, floorsOf, hqMood, hqShown, moodLine, multi, needsFix, officeOf, readingLineHTML, slotAHTML, slotBHTML } from "../core/floors.js";
 import { officeFloor } from "../core/scope.js";
+import { sheet, sheetsNow } from "../core/sheet.js";
 
 let open = false, box = null, back = null, host = null;
 export const listOpen = () => open;
@@ -66,6 +67,7 @@ function make() {
   back.hidden = true;
   back.dataset.listClose = "";
   host.append(back, box);
+  sheet(box, () => closeList(false));
   box.addEventListener("keydown", (e) => {
     const list = items(), i = list.indexOf(document.activeElement);
     const go = (n) => { e.preventDefault(); list[(n + list.length) % list.length]?.focus(); };
@@ -90,6 +92,7 @@ export function closeList(refocus) {
   open = false;
   box.hidden = back.hidden = true;
   pill()?.setAttribute("aria-expanded", "false");
+  sheetsNow(); // ADD A FLOOR and a row's edit open the floor panel on this same click, and it focuses its first field
   if (refocus) pill()?.focus();
 }
 export const toggleList = () => (open ? closeList(true) : openList());

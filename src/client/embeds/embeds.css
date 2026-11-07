@@ -1,7 +1,8 @@
 /* A card of an HQ thing inside rendered text (embeds/index.js): a block the width of the text, at most 560 px, its kind
    and status chips on top, the title, one line under it, a picture on the left for an image. Tokens only. */
 .md .hudcard, .hudcard { display: flex; gap: 10px; align-items: stretch; max-width: 560px; margin: 6px 0; padding: 8px 10px; border: 2px solid var(--edge-2); border-radius: 8px; background: var(--field); color: var(--ink); text-decoration: none; overflow-wrap: anywhere; font-size: 14px; line-height: 1.35; }
-a.hudcard:hover, a.hudcard:focus-visible { border-color: var(--edge); }
+a.hudcard:focus-visible { border-color: var(--edge); }
+@media (hover: hover) { a.hudcard:hover { border-color: var(--edge); } }
 a.hudcard:focus-visible { outline: 3px solid var(--blue); outline-offset: 1px; }
 .hudcard.other { border-left: 6px solid var(--fc); }
 .hudcard.k-floor { border-left: 6px solid var(--fc, var(--edge-2)); }

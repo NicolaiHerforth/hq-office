@@ -4,6 +4,7 @@
 .tell .head { display: flex; align-items: baseline; gap: 10px; }
 .tell h2 { margin: 0; font: 10px/1.4 var(--pixel); }
 .tell .hint { color: var(--muted); font-size: 13px; }
+@media (pointer: coarse) { .tell .hint { display: none; } }
 .tell .lastnote { font-size: 13px; color: var(--ink-2); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .tell .lastnote > b:first-child { font: 7px/1 var(--pixel); color: var(--muted); margin-right: 6px; }
 .tell .lastnote button { background: none; border: 0; padding: 0 0 0 6px; font: 7px/1 var(--pixel); color: var(--blue-text); }
@@ -11,7 +12,7 @@
 /* With two or more floors: "to: Backend ▾" left of SEND, as wide as the name (a native select lies over it) */
 .tto { position: relative; display: inline-flex; flex: 0 1 auto; align-items: center; gap: 4px; min-width: 0; max-width: 40%; height: 32px; margin-left: auto; padding: 0 8px; border: 2px solid var(--edge-2); border-left: 6px solid var(--fc, var(--edge-2)); border-radius: 8px; background: var(--box); color: var(--ink); font-size: 13px; cursor: pointer; }
 .tto[hidden] { display: none; }
-.tto:hover { border-color: var(--edge); border-left-color: var(--fc, var(--edge)); }
+@media (hover: hover) { .tto:hover { border-color: var(--edge); border-left-color: var(--fc, var(--edge)); } }
 .tto:focus-within { outline: 3px solid var(--blue); outline-offset: -3px; }
 .tto .ttk { flex: none; color: var(--muted); }
 .tto .ttn { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 800; }
@@ -27,3 +28,4 @@
 .urgentsw[hidden] { display: none; }
 /* A phone: the last note wraps to two lines, so a link in it is not cut at the edge. */
 @media (max-width: 640px) { .tell .lastnote { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; white-space: normal; overflow-wrap: anywhere; } }
+@media (pointer: coarse) { .tell .hint { display: none; } }

@@ -14,14 +14,15 @@
 .floornav { position: relative; min-width: 0; color: var(--on-bg); }
 .fswitch { container-type: inline-size; display: flex; flex-wrap: nowrap; align-items: center; gap: 8px; min-width: 0; height: 36px; padding: 2px; margin: -2px; overflow: hidden; }
 .fpill { display: inline-flex; flex: 0 1 auto; align-items: center; gap: 6px; min-width: 64px; max-width: 32%; height: 32px; padding: 0 10px 0 6px; border: 2px solid var(--fc, var(--edge-2)); border-radius: 8px; background: var(--box); color: var(--ink); font: 700 15px/1 var(--text); cursor: pointer; transition: transform .08s, box-shadow .08s; }
-.fpill:hover, .fpill[aria-expanded="true"] { transform: translateY(-1px); box-shadow: 0 3px 0 rgba(0, 0, 0, .35); }
+.fpill[aria-expanded="true"] { transform: translateY(-1px); box-shadow: 0 3px 0 rgba(0, 0, 0, .35); }
+@media (hover: hover) { .fpill:hover { transform: translateY(-1px); box-shadow: 0 3px 0 rgba(0, 0, 0, .35); } }
 .fpill.fpbuild { --fc: var(--on-bg); flex: none; max-width: none; padding-left: 8px; }
 .fpill.fpbuild .fpname { font: 9px/1 var(--pixel); }
 .fpill.mood-starting, .fpill.mood-late, .fpill.mood-down { border-style: dashed; border-color: var(--dim-edge); }
 .fpname { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fcaret { flex: none; font-size: 11px; color: var(--muted); }
 .fbtn { display: inline-flex; flex: none; align-items: center; gap: 6px; height: 32px; padding: 0 10px; font: 8px/1 var(--pixel); white-space: nowrap; border: 2px solid var(--edge-2); border-radius: 8px; background: transparent; color: var(--on-bg); cursor: pointer; transition: transform .08s; }
-.fbtn:hover { border-color: var(--on-bg); transform: translateY(-1px); }
+@media (hover: hover) { .fbtn:hover { border-color: var(--on-bg); transform: translateY(-1px); } }
 .freads { display: flex; flex: none; align-items: center; gap: 6px; margin-left: auto; min-width: 0; }
 .fread { display: inline-flex; flex: none; align-items: center; gap: 5px; height: 28px; padding: 0 8px; border: 2px solid var(--on-bg-edge); border-radius: 6px; color: var(--on-bg-2); font: 8px/1 var(--pixel); white-space: nowrap; }
 .fread b { font-weight: normal; }
@@ -59,7 +60,7 @@
 .flhead .fpx { margin-left: auto; }
 .flrow { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; border-left: 4px solid var(--fc, transparent); border-radius: 6px; }
 .flrow.on { background: var(--hover-4); }
-.flrow:hover { background: var(--hover-3); }
+@media (hover: hover) { .flrow:hover { background: var(--hover-3); } }
 .fli { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "id reads" "hq reads"; gap: 2px 10px; align-items: center; min-width: 0; min-height: 44px; padding: 6px 8px; border: 0; border-radius: 6px; background: none; color: inherit; text-align: left; cursor: pointer; }
 .fli:focus-visible { outline: 3px solid var(--blue); outline-offset: -3px; }
 .flid { grid-area: id; display: flex; align-items: center; gap: 6px; min-width: 0; }
@@ -72,7 +73,8 @@
 .lr.lr-stall { color: var(--amber-strong); font-weight: 800; }
 .lr.lr-stall.lr-late { color: var(--red-text); }
 .fledit { margin-right: 6px; padding: 6px 8px; border: 2px solid var(--edge-2); border-radius: 6px; background: var(--box); font: 7px/1 var(--pixel); cursor: pointer; opacity: 0; }
-.flrow:hover .fledit, .flrow:focus-within .fledit, .fledit:focus-visible { opacity: 1; }
+.flrow:focus-within .fledit, .fledit:focus-visible { opacity: 1; }
+@media (hover: hover) { .flrow:hover .fledit { opacity: 1; } }
 .flrow .ffix { grid-column: 1 / -1; margin: 0; padding: 0 8px 8px 8px; color: var(--ink); }
 .ffwhy.down { color: var(--red-text); }
 
@@ -105,7 +107,7 @@
 .bgrid[data-cols="3"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 @media (min-width: 1600px) { .bgrid[data-cols="3"] { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
 .ftile { container-type: inline-size; position: relative; display: grid; align-content: center; min-width: 0; min-height: 0; padding: 8px 12px 8px 16px; border: 3px solid var(--edge-2); border-radius: 10px; background: var(--box); color: var(--ink); box-shadow: inset 6px 0 0 var(--fc); overflow: hidden; transition: transform .08s; }
-.ftile:hover { transform: translateY(-2px); }
+@media (hover: hover) { .ftile:hover { transform: translateY(-2px); } }
 .ftile.w-block, .ftile.w-late { border-color: var(--red); }
 .ftile.w-idle { border-color: var(--amber); }
 .ftile.mood-starting:not(.w-block), .ftile.mood-late:not(.w-block) { border-style: dashed; border-color: var(--dim-edge); }
@@ -140,9 +142,11 @@
 .ftile .fstill { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; border-radius: 6px; border: 2px solid var(--edge-2); }
 .tline, .tenterb { display: none; }
 .tenter { position: absolute; right: 10px; bottom: 6px; z-index: 0; font: 7px/1 var(--pixel); color: var(--muted); opacity: 0; transition: opacity .1s; }
-.ftile:hover .tenter, .ftile:focus-within .tenter { opacity: 1; }
+.ftile:focus-within .tenter { opacity: 1; }
+@media (hover: hover) { .ftile:hover .tenter { opacity: 1; } }
 .fslot { display: grid; place-items: center; min-height: 0; border: 3px dashed var(--edge-2); border-radius: 10px; background: none; color: var(--on-bg-2); cursor: pointer; }
-.fslot:hover, .fslot:focus-visible { border-color: var(--on-bg); color: var(--on-fill); }
+.fslot:focus-visible { border-color: var(--on-bg); color: var(--on-fill); }
+@media (hover: hover) { .fslot:hover { border-color: var(--on-bg); color: var(--on-fill); } }
 .fslotin { font: 9px/1.4 var(--pixel); }
 
 /* the floor panel: add a floor, or edit one, over the stage */
@@ -180,11 +184,13 @@
 /* inside a floor: one row under the question tabs, [Backend ×] +3 waiting on other floors · SHOW ALL */
 .scoperow { display: flex; align-items: center; gap: 8px; min-width: 0; height: 28px; }
 .scoperow[hidden] { display: none; }
+.sxw { display: none; }
+.sn { font-weight: normal; }
 .schip { display: inline-flex; flex: 0 1 auto; align-items: center; gap: 6px; min-width: 48px; max-width: 45%; height: 28px; padding-left: 10px; border-radius: 6px; background: var(--fc); overflow: hidden; }
 .schip .fname { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
 .schip .fall { flex: none; font: 800 13px/1 var(--text); white-space: nowrap; }
 .schip .sx { flex: none; width: 28px; height: 28px; padding: 0; border: 0; background: rgba(0, 0, 0, .18); color: inherit; font: 800 16px/1 var(--text); cursor: pointer; }
-.schip .sx:hover { background: rgba(0, 0, 0, .32); }
+@media (hover: hover) { .schip .sx:hover { background: rgba(0, 0, 0, .32); } }
 .sall { display: inline-flex; flex: 1 1 auto; align-items: center; gap: 6px; min-width: 0; height: 28px; padding: 0 10px; overflow: hidden; white-space: nowrap; border: 2px solid var(--edge-2); border-radius: 6px; background: var(--box); color: var(--ink); font: 7px/1 var(--pixel); text-align: left; cursor: pointer; }
 .sall .swhat { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .sall .ssep, .sall .sgo { flex: none; }
@@ -214,7 +220,7 @@
   .building { overflow: visible; }
   .bgrid, .bgrid[data-cols="3"] { grid-template-columns: minmax(0, 1fr); grid-auto-rows: auto; height: auto; gap: 6px; }
   .ftile { height: 44px; padding: 0 10px 0 14px; align-content: center; }
-  .ftile:hover { transform: none; }
+  @media (hover: hover) { .ftile:hover { transform: none; } }
   .ftile .thq, .ftile .treads, .ftile .tscene, .ftile .ffix, .tenter { display: none; }
   .tin { grid-template-columns: minmax(0, 1fr); }
   .tfacts { grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; }
@@ -247,13 +253,20 @@
   .fswitch .fpill.fpbuild, .fswitch .fpill:not(.fpbuild) { flex: 1 1 0; width: auto; max-width: none; }
   .fswitch { height: auto; }
   .ftile:not(.pic) .tline > :not(:first-child) { display: none; }
-  /* The list and the panel are sheets like MENU and SECRETS: 8 px from the screen's edges. */
-  .fmenu { left: max(8px, env(safe-area-inset-left, 0px)); right: max(8px, env(safe-area-inset-right, 0px)); bottom: calc(8px + env(safe-area-inset-bottom, 0px)); border: 3px solid var(--edge); border-radius: 12px; padding-bottom: 12px; }
-  .fpanel { left: max(8px, env(safe-area-inset-left, 0px)); right: max(8px, env(safe-area-inset-right, 0px)); width: auto; transform: none; }
-  /* The pill right above names the floor: its chip here is the floor's colour and the way out; the row says the rest. */
-  .schip { flex: none; width: 44px; padding: 0; }
-  .schip .fname, .schip .fall { display: none; }
+  /* The pill right above names the floor: its chip here is the floor's colour and the way out, in a word. The row is a
+     quiet panel: questions on other floors are not an alarm here, only their count is red. */
+  .schip { flex: none; padding: 0; }
+  .schip .fname, .schip .fall, .sxm, .son2 { display: none; }
+  .schip .sx { width: auto; min-width: 44px; padding: 0 10px; background: none; font: 8px/1 var(--pixel); }
+  .sxw { display: inline; }
   .sall { flex: 1 1 0; justify-content: center; }
+  .scoperow.hot .sall { border-color: var(--edge); background: var(--box); color: var(--ink); }
+  .scoperow.hot .sn { color: var(--red-text); }
+  /* the colours left to choose, in even rows: one that another floor wears is not a choice */
+  .fcolor:disabled { display: none; }
+  .fprow .opts2:has(.fcolor) { display: grid; grid-template-columns: repeat(auto-fill, 44px); gap: 6px; }
+  .fprow .opts2:has(.fcolor:nth-child(7)):not(:has(.fcolor:disabled)) { grid-template-columns: repeat(4, 44px); }
+  .fphow .seg { padding: 0 4px; font-size: 8px; white-space: nowrap; }
   .fli { grid-template-columns: minmax(0, 1fr); grid-template-areas: "id" "hq" "reads"; }
   .flreads { display: flex; gap: 10px; justify-items: start; }
   .ftile.pic .thq { gap: 6px; }
@@ -266,3 +279,5 @@
   .fpanel .fpacts .btn-s { min-height: 44px; }
 }
 @media (max-width: 1150px) and (pointer: coarse) { .fcolor { width: 44px; height: 44px; } .fledit { opacity: 1; } }
+/* a phone has the one scrim (core/sheet.js) */
+@media (max-width: 799px), (max-width: 1150px) and (pointer: coarse) { .fsheetbg { display: none !important; } }

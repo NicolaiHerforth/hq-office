@@ -23,21 +23,29 @@ const lost = new Map<string, LostSecret>(
   (db.query("SELECT * FROM secret_meta ORDER BY expires_at").all() as Row[]).map((r) => [r.name, { name: r.name, by: r.by, setAt: r.set_at, expiresAt: r.expires_at, lostAt: startedAt }]),
 );
 
+// Names that expired, were removed or were dismissed as lost since this start. Memory only: this is for a warning, and
+// nothing is known of those that went before it.
+const gone = new Set<string>();
 secrets.attach({
   put(m) {
     db.query("INSERT INTO secret_meta (name, by, set_at, expires_at) VALUES (?, ?, ?, ?) ON CONFLICT (name) DO UPDATE SET by = excluded.by, set_at = excluded.set_at, expires_at = excluded.expires_at").run(m.name, m.by, m.setAt, m.expiresAt);
     lost.delete(m.name);
+    gone.delete(m.name);
   },
   drop(name) {
     db.query("DELETE FROM secret_meta WHERE name = ?").run(name);
+    gone.add(name);
   },
 });
 
 function forget(name: string) {
   if (!lost.delete(name)) return false;
   db.query("DELETE FROM secret_meta WHERE name = ?").run(name);
+  gone.add(name);
   return true;
 }
+// Every name whose value this server once had or was meant to have and cannot mask now.
+export const noLongerHeld = () => [...new Set([...lostBook.list().map((l) => l.name), ...gone])];
 export const lostBook: LostBook = {
   list() {
     const now = Date.now();

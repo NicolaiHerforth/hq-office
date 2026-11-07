@@ -5,6 +5,7 @@ import { S } from "../core/state.js";
 import { clock, esc, setHTML } from "../core/format.js";
 import { post } from "../core/net.js";
 import { atText, expiresText } from "./expiry.js";
+import { ask, sheet } from "../core/sheet.js";
 
 // The owner pastes a value, names it and gives it minutes. HQ reads it with  hud secret get NAME | <command>  until then.
 // The page sees names and times. A value comes to it only on a click of COPY, straight to the clipboard: never into
@@ -50,6 +51,20 @@ export function closeSecrets() {
   if (p.contains(document.activeElement)) document.activeElement.blur();
   p.hidden = true;
 }
+sheet($("secretsPanel"), closeSecrets);
+// DELETE cannot be undone, so it asks first; a yes lets the click go on to what deletes it.
+$("secretsPanel").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-secret-rm]");
+  if (!b || b.textContent !== "DELETE" || b.dataset.confirmed) return;
+  e.stopPropagation();
+  const name = b.dataset.secretRm;
+  ask({ text: `Delete ${name}? Its value is gone for good, and a lane that still needs it will have to ask again.`, yes: "DELETE IT", no: "KEEP IT" }).then((yes) => {
+    const live = yes && $("secretsPanel").querySelector(`[data-secret-rm="${CSS.escape(name)}"]`);
+    if (!live) return;
+    live.dataset.confirmed = "1";
+    live.click();
+  });
+}, true);
 $("secretsPanel").addEventListener("click", (e) => { if (e.target.closest("[data-secrets-close]")) closeSecrets(); });
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape" || e.defaultPrevented || !secretsOpen()) return;

@@ -27,6 +27,9 @@
 //                        its styles, scripts and pictures inline), shown sandboxed; MESSAGES gets one line linking to it
 //   hud brief comments ID [--json]               the owner's comments on a brief, and the answers
 //   hud brief reply ID TEXT [--reply N]          answer in a brief's comments (or from stdin)
+//   hud brief export ID (--pdf | --html) [--out FILE]   the brief as one file to send to someone without HQ Office: secret
+//                        values it holds right now masked, comments and page data left out; says first what to read before
+//                        sending it. A file that may not show what the page does is not written without --anyway. ID is also rooms/SLUG/brief or rooms/SLUG/files/NAME.html
 //   hud page comments KEY [--json] | reply KEY TEXT [--reply N]   the same for a room's page: KEY is
 //                        rooms/SLUG/brief or rooms/SLUG/files/NAME.html (its address after #page/ works too)
 //                        Your floor's briefs and pages only; --all for another floor's
@@ -140,7 +143,9 @@ const ALL = argv.includes("--all");
 const START = cmd === "floor" && argv.includes("--start");
 // --urgent (hud request) takes no value either.
 const URGENT = cmd === "request" && argv.includes("--urgent");
-const { flags, rest, one } = parse(argv.filter((a) => a !== "--all" && !(cmd === "floor" && a === "--start") && !(cmd === "request" && a === "--urgent")));
+// --pdf and --html (hud brief export) take no value either.
+const EXPORT_AS = cmd === "brief" ? ["pdf", "html"].filter((f) => argv.includes(`--${f}`)) : [];
+const { flags, rest, one } = parse(argv.filter((a) => a !== "--all" && !(cmd === "floor" && a === "--start") && !(cmd === "request" && a === "--urgent") && !(cmd === "brief" && (a === "--pdf" || a === "--html" || a === "--anyway"))));
 // `hud floor` names its floor as an argument; everywhere else --floor ID picks the floor by hand.
 const FLOOR = ALL ? "all" : cmd === "floor" ? undefined : one("floor");
 
@@ -230,6 +235,10 @@ switch (cmd) {
   case "brief": {
     if (rest[0] === "comments" || rest[0] === "reply") {
       await commentCmd("brief", argv);
+      break;
+    }
+    if (rest[0] === "export") {
+      await briefExport();
       break;
     }
     // The body: --body, else the file --file names, else what is piped in.
@@ -674,6 +683,43 @@ async function pageRoom(page: string | undefined, verb: string | undefined, args
       if (ev.startsWith("data: ")) console.log(ev.slice(6));
     }
   }
+}
+
+// ---- hud brief export ----
+
+async function briefExport() {
+  if (!rest[1] || EXPORT_AS.length !== 1) {
+    console.error("usage: hud brief export ID (--pdf | --html) [--out FILE] [--anyway] [--all]   (ID: a brief's number, rooms/SLUG/brief or rooms/SLUG/files/NAME.html)");
+    process.exit(2);
+  }
+  const { warnings: first, stop } = await call("POST", "/api/exports/check", { page: rest[1] });
+  if (stop) {
+    console.error(`hud brief export: ${stop}`);
+    process.exit(1);
+  }
+  for (const w of first) console.log(w);
+  const r = await call("POST", "/api/exports", { page: rest[1], format: EXPORT_AS[0] });
+  // A file that may not show what the page does is not handed over unasked for.
+  if (r.hold && !argv.includes("--anyway")) {
+    for (const w of r.warnings) if (!first.includes(w)) console.log(w);
+    console.error(`hud brief export: nothing written, because ${r.hold === "missing" ? "the HTML file is missing part of the page" : "the PDF may be unfinished"}. --anyway writes it regardless.`);
+    process.exit(1);
+  }
+  const res = await fetch(BASE + r.url).catch(unreachable);
+  if (!res.ok) {
+    console.error(`hud brief export: could not fetch the file (${res.status})`);
+    process.exit(1);
+  }
+  // Without --out, it lands in this folder under its own name and replaces nothing.
+  let out = one("out");
+  if (!out) {
+    out = r.name as string;
+    const dot = out.lastIndexOf(".");
+    for (let i = 2; await Bun.file(out).exists(); i++) out = `${(r.name as string).slice(0, dot)}-${i}${(r.name as string).slice(dot)}`;
+  }
+  await Bun.write(out, await res.arrayBuffer());
+  console.log(`${out} (${Math.ceil(r.bytes / 1024)} KB). Only secret values HQ Office holds right now are masked, and only as usually written. Read the file before you send it. Comments and anything the page saved are left out.`);
+  for (const w of r.warnings) if (!first.includes(w)) console.log(w);
 }
 
 // ---- comments on a brief or a room's page (hud brief comments|reply, hud page comments|reply) ----

@@ -1,7 +1,8 @@
 /* SUBS, in the top bar next to MACHINES (it shares .health's look), and its dropdown over the office, like MENU's. */
 .subswrap { position: relative; display: flex; }
 .subsbtn { white-space: nowrap; font: inherit; color: inherit; text-align: left; cursor: pointer; }
-.subsbtn:hover, .subsbtn[aria-expanded="true"] { background: var(--lift); }
+.subsbtn[aria-expanded="true"] { background: var(--lift); }
+@media (hover: hover) { .subsbtn:hover { background: var(--lift); } }
 .subsbtn:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }
 .health i.none, .subsdrop i.none { background: var(--edge-2); }
 .subsbtn.bad .v { color: var(--red-text); }

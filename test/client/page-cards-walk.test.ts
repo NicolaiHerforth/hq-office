@@ -317,6 +317,7 @@ test.skipIf(!chromeFound)("phone: a lane card in the page gives the drawer's she
   await page.s("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
   await until(`document.getElementById("card").hidden && ${shows(".briefview .pageframe")}`);
   expect(await ev(`document.documentElement.scrollWidth <= innerWidth`)).toBe(true);
+  await until(`!history.state?.hqSheet`); // the closed sheet's Back entry has gone, so the next test's navigation lands
 }, 30_000);
 
 test.skipIf(!chromeFound)("the page opened on its own, outside the HUD: each card says to open it in the HUD, and nothing fails", async () => {

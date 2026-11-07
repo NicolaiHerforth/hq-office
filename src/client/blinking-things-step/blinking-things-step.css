@@ -1,6 +1,6 @@
 /* Moved here from the page's single <style> block. */
-/* Blinking things step through these four times a second, set by the page clock: the same steps as a 1 s
-   steps(2) animation to 35 %, without the browser animating every display frame. */
-.blink-1 { opacity: .675; }
-.blink-2 { opacity: .35; }
-@media (prefers-reduced-motion: reduce) { .blink-1, .blink-2 { opacity: 1; } }
+/* Blinking things step through these four times a second, set by the page clock. A ring pulses round the number: the
+   number itself never fades, so it reads the same at every step. */
+.blink-1 { outline: 1px solid currentColor; outline-offset: 2px; border-radius: 2px; }
+.blink-2 { outline: 2px solid currentColor; outline-offset: 2px; border-radius: 2px; }
+@media (prefers-reduced-motion: reduce) { .blink-1, .blink-2 { outline: 0; } }

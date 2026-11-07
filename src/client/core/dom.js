@@ -8,8 +8,9 @@ export function toast(msg) {
   setTimeout(() => t.remove(), 2400);
 }
 // Under 1151px the page scrolls, not the panels (core/layout.css), so a panel built again can move what is on screen.
-// On a phone, MESSAGES and FROM HQ are the exception: each has a bounded height and scrolls inside itself.
 export const phone = () => matchMedia("(max-width: 1150px) and (pointer: coarse)").matches;
+// A keyboard shortcut's words, where there is a keyboard.
+export const keysHint = (words) => (matchMedia("(pointer: coarse)").matches ? "" : words);
 export const pageScrolls = () => !matchMedia("(min-width: 1151px)").matches;
 // Call before a panel is built again; call what it returns after. The first item of the panel on screen that is
 // still there (found by its attribute: the rebuild makes new elements) stays where it was; with the whole panel above
@@ -24,12 +25,13 @@ export function keepPlace(box, attr) {
   }
   const bottom = box.getBoundingClientRect().bottom;
   return () => {
-    let d = bottom <= 0 ? box.getBoundingClientRect().bottom - bottom : 0;
+    let d = bottom <= 0 ? box.getBoundingClientRect().bottom - bottom : 0, found = false;
     for (const [key, top] of seen) {
       const el = box.querySelector(`[${attr}="${CSS.escape(key)}"]`);
-      if (el) { d = el.getBoundingClientRect().top - top; break; }
+      if (el) { d = el.getBoundingClientRect().top - top; found = true; break; }
     }
     if (d) scrollBy(0, d);
+    return found;
   };
 }
 // For a list that scrolls itself: call before it is built again, call what it returns after. The first item in its

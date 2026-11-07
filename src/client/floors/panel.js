@@ -15,6 +15,7 @@ import { S } from "../core/state.js";
 import { on } from "../core/bus.js";
 import { floorById, floorsOf } from "../core/floors.js";
 import { toBuilding } from "../core/scope.js";
+import { sheet } from "../core/sheet.js";
 
 // The floor palette, as the server's (src/server/floor-colors.ts): blue, teal, purple, magenta, slate, brown, cyan.
 export const FLOOR_COLORS = ["#3c6fd6", "#1a9a8a", "#7a4fc9", "#b0469a", "#5f6b85", "#8a5a3c", "#2a9fc9"];
@@ -145,6 +146,7 @@ function draw() {
     box.setAttribute("role", "dialog");
     box.setAttribute("aria-label", "Floor");
     stage.append(box);
+    sheet(box, closePanel);
     wire();
   }
   box.hidden = false;

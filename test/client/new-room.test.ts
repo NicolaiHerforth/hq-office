@@ -95,6 +95,7 @@ test.skipIf(!chromeFound)("Esc closes the panel; on a phone it is a sheet inside
   await load(390, 844, true);
   await ev(`document.querySelector("[data-room-new]").click()`);
   await until(`!!document.querySelector(".nrpanel:not([hidden])")`);
+  await Bun.sleep(260); // a sheet's motion has ended
   expect(await ev(`(() => { const b = document.querySelector(".nrpanel").getBoundingClientRect(); return b.left >= 0 && b.right <= innerWidth && b.bottom <= innerHeight && b.top >= 0; })()`)).toBe(true);
   expect(await ev(`document.documentElement.scrollWidth <= innerWidth`)).toBe(true);
   expect(errors).toEqual([]);

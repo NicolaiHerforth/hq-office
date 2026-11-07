@@ -25,7 +25,7 @@ function openAsk(id: number) {
 
 // The board's key for the first PR the text names: a pull request URL, owner/repo#N or #N.
 export function prOf(text: string) {
-  const m = text.match(/https?:\/\/github\.com\/[^/\s]+\/[^/\s]+\/pull\/\d+|(?:[\w.-]+\/[\w.-]+)?#\d+/);
+  const m = text.match(/https?:\/\/github\.com\/[^/\s]+\/[^/\s]+\/pull\/\d+|(?:(?<![\w.-])[\w.-]+\/[\w.-]+)?#\d+/);
   return m ? (parsePr(m[0], CONFIG.githubRepo)?.key ?? null) : null;
 }
 

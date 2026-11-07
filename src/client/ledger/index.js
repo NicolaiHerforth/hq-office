@@ -33,7 +33,7 @@ function commentsHtml(id, list) {
 function decorate() {
   const L = S?.ledger || {};
   let changed = false;
-  for (const card of $("hud").querySelectorAll("article[data-ask]")) {
+  for (const card of $("hud").querySelectorAll("article[data-ask]:not(.left)")) {
     const id = Number(card.dataset.ask), l = L[id];
     const meta = card.querySelector(".meta");
     let tag = meta.querySelector(".tag.edited");
@@ -41,7 +41,7 @@ function decorate() {
       if (!tag) { tag = document.createElement("span"); tag.className = "tag edited"; meta.insertBefore(tag, meta.querySelector(".due")); }
       setText(tag, `EDITED ${hhmm(l.editedAt)}`);
     } else tag?.remove();
-    const html = l ? (l.items.length ? `<ul class="lchk">${l.items.map(itemHtml).join("")}</ul>` : "") + (l.comments.length ? commentsHtml(id, l.comments) : "") : "";
+    const html = l ? (l.items.length ? `<div class="lchkh">HQ'S CHECKLIST · HQ TICKS THESE</div><ul class="lchk">${l.items.map(itemHtml).join("")}</ul>` : "") + (l.comments.length ? commentsHtml(id, l.comments) : "") : "";
     let box = card.querySelector(":scope > .ledger");
     if (!html) { if (box) { box.remove(); changed = true; } continue; }
     if (!box) {

@@ -8,6 +8,8 @@ import { renderCard } from "../card/card.js";
 import { renderMsgs, renderQTabs, replyText, replyTo, setReply } from "../messages/messages.js";
 import { renderWork } from "../work-board/work-board.js";
 import { restoreImages, savedImages } from "../images/images.js";
+import { noteAbout } from "./left.js";
+import { readingOrder, seedOrder } from "./focus.js";
 import { parked, restore } from "./place.js";
 
 export const drafts = new Map();
@@ -19,7 +21,8 @@ export const secretDrafts = new Map();
 // sessionStorage so the reload does not eat them. So is any other reload, or a phone dropping the page while its
 // camera is open: they are parked whenever the page is hidden too.
 export function keepDrafts() {
-  try { sessionStorage.setItem("hq-drafts", JSON.stringify({ drafts: [...drafts], note: $("noteText").value, reply: replyTo ? [replyTo, replyText] : null, images: savedImages(), place: parked() })); } catch {}
+  noteAbout();
+  try { sessionStorage.setItem("hq-drafts", JSON.stringify({ drafts: [...drafts], order: readingOrder(), note: $("noteText").value, reply: replyTo ? [replyTo, replyText] : null, images: savedImages(), place: parked() })); } catch {}
 }
 addEventListener("pagehide", keepDrafts);
 document.addEventListener("visibilitychange", () => { if (document.hidden) keepDrafts(); });
@@ -33,6 +36,7 @@ function restoreDrafts() {
     if (d.reply) setReply(...d.reply);
     restoreImages(d.images);
     restore(d.place);
+    seedOrder(d.order);
   } catch {}
 }
 restoreDrafts();

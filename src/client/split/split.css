@@ -9,7 +9,8 @@
   .stage.split > :is(.briefview, .pageview) { grid-column: 3; grid-row: 1 / -1; }
   .stage.split > .splitbar { display: block; grid-column: 2; grid-row: 1 / -1; position: relative; cursor: col-resize; touch-action: none; outline: none; }
   .stage.split > .splitbar::before { content: ""; position: absolute; inset: 0 5px; border-radius: 2px; background: var(--edge-2); }
-  .stage.split > .splitbar:is(:hover, :focus-visible)::before, .stage.dragging > .splitbar::before { background: var(--blue); }
+  .stage.dragging > .splitbar::before { background: var(--blue); }
+  @media (hover: hover) { .stage.split > .splitbar:is(:hover, :focus-visible)::before { background: var(--blue); } }
   .stage.dragging { cursor: col-resize; user-select: none; }
   .stage.dragging iframe { pointer-events: none; }
   /* the drawer and the panels over the office: over the left pane only, following the divider */

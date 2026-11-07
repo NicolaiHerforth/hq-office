@@ -148,6 +148,8 @@ test.skipIf(!chromeFound)("P2: answered from the card with a click, and with Ctr
   await toasted("SENT. PM HAS IT.");
   expect(await typedInto("pm", `HUD answer #${Q1} (child): "Which cache?" -> Memory. keep it small`)).toHaveLength(1);
   expect(whoGot(`HUD answer #${Q1}`)).toEqual(["pm"]);
+  // Q1 has just closed on screen: a card takes no press for a moment (needs-gate.test.ts).
+  await until(`!document.documentElement.classList.contains("unready")`);
   await click(`${card(Q7)} .opt[data-opt="Right"]`);
   await click(`${card(Q7)} textarea`);
   await key("Enter", CTRL);

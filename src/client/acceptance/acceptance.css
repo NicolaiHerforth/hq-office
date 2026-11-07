@@ -5,7 +5,7 @@
 .accbody { display: grid; gap: 6px; min-width: 0; }
 .accbody:empty { display: none; }
 .accproj { margin-left: auto; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font: 700 12px/1.2 var(--text); color: var(--blue-text); text-decoration: none; }
-.accproj:hover { text-decoration: underline; }
+@media (hover: hover) { .accproj:hover { text-decoration: underline; } }
 
 /* the bar: closed in Linear over all that count (canceled ones do not) */
 .accbar { height: 10px; border: 2px solid var(--edge); border-radius: 4px; background: var(--chip); overflow: hidden; }
@@ -29,7 +29,7 @@
 .acctitle { min-width: 0; color: var(--ink-2); overflow-wrap: anywhere; }
 .accmeta { font-size: 11px; color: var(--muted); }
 .acckey { font: 700 11px/1.2 var(--mono); color: var(--blue-text); text-decoration: none; }
-.acckey:hover { text-decoration: underline; }
+@media (hover: hover) { .acckey:hover { text-decoration: underline; } }
 .accitem.closed .acctitle, .accitem.gone .acctitle { color: var(--muted); }
 .accitem.gone .acctitle { text-decoration: line-through; }
 

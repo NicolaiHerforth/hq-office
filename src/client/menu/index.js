@@ -10,6 +10,8 @@ import { S } from "../core/state.js";
 import { emit, on } from "../core/bus.js";
 import { setText } from "../core/format.js";
 import { liveSecrets, lostSecrets, openSecrets } from "../secrets/secrets.js";
+import { sheet, sheetMode, sheetsNow } from "../core/sheet.js";
+import { openTell } from "../tell/tell.js";
 
 const KEY = "hq-layout";
 export const LAYOUTS = ["office", "board"];
@@ -56,6 +58,9 @@ export function setTheme(v) {
 const btn = $("menuBtn"), drop = $("menuDrop");
 const isOpen = () => !drop.hidden;
 function openMenu() {
+  phoneRows();
+  const subs = document.getElementById("menuSubs");
+  if (subs) subs.hidden = !document.getElementById("subsBtn");
   drop.hidden = false;
   btn.setAttribute("aria-expanded", "true");
   drop.querySelector("[role^=menuitem]")?.focus();
@@ -66,15 +71,43 @@ function closeMenu(focusBack = false) {
   btn.setAttribute("aria-expanded", "false");
   if (focusBack) btn.focus();
 }
+sheet(drop, () => closeMenu());
+// What a phone keeps under the list, one tap once you are at the top of the page, where MENU is: TELL HQ, the office and
+// SUBS. From inside a long list MENU itself is a scroll up. Only on a phone.
+function phoneRows() {
+  if (!sheetMode() || $("menuTell")) return;
+  drop.insertAdjacentHTML("afterbegin", `<button class="mi" id="menuTell" type="button" role="menuitem">TELL HQ</button><button class="mi" id="menuOffice" type="button" role="menuitem">THE OFFICE</button><button class="mi" id="menuSubs" type="button" role="menuitem" hidden>SUBS</button>`);
+}
+// To the office and back: the place in the list is one tap away, not 30,000 px of scrolling.
+let jumpBack = null;
+function toOffice() {
+  const y = scrollY, stage = document.querySelector(".stage");
+  stage.scrollIntoView({ block: "start", behavior: "instant" });
+  jumpBack?.remove();
+  const b = (jumpBack = document.createElement("button"));
+  b.className = "jumpback";
+  b.type = "button";
+  b.textContent = "▲ BACK";
+  const gone = () => { b.remove(); removeEventListener("scroll", watch); };
+  const watch = () => { if (stage.getBoundingClientRect().top > innerHeight) gone(); };
+  b.addEventListener("click", () => { gone(); scrollTo({ top: y, behavior: "instant" }); });
+  addEventListener("scroll", watch, { passive: true });
+  document.body.append(b);
+}
 btn.addEventListener("click", () => (isOpen() ? closeMenu() : openMenu()));
 drop.addEventListener("click", (e) => {
   const l = e.target.closest(".mseg [data-layout]");
   if (l) { setLayout(l.dataset.layout); return; }
   const t = e.target.closest(".mseg [data-set-theme]");
   if (t) { setTheme(t.dataset.setTheme); return; }
-  if (e.target.closest("#secretsBtn")) { closeMenu(); openSecrets(); return; }
-  if (e.target.closest("#settingsBtn")) closeMenu(); // settings/panel.js opens the panel on the same click
+  // These two focus what is in them on this same click, which takes the page unlocked first.
+  if (e.target.closest("#secretsBtn")) { closeMenu(); sheetsNow(); openSecrets(); return; }
+  if (e.target.closest("#menuTell")) { closeMenu(); sheetsNow(); openTell(); return; }
+  if (e.target.closest("#menuOffice")) { closeMenu(); setTimeout(toOffice); return; }
+  if (e.target.closest("#menuSubs")) { closeMenu(); setTimeout(() => $("subsBtn").click()); return; }
 });
+// Before settings/panel.js opens its panel on the button's own listener: on a phone that sheet then takes this one's place.
+drop.addEventListener("click", (e) => { if (e.target.closest("#settingsBtn")) closeMenu(); }, true);
 document.addEventListener("click", (e) => { if (isOpen() && !e.target.closest(".menuwrap")) closeMenu(); });
 document.addEventListener("keydown", (e) => {
   if (e.key !== "Escape" || e.defaultPrevented || !isOpen()) return;

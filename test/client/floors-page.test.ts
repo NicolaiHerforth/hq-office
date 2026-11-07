@@ -507,6 +507,7 @@ test.skipIf(!chromeFound)("on a phone: one switcher row under the top bar, in th
   // The questions come right after the row.
   expect(await ev(`document.querySelector(".floornav").getBoundingClientRect().bottom <= document.querySelector("#qtabs").getBoundingClientRect().top`)).toBe(true);
   await openList();
+  await Bun.sleep(260); // a sheet's motion has ended
   expect(await ev(`(() => { const m = document.querySelector(".fmenu"), b = m.getBoundingClientRect(); return getComputedStyle(m).position === "fixed" && Math.abs(innerHeight - b.bottom - 8) <= 1 && b.left === 8; })()`)).toBe(true);
   await click('.fmenu [data-floor-tab="support"]');
   await until(`document.querySelector(".stage").dataset.floors === "floor"`);
@@ -535,7 +536,7 @@ test.skipIf(!chromeFound)("on a phone: one switcher row under the top bar, in th
   await Bun.sleep(100);
   expect(await ev(`(() => { const r = document.querySelector(".fswitch").getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; })()`)).toBe(true);
   // The back button says where it goes; back in the building the switcher stays on screen, with no big jump.
-  expect(await text(".fswitch [data-building]")).toContain("BUILDING");
+  expect(await ev(`document.querySelector(".fswitch [data-building]").textContent`)).toContain("BUILDING");
   const y1 = await ev(`scrollY`);
   await click(".fswitch [data-building]");
   await until(`document.querySelector(".stage").dataset.floors === "building"`);

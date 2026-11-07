@@ -69,4 +69,14 @@
 [data-comments-toggle].new:not(.on) { border-color: var(--amber); box-shadow: inset 0 0 0 1px var(--amber); }
 @media (max-width: 640px) { .chead b { flex: none; white-space: nowrap; } .chead .cclose { margin: 0; } }
 @media (max-width: 640px) { .briefview:has(> .bbody):has(> .cmount:not([hidden])) > .bvbar { margin-inline: calc(-1 * max(16px, env(safe-area-inset-left, 0px))); padding-inline: max(16px, env(safe-area-inset-left, 0px)); } }
-@media (max-width: 640px) { .pageframe ~ .cmount.open { left: max(8px, env(safe-area-inset-left, 0px)); right: max(8px, env(safe-area-inset-right, 0px)); bottom: calc(8px + env(safe-area-inset-bottom, 0px)); border-width: 2px; border-radius: 12px; } }
+/* A phone: the bar's COMMENTS is the one way in, and the thread is a sheet (core/sheet.js), on a brief and on a page. */
+@media (max-width: 799px), (max-width: 1150px) and (pointer: coarse) {
+  .cjump:not(#_) { display: none; }
+  .cmount:not(.open):not(#_) { display: none; }
+  .cmount.open:not(#_) { display: grid; grid-template-rows: auto minmax(0, 1fr) auto; }
+  .cmount.open .cthread { overflow-y: auto; }
+  .cmount .cclose { display: inline-flex; }
+  .briefview:has(> .cmount:not([hidden])) > .bbody { overflow-y: auto; }
+  .briefview:not([hidden]):has(> .bbody):has(> .cmount:not([hidden])) { display: grid; overflow: hidden; }
+  .briefview:has(> .bbody):has(> .cmount:not([hidden])) > .bvbar { position: static; margin: 0; padding: 0; background: none; }
+}

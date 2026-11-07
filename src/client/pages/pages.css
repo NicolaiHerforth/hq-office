@@ -16,7 +16,7 @@
 .pvv { display: grid; grid-template-columns: 64px 1fr; align-items: center; gap: 8px; padding: 8px 10px; border-radius: 6px; color: var(--ink); text-decoration: none; min-height: 32px; box-sizing: border-box; }
 .pvv b { font: 8px/1.4 var(--pixel); }
 .pvv span { font-size: 13px; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pvv:hover { background: color-mix(in srgb, var(--blue) 10%, var(--box)); }
+@media (hover: hover) { .pvv:hover { background: color-mix(in srgb, var(--blue) 10%, var(--box)); } }
 .pvv.here { background: color-mix(in srgb, var(--blue) 10%, var(--box)); outline: 2px solid var(--blue); outline-offset: -2px; }
 .pvold { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 8px 12px; border-radius: 8px; background: color-mix(in srgb, var(--amber) 12%, var(--box)); border: 2px solid color-mix(in srgb, var(--amber) 55%, var(--box)); font-size: 13px; }
 .pvold > span { flex: 1; min-width: 0; }

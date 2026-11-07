@@ -18,13 +18,18 @@ export function setVersionSource(fn: (page: string) => string) {
 // published over by someone else in the meantime is told so (conflict) instead of overwriting it.
 export const sourceVersion = (html: string) => new Bun.CryptoHasher("sha256").update(html).digest("hex").slice(0, 16);
 
+// HTML up to its last >. Nothing that ends in > can match past it, and each <tag searched for here then meets its >, so
+// a page full of tags that never close is not read to its end once per tag.
+export const closed = (html: string) => html.slice(0, html.lastIndexOf(">") + 1);
+
 // After <head>, else after <html>, else after the doctype, else at the very start. JSON in a script element: every <
 // (and the two JavaScript line separators) escaped, so no value can close the element.
 export function withRuntime(html: string, page = "") {
   const boot = JSON.stringify({ page, version: page ? versionOf(page) : "", storage: page ? storageOf(page) : {} }).replace(/[<\u2028\u2029]/g, (c) => `\\u${c.charCodeAt(0).toString(16).padStart(4, "0")}`);
   const tag = `<script type="application/json" data-hud-page>${boot}</script><script src="${RUNTIME_SRC}"></script>`;
+  const head = closed(html);
   for (const re of [/<head(?:\s[^>]*)?>/i, /<html(?:\s[^>]*)?>/i, /<!doctype[^>]*>/i]) {
-    const m = re.exec(html);
+    const m = re.exec(head);
     if (m) return html.slice(0, m.index + m[0].length) + tag + html.slice(m.index + m[0].length);
   }
   return tag + html;

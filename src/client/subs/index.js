@@ -6,6 +6,7 @@ import { $ } from "../core/dom.js";
 import { S } from "../core/state.js";
 import { on } from "../core/bus.js";
 import { ago, dur, esc, setClass, setHTML } from "../core/format.js";
+import { sheet, sheetMode } from "../core/sheet.js";
 
 // Left at or above ROOM is room; under LOW is all but spent.
 const ROOM = 25, LOW = 10;
@@ -23,7 +24,7 @@ function place() {
   const q = document.querySelector(".qwrap")?.getBoundingClientRect();
   const w = wrap.getBoundingClientRect();
   for (const k of ["--subs-max", "top", "left", "width"]) drop.style.removeProperty(k);
-  if (!q) return;
+  if (!q || sheetMode()) return;
   if (stacked.matches) {
     drop.style.top = `${Math.max(w.height + 6, q.bottom - w.top + 8)}px`;
     drop.style.left = `${8 - w.left}px`;
@@ -39,8 +40,9 @@ function openSubs() {
   render();
   // Stacked, under a long question panel it can start below the screen: the page scrolls just enough to show its head.
   const top = drop.getBoundingClientRect().top;
-  if (stacked.matches && top > innerHeight - 160) scrollBy({ top: top - innerHeight + 260 });
+  if (stacked.matches && !sheetMode() && top > innerHeight - 160) scrollBy({ top: top - innerHeight + 260 });
 }
+sheet(drop, () => closeSubs());
 function closeSubs(focusBack = false) {
   if (!isOpen()) return;
   drop.hidden = true;

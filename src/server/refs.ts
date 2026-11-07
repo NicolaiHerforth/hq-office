@@ -80,13 +80,24 @@ export function cards(refs: string[]) {
 
 // ---- references in an HTML page ----
 
-const CARD = /<hud-card\b[^>]*?\sref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/gi;
-// The references a page's HTML names in its <hud-card ref> elements.
+// The references a page's HTML names in its <hud-card ref> elements: each card's first ref before its >. A walk, not one
+// search per card: the next ref is kept from card to card, and a card with no ref before its > skips to that >, since
+// any other card before it has none either.
 export function refsIn(html: string | null | undefined) {
-  const out = new Set<string>();
-  for (const m of String(html ?? "").matchAll(CARD)) {
+  const out = new Set<string>(), text = String(html ?? "");
+  const card = /<hud-card\b/gi, ref = /\sref\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+))/gi;
+  let m: RegExpExecArray | null = null;
+  while (card.exec(text)) {
+    if (!m || m.index < card.lastIndex) {
+      ref.lastIndex = card.lastIndex;
+      m = ref.exec(text);
+    }
+    if (!m) break;
+    const gt = text.slice(card.lastIndex, m.index).indexOf(">");
+    if (gt >= 0) { card.lastIndex += gt; continue; }
     const p = parseRef((m[1] ?? m[2] ?? m[3]).replace(/&amp;/g, "&"));
     if (p) out.add(p.ref);
+    card.lastIndex = m.index + m[0].length;
   }
   return out;
 }

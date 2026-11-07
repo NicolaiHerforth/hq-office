@@ -273,7 +273,7 @@ test.skipIf(!chromeFound)("busy and stalled: one calm row at every width and the
   }
 });
 
-test.skipIf(!chromeFound)("a phone keeps its stacked bar: no step, the full title and MENU, no sideways scroll", async () => {
+test.skipIf(!chromeFound)("a phone keeps its stacked bar: no step, MENU, no title row, no sideways scroll", async () => {
   fresh();
   const server = await startServer(ROOT);
   try {
@@ -287,7 +287,7 @@ test.skipIf(!chromeFound)("a phone keeps its stacked bar: no step, the full titl
       const b = await bar();
       await shot(`phone-${t}`);
       expect({ fit: b.fit, title: b.title, menu: await ev(`document.querySelector("#menuBtn .long").checkVisibility()`), scrolls: b.scrolls })
-        .toEqual({ fit: null, title: "HQ OFFICE", menu: true, scrolls: false });
+        .toEqual({ fit: null, title: "", menu: true, scrolls: false }); // the top row gives way to the question
     }
     expect(errors).toEqual([]);
   } finally {

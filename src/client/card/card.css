@@ -31,7 +31,7 @@
 @media (pointer: coarse) { .agjump, .cardx, .agroom { min-height: 44px; min-width: 44px; } .agroom { line-height: 32px; } }
 .card h3 { padding-right: 40px; }
 .cardx { position: absolute; top: 8px; right: 8px; width: 30px; height: 30px; border: 2px solid var(--edge); border-radius: 6px; background: var(--box); font: 13px/1 var(--text); cursor: pointer; }
-.cardx:hover { background: var(--lift); }
+@media (hover: hover) { .cardx:hover { background: var(--lift); } }
 .card h3 { margin: 0; font: 13px/1.4 var(--pixel); }
 .card .sub { color: var(--ink-2); overflow-wrap: anywhere; }
 .card .row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 0; }
@@ -49,3 +49,18 @@
 .card .prompt .codebox pre { font-size: 12px; line-height: 1.4; }
 /* The status colours are shared with the room's canvas, so a phone darkens the fill under the white text instead. */
 @media (max-width: 799px), (max-width: 1150px) and (pointer: coarse) { .status { box-shadow: inset 0 0 0 99px rgba(0, 0, 0, .22); } }
+@media (max-width: 799px), (max-width: 1150px) and (pointer: coarse) {
+  /* The drawer as a sheet: its close stays on screen, what it is doing now comes first, and what it asked reads as text. */
+  .card.sheet { display: grid; align-content: start; }
+  .card.sheet > * { order: 4; }
+  .card.sheet > :is(.cardx, h3, .sub, .path, .row) { order: 0; }
+  .card.sheet > .prompt { order: 1; }
+  .card.sheet > .agsec:has(.agterm) { order: 2; }
+  .card.sheet > .agq { order: 3; }
+  .card.sheet .cardx { position: sticky; top: 0; right: auto; z-index: 3; justify-self: end; margin-bottom: -44px; }
+  .card.sheet > h3 { padding-right: 52px; }
+  .card.sheet h4 { line-height: 1.5; }
+  .card.sheet .agopts { display: grid; gap: 2px; }
+  .card.sheet .agopts span { padding: 0; border: 0; background: none; }
+  .card.sheet .agopts span::before { content: "· "; }
+}

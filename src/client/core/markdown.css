@@ -34,6 +34,7 @@
   /* Its own box, with a shade at whichever edge has more to scroll to. The two covers scroll with the table and hide a
      shade once that edge is reached; a table that fits shows none. */
   .md .mdtable {
+    width: fit-content; /* a small table's box ends where it does, with no band of its colour beside it */
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-x: contain;
     --shade: color-mix(in srgb, var(--ink) 35%, transparent);

@@ -48,6 +48,43 @@ describe.skipIf(!chromeFound)("the question panel on a phone", () => {
     await chrome?.close();
   });
 
+  // What stands above the list differs from one load to the next (a machine band comes and goes): someone at the very top
+  // of the page has no place to keep, and the page opens at its top, with no card held at its old pixel.
+  for (const [width, height, mobile] of [[390, 844, true], [1280, 800, false]] as const) {
+    test(`${width}x${height}: a reload at the very top opens at the top, whatever stands above the list this time`, async () => {
+      await page.s("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: mobile ? 3 : 1, mobile });
+      await page.s("Page.navigate", { url: `${server.base}/` });
+      await until(`document.querySelectorAll("#hud .ask").length === 85 && !!document.getElementById("lastNote")?.innerHTML`);
+      await Bun.sleep(400);
+      expect(await ev(`scrollY + document.getElementById("hud").scrollTop`)).toBe(0);
+      const { identifier } = await page.s("Page.addScriptToEvaluateOnNewDocument", { source: `addEventListener("DOMContentLoaded", () => { const s = document.createElement("style"); s.textContent = "#qtabs { margin-top: 24px !important; }"; document.head.append(s); });` });
+      await page.s("Page.navigate", { url: `${server.base}/` });
+      await until(`document.querySelectorAll("#hud .ask").length === 85 && !!document.getElementById("lastNote")?.innerHTML`);
+      await Bun.sleep(400);
+      const offset = await ev(`scrollY + document.getElementById("hud").scrollTop`);
+      await page.s("Page.removeScriptToEvaluateOnNewDocument", { identifier });
+      expect(offset).toBe(0);
+    });
+  }
+
+  // The page's pixel font is 8 px a character at this size; with fonts blocked here, a monospace of the same width stands in.
+  for (const [width, height, text] of [[390, 844, "112 OF 185 · 12 NEW"], [360, 780, "112 OF 185 · 12 NEW"], [320, 640, "12 OF 85 · 2 NEW"]] as const) {
+    test(`${width}x${height}: the row of where you are fits "${text}", every button a 44 px target`, async () => {
+      await page.s("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 3, mobile: true });
+      await page.s("Page.navigate", { url: `${server.base}/` });
+      await until(`document.querySelectorAll("#hud .ask").length === 85 && !!document.querySelector(".asknav")`);
+      await Bun.sleep(300);
+      const fit = await ev(`(() => {
+        const s = document.createElement("style"); s.textContent = ".asknav .below, .asknav .focusb { font: 13.334px/1 monospace !important; }"; document.head.append(s);
+        const p = document.getElementById("below"); p.textContent = ${JSON.stringify(text)};
+        const nav = document.querySelector(".asknav"), r = nav.getBoundingClientRect();
+        const kids = [...nav.children].filter((e) => !e.hidden).map((e) => e.getBoundingClientRect());
+        return { whole: p.scrollWidth <= p.clientWidth, oneRow: kids.every((k) => Math.abs(k.top - kids[0].top) < 1), inside: r.right <= innerWidth && kids.every((k) => k.right <= r.right + 0.5), targets: kids.every((k) => k.height >= 44 && k.width >= 44) };
+      })()`);
+      expect(fit).toEqual({ whole: true, oneRow: true, inside: true, targets: true });
+    });
+  }
+
   for (const [width, height] of [[390, 844], [360, 780], [430, 932]]) {
     test(`${width}x${height}: no spill, 44 px to tap, one button height`, async () => {
       await page.s("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: 3, mobile: true });

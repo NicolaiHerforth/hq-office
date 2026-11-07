@@ -120,7 +120,7 @@ export function createSecretStore(opts: { clock?: Clock; onChange?: () => void; 
       }
       return out;
     },
-    // Every live secret with its value: for the handover only.
+    // Every live secret with its value: for the handover, and for an export's mask of what a page spells with entities.
     carry(): SecretCarried[] {
       for (const name of [...items.keys()]) live(name);
       return [...items.values()].map((e) => ({ ...meta(e), value: e.value }));

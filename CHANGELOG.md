@@ -3,6 +3,52 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.41.0] - 2026-11-07
+### Added
+
+- **EXPORT: send a brief or a room's page to someone without HQ Office.** One self-contained file, PDF or HTML, from the
+  EXPORT button or `hud brief export`. It renders with the right components, works with no internet, and leaves out
+  comments, machine names and local paths. Secrets HQ Office holds right now are masked, and the panel says what to read
+  before you send it: secrets it no longer holds, anything that looks like a key, and what could not be carried. On a
+  phone you share or save the file yourself. See "Exporting" in the README for what it cannot promise.
+- **FOCUS: one question on the stage at a time**, with your place in the list (3 OF 17), arrows and NEXT, so a long list
+  can be worked through without scrolling.
+
+### Changed
+
+- **A double tap or a press under way no longer lands on the wrong question when the list changes.** For 400 ms after a card
+  closes or changes, a tap or click on any card does nothing, and a toast says that press did not count. Keyboard presses are
+  never held. A press aimed before the list moved and landing later than that still goes to what is there now.
+- **Closed questions don't pile up.** A question that closes with your words in it stays and says so. After a reload,
+  closed questions wait behind one row, so your first open question is on the first screen.
+- **One sheet on a phone.** Every panel that opens over the page now behaves the same way: Back, Esc and an outside tap
+  close it, the keyboard can't reach what is behind it, and following a link closes it.
+- **The top bar on a phone is one row over the tabs**, and MESSAGES scrolls with the page instead of in a box.
+- A question's lane tag opens that lane's drawer and leaves your place and your floor alone.
+
+### Fixed
+
+- **A small page written by an agent could hang the whole server**, or stall the tab showing your questions, through
+  searches whose cost exploded with size. Lists and quotes now nest at most 30 levels; anything deeper shows as plain text.
+- **What you hold your place on no longer creeps** a few pixels as questions arrive, and a reload at the foot of the list
+  stays there.
+- **Words typed while something sends stay**, in TELL HQ, in comments and on a question's NOT YET, and a second SEND says it
+  is still sending instead of sending twice.
+- A link from a comment could leave a dead page on a phone.
+- The HQ sweep no longer lists a parked lane as idle.
+
+### Known limits
+
+- Not tried on real Safari or a real iPhone yet, only in Chrome and in a WebKit test browser.
+- Export masks secrets only as they are usually written. A value split by a comment, or spelled through UTF-16, an SVG
+  inside an SVG or an XML entity, can still read. Read the panel, and read the file before you send it.
+- PDFs were tested with Google Chrome only. A page over 20 MB, or naming over 20,000 different addresses on this machine,
+  is not exported. A very large page can stall the HUD for a few seconds while it is checked, and a run of huge pages can
+  leave the server using several GB for a while.
+- A press repeated at one spot lands again as soon as the 400 ms is up, so mashing can answer several cards, and DISCARD
+  can't be undone. Others closing many cards
+  in a burst keep the hold going until the burst ends.
+
 ## [0.40.2] - 2026-11-07
 ### Security
 

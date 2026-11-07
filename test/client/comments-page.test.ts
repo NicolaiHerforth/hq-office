@@ -131,23 +131,27 @@ test.skipIf(!chromeFound)("an HTML brief and a room's page: the thread beside th
   expect(await askInView()).toBe(true);
 }, 30_000);
 
-test.skipIf(!chromeFound)("on a phone the thread is under the brief, COMMENTS jumps to it, nothing scrolls sideways", async () => {
+test.skipIf(!chromeFound)("on a phone one COMMENTS: the bar's opens the thread as a sheet over a brief, BACK stays, nothing scrolls sideways", async () => {
   await load(`#brief/${md}`, 390, 844, true);
   await until(`!!document.querySelector(".briefview .cmount .cthread .msg")`);
-  const v = await rect(".briefview"), body = await rect(".briefview .bbody"), c = await rect(".briefview .cmount");
+  const v = await rect(".briefview");
   expect([v.l, v.t, Math.round(v.w), Math.round(v.h)]).toEqual([0, 0, 390, 844]);
-  expect(c.t).toBeGreaterThanOrEqual(body.b - 1); // under the brief
-  expect(c.w).toBeGreaterThan(300);
-  expect(await ev(`getComputedStyle(document.querySelector("[data-cjump]")).display`)).toBe("block");
-  await ev(`document.querySelector("[data-cjump]").click()`);
-  await until(`(() => { const r = document.querySelector(".cmount .chead").getBoundingClientRect(); return r.top >= 0 && r.bottom <= innerHeight; })()`, 4000);
-  await until(`getComputedStyle(document.querySelector("[data-cjump]")).display === "none"`);
+  expect(await ev(`getComputedStyle(document.querySelector(".briefview .cmount")).display`)).toBe("none");
+  expect(await ev(`getComputedStyle(document.querySelector("[data-cjump]")).display`)).toBe("none"); // no second, floating one
+  await ev(`document.querySelector(".bvbar [data-comments-toggle]").click()`);
+  await until(`document.querySelector(".cmount").classList.contains("sheet")`);
+  await Bun.sleep(260);
+  const sheet = await rect(".briefview .cmount");
+  expect(Math.round(sheet.b)).toBe(836);
+  expect(await ev(`(() => { const r = document.querySelector(".cmount textarea").getBoundingClientRect(); return r.top > 0 && r.bottom <= innerHeight; })()`)).toBe(true);
+  await ev(`document.querySelector("[data-cclose]").click()`);
+  await until(`!document.querySelector(".cmount").classList.contains("open")`);
   expect(await ev(`(() => { const b = document.querySelector("[data-brief-back]").getBoundingClientRect(); return b.top >= 0 && b.top < 80; })()`)).toBe(true); // BACK stays in reach
   expect(await ev(`document.documentElement.scrollWidth <= innerWidth && document.querySelector(".briefview").scrollWidth <= innerWidth`)).toBe(true);
   expect(errors).toEqual([]);
 }, 30_000);
 
-test.skipIf(!chromeFound)("on a phone a page brief keeps the whole view; COMMENTS opens the thread as a sheet over it, × closes it", async () => {
+test.skipIf(!chromeFound)("on a phone a page brief keeps the whole view; COMMENTS opens the thread as a sheet over it, its close closes it", async () => {
   await load(`#brief/${html}`, 390, 844, true);
   await until(`!!document.querySelector(".briefview .pageframe") && !!document.querySelector(".briefview .cmount .cthread .msg")`);
   const v = await rect(".briefview"), f = await rect(".briefview .pageframe");
@@ -155,15 +159,214 @@ test.skipIf(!chromeFound)("on a phone a page brief keeps the whole view; COMMENT
   expect(await ev(`(() => { const v = document.querySelector(".briefview"); return v.scrollHeight <= v.clientHeight + 1; })()`)).toBe(true);
   // the compact bar (date, by writer) fits the 390px screen: OLDER is on it, whole
   expect(await ev(`(() => { const b = document.querySelector(".bvbar"), o = [...b.querySelectorAll(".btn-s")].find((x) => x.textContent === "OLDER").getBoundingClientRect(); return o.left >= 0 && o.right <= innerWidth && b.scrollWidth <= b.clientWidth + 1; })()`)).toBe(true);
-  expect(await ev(`getComputedStyle(document.querySelector("[data-cjump]")).display`)).toBe("block");
-  await ev(`document.querySelector("[data-cjump]").click()`);
+  expect(await ev(`getComputedStyle(document.querySelector("[data-cjump]")).display`)).toBe("none");
+  await ev(`document.querySelector(".bvbar [data-comments-toggle]").click()`);
   await until(`document.querySelector(".cmount").classList.contains("open") && getComputedStyle(document.querySelector(".cmount")).position === "fixed"`);
+  await Bun.sleep(260);
   const sheet = await rect(".briefview .cmount");
   expect(Math.round(sheet.b)).toBe(836); // 8 px up, as every sheet on a phone
   expect(sheet.t).toBeGreaterThan(100);
   expect(await ev(`(() => { const r = document.querySelector(".cmount textarea").getBoundingClientRect(); return r.top > 0 && r.bottom <= innerHeight; })()`)).toBe(true);
-  await until(`getComputedStyle(document.querySelector("[data-cjump]")).display === "none"`);
   await ev(`document.querySelector("[data-cclose]").click()`);
-  await until(`!document.querySelector(".cmount").classList.contains("open") && getComputedStyle(document.querySelector("[data-cjump]")).display === "block"`);
+  await until(`!document.querySelector(".cmount").classList.contains("open")`);
   expect(errors).toEqual([]);
 }, 30_000);
+
+// A send held at the door until let go, so what happens during it is what the test says, not a race.
+for (const [name, w, h, mobile] of [["wide", 1440, 900, false], ["phone", 390, 844, true]] as const) {
+  const holdSend = () => ev(`(() => { const real = window.fetch; window.__sent = null; window.fetch = (u, o) => String(u).includes("/api/comments/post") ? new Promise((ok, no) => { window.__sent = () => ok(real(u, o)); window.__refuse = () => no(new TypeError("Failed to fetch")); }) : real(u, o); })()`);
+  const toast = () => ev(`[...document.querySelectorAll(".toast")].at(-1)?.textContent ?? ""`);
+  const toastSays = (words: string) => until(`([...document.querySelectorAll(".toast")].at(-1)?.textContent ?? "").includes(${JSON.stringify(words)})`);
+  const box = () => ev(`document.querySelector(".cmount textarea").value`);
+  const press = () => ev(`document.querySelector("[data-csend]").click()`);
+  const letGo = () => ev(`window.__sent(); undefined`);
+  const openBox = async () => {
+    await ev(`window.__before = true`).catch(() => {});
+    await load(`#brief/${md}`, w, h, mobile);
+    await until(`!window.__before && !!document.querySelector(".briefview .cmount .cthread .msg")`);
+    if (mobile) {
+      await ev(`document.querySelector(".bvbar [data-comments-toggle]").click()`);
+      await until(`!!document.querySelector(".cmount.sheet")`);
+    }
+  };
+  const type = async (text: string) => {
+    await ev(`(() => { const t = document.querySelector(".cmount textarea"); t.focus(); t.setSelectionRange(t.value.length, t.value.length); })()`);
+    await page.s("Input.insertText", { text });
+  };
+  const setBox = (text: string) => ev(`(() => { const t = document.querySelector(".cmount textarea"); t.value = ${JSON.stringify(text)}; t.dispatchEvent(new Event("input", { bubbles: true })); })()`);
+  const typed = async (words: string) => {
+    for (const end = Date.now() + 5000; Date.now() < end && !herdr.typedInto("hq").some((t) => t.includes(words)); await Bun.sleep(50));
+    await Bun.sleep(100);
+    return herdr.typedInto("hq").filter((t) => t.includes(words)).length;
+  };
+
+  test.skipIf(!chromeFound)(`${name}: words typed while a comment sends stay, and a second SEND says it is still sending`, async () => {
+    await openBox();
+    const said = `Held comment, ${name}`, more = `what I added, ${name}`;
+    await type(said);
+    await holdSend();
+    await press();
+    await until(`!!window.__sent`);
+    await type(` ${more}`);
+    await press();
+    await toastSays("STILL SENDING THE LAST ONE");
+    await letGo();
+    await toastSays("STILL HERE");
+    expect(await box()).toBe(more);
+    expect(await typed(said)).toBe(1);
+    expect(herdr.typedInto("hq").some((t) => t.includes(more))).toBe(false);
+    expect(await ev(`document.querySelector("[data-csend]").disabled`)).toBe(false);
+    // What stayed goes with the next SEND, by itself.
+    await letGoNext();
+    await until(`document.querySelector(".cmount textarea").value === ""`);
+    expect(await typed(more)).toBe(1);
+    expect(herdr.typedInto("hq").filter((t) => t.includes(said)).length).toBe(1);
+  }, 30_000);
+  const letGoNext = async () => {
+    await ev(`window.__sent = null; undefined`);
+    await press();
+    await until(`!!window.__sent`);
+    await letGo();
+  };
+
+  test.skipIf(!chromeFound)(`${name}: a double tap on a comment's SEND sends once and says so`, async () => {
+    await openBox();
+    const said = `Tapped twice, ${name}`;
+    await type(said);
+    await holdSend();
+    await press();
+    await until(`!!window.__sent`);
+    await press();
+    await until(`[...document.querySelectorAll(".toast")].at(-1)?.textContent === "STILL SENDING."`);
+    await letGo();
+    await toastSays("SENT TO");
+    await until(`document.querySelector(".cmount textarea").value === ""`);
+    expect(await toast()).not.toMatch(/STILL HERE/);
+    expect(await typed(said)).toBe(1);
+  }, 30_000);
+
+  test.skipIf(!chromeFound)(`${name}: a box emptied while a comment sends: SEND still answers, and it goes once`, async () => {
+    await openBox();
+    const said = `Emptied after, ${name}`;
+    await type(said);
+    await holdSend();
+    await press();
+    await until(`!!window.__sent`);
+    await setBox("");
+    expect(await ev(`document.querySelector("[data-csend]").disabled`)).toBe(false);
+    await press();
+    await toastSays("STILL SENDING");
+    await letGo();
+    await toastSays("SENT TO");
+    expect(await box()).toBe("");
+    expect(await ev(`document.querySelector("[data-csend]").disabled`)).toBe(true);
+    expect(await typed(said)).toBe(1);
+  }, 30_000);
+
+  test.skipIf(!chromeFound)(`${name}: an edit of the words being sent is not cut`, async () => {
+    await openBox();
+    const said = `Edited while it went, ${name}`, now = `I changed my mind: ${said}`;
+    await type(said);
+    await holdSend();
+    await press();
+    await until(`!!window.__sent`);
+    await setBox(now);
+    await letGo();
+    await toastSays("STILL HERE");
+    expect(await box()).toBe(now);
+    expect(await typed(said)).toBe(1);
+    await setBox("");
+  }, 30_000);
+
+  test.skipIf(!chromeFound)(`${name}: what went is cleared; a quote and a picture added while it sends stay`, async () => {
+    await openBox();
+    const key = `briefs/${md}`, box_ = `comment:${key}`, chips = `[data-chips="${box_}"] .chip`;
+    const add = (file: string) => ev(`(import("/src/client/images/images.js").then((m) => m.addFiles([new File([Uint8Array.from(atob("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M/wHwAEBgIApD5fRAAAAABJRU5ErkJggg=="), (c) => c.charCodeAt(0))], ${JSON.stringify(file)}, { type: "image/png" })], ${JSON.stringify(box_)})), undefined)`);
+    const ready = () => until(`(async () => (await import("/src/client/images/images.js")).notReady(${JSON.stringify(box_)}) === "")()`);
+    const quote = (text: string) => ev(`(import("/src/client/core/bus.js").then((m) => m.emit("comments:quote", { key: ${JSON.stringify(key)}, text: ${JSON.stringify(text)} })), undefined)`);
+    const said = `With a picture and a quote, ${name}`;
+    await type(said);
+    await quote("The first passage");
+    await until(`document.querySelector(".cquote").textContent.includes("The first passage")`);
+    await add(`first-${name}.png`);
+    await until(`document.querySelectorAll(${JSON.stringify(chips)}).length === 1`);
+    await ready();
+    await holdSend();
+    await press();
+    await until(`!!window.__sent`);
+    await add(`second-${name}.png`);
+    await until(`document.querySelectorAll(${JSON.stringify(chips)}).length === 2`);
+    await ready();
+    await quote("A later passage");
+    await letGo();
+    await toastSays("STILL HERE");
+    expect(await ev(`document.querySelectorAll(${JSON.stringify(chips)}).length`)).toBe(1);
+    expect(await ev(`document.querySelector(".cquote").textContent`)).toContain("A later passage");
+    expect(await box()).toBe("");
+    expect(await typed(said)).toBe(1);
+    const went = herdr.typedInto("hq").find((t) => t.includes(said))!;
+    expect(went).toContain("The first passage");
+    expect(went).toContain(`first-${name}.png`);
+    expect(went).not.toContain(`second-${name}.png`);
+    expect(went).not.toContain("A later passage");
+    await ev(`(import("/src/client/images/images.js").then((m) => m.clearImages(${JSON.stringify(box_)})), undefined)`);
+    await ev(`document.querySelector("[data-cunquote]").click()`);
+  }, 30_000);
+
+  test.skipIf(!chromeFound)(`${name}: a comment that fails keeps the words, and SEND works again`, async () => {
+    await openBox();
+    const said = `Failed first, ${name}`;
+    await type(said);
+    await holdSend();
+    await press();
+    await until(`!!window.__sent`);
+    await ev(`window.__refuse(); undefined`);
+    await until(`!![...document.querySelectorAll(".toast")].at(-1)`);
+    await until(`!document.querySelector("[data-csend]").disabled`);
+    expect(await box()).toBe(said);
+    await letGoNext();
+    await toastSays("SENT TO");
+    await until(`document.querySelector(".cmount textarea").value === ""`);
+    expect(await typed(said)).toBe(1);
+  }, 30_000);
+
+  test.skipIf(!chromeFound)(`${name}: the brief left and opened again during a send: the box there shows only what stayed`, async () => {
+    await openBox();
+    const said = `Left while it went, ${name}`, more = `added before leaving, ${name}`;
+    await type(said);
+    await holdSend();
+    await press();
+    await until(`!!window.__sent`);
+    await type(` ${more}`);
+    await ev(`document.querySelector("[data-brief-back]").click()`);
+    await until(`document.querySelector(".briefview").hidden`);
+    await ev(`location.hash = "#brief/${md}"`);
+    await until(`!document.querySelector(".briefview").hidden && !!document.querySelector(".briefview .cmount textarea")`);
+    await letGo();
+    await toastSays("SENT TO");
+    await until(`document.querySelector(".briefview .cmount textarea").value === ${JSON.stringify(more)}`);
+    expect(await typed(said)).toBe(1);
+    await setBox("");
+  }, 30_000);
+
+  if (mobile) test.skipIf(!chromeFound)("phone: the sheet closed during a comment's send: the toast says COMMENTS has the words, and they are there", async () => {
+    await openBox();
+    const said = "Closed while it went", more = "added before closing";
+    await type(said);
+    await holdSend();
+    await press();
+    await until(`!!window.__sent`);
+    await type(` ${more}`);
+    await ev(`document.querySelector("[data-cclose]").click()`);
+    await until(`!document.querySelector(".cmount.sheet")`);
+    await letGo();
+    await toastSays("COMMENTS HAS WHAT YOU ADDED SINCE");
+    await ev(`document.querySelector(".bvbar [data-comments-toggle]").click()`);
+    await until(`!!document.querySelector(".cmount.sheet")`);
+    expect(await box()).toBe(more);
+    await setBox("");
+    await ev(`document.querySelector("[data-cclose]").click()`);
+  }, 30_000);
+}
+
+test.skipIf(!chromeFound)("no page errors while comments were sent", () => expect(errors.filter((e) => !/Failed to fetch/.test(e))).toEqual([]));

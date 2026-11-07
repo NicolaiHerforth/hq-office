@@ -16,7 +16,7 @@
 // the rail, under the lanes and work, new and empty for each room and off the page once the room closes. A feature
 // that loads after a room opened asks openRoom() for it. One that adds to the list's tiles hooks in on "rooms:list"
 // (the list): it runs after every draw of the list, each tile an article[data-room="SLUG"].
-import { $, keepScroll, showEdges, toast } from "../core/dom.js";
+import { $, keepScroll, showEdges, toast, keysHint } from "../core/dom.js";
 import { CONFIG, S } from "../core/state.js";
 import { clock, esc, setHTML } from "../core/format.js";
 import { post } from "../core/net.js";
@@ -29,7 +29,9 @@ import { ART_H, drawStrip, laneAt, stripKey } from "./pix.js";
 import { pick, tagged } from "../core/scope.js";
 import { current, leaveField, leaveRoom as leave, open } from "../core/stage.js";
 import { floorTagHTML } from "../core/floors.js";
+import { exportButton } from "../brief-export/button.js";
 import "./new.js"; // + NEW ROOM
+import { ask, sheetMode } from "../core/sheet.js";
 
 const store = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch {} };
 const stored = (k) => { try { return localStorage.getItem(k); } catch { return null; } };
@@ -275,7 +277,7 @@ function renderBrief(d) {
   if (briefVers.slug !== d?.slug) briefVers = { slug: d?.slug ?? null, open: false, list: null, key: "", shown: null };
   const n = d?.briefVersions ?? 0;
   if (n && briefVers.open) loadBriefVersions(d);
-  const head = `<div class="k"><span>BRIEF</span>${d?.briefAt ? `<span class="by">${esc(d.briefBy || "")} · ${ago(d.briefAt)}</span>` : ""}${n ? `<button class="btn-s vbtn" type="button" data-brief-versions aria-expanded="${briefVers.open}">VERSIONS (${n + 1})</button>` : ""}</div>`;
+  const head = `<div class="k"><span>BRIEF</span>${d?.briefAt ? `<span class="by">${esc(d.briefBy || "")} · ${ago(d.briefAt)}</span>` : ""}${d?.brief && !d.briefHtml ? exportButton(`rooms/${d.slug}/brief`, briefVers.shown?.v) : ""}${n ? `<button class="btn-s vbtn" type="button" data-brief-versions aria-expanded="${briefVers.open}">VERSIONS (${n + 1})</button>` : ""}</div>`;
   const list = briefVers.open && briefVers.list ? `<div class="bvers">${[{ v: null, by: d.briefBy, at: d.briefAt, html: d.briefHtml }, ...briefVers.list].map((x, i, all) => {
     const label = x.v ? `V${all.length - i}` : "LATEST", sub = `${esc(x.by === "owner" ? "you" : x.by || "")}${x.at ? ` · ${ago(x.at)}` : ""}${x.html ? " · PAGE" : ""}`;
     const here = x.v ? briefVers.shown?.v === x.v : !briefVers.shown;
@@ -447,7 +449,7 @@ function renderSend(r) {
     sendFor = r.slug;
     el.innerHTML = `<div class="rto"><label>TO <select data-room-to aria-label="Send to">${options}</select></label><span class="tostate"></span></div>
       <div class="rquote"></div>
-      ${composer(key(r.slug), `<textarea rows="1" placeholder="Write to the lane. ⌘↩ sends.">${esc(d.text)}</textarea>`, `<button class="send go" type="button" data-room-send>SEND</button>`)}`;
+      ${composer(key(r.slug), `<textarea rows="1" placeholder="Write to the lane.${keysHint(" ⌘↩ sends.")}">${esc(d.text)}</textarea>`, `<button class="send go" type="button" data-room-send>SEND</button>`)}`;
   } else {
     // Not while it is open (it has focus): rewriting its options would close it or move the highlight under the
     // pointer. It catches up when it closes (the blur listener below).
@@ -623,6 +625,13 @@ view.addEventListener("click", (e) => {
     railFolded = !railFolded;
     store("hq-room-rail", railFolded ? "folded" : null);
     renderHead(roomOf(openSlug), detail);
+    return;
+  }
+  if (t.closest("[data-room-close]") && sheetMode()) {
+    const slug = openSlug;
+    ask({ text: `Close ${plain(roomOf(slug)?.title ?? slug)}? It moves to ARCHIVED and stops taking messages; HQ can reopen it with hud room create ${slug}.`, yes: "CLOSE IT", no: "KEEP IT OPEN" }).then((yes) => {
+      if (yes) post(`/api/rooms/${encodeURIComponent(slug)}/archive`, { by: "owner" }).then(() => toast("ROOM CLOSED. IT IS UNDER ARCHIVED IN ROOMS.")).catch((err) => toast(err.message));
+    });
     return;
   }
   if (t.closest("[data-room-close]")) { closeAsk = openSlug; renderHead(roomOf(openSlug), detail); return; }

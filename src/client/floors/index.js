@@ -65,8 +65,8 @@ function rowHTML(f, inB, many) {
 function scopeHTML(f) {
   const all = scope().all;
   const elsewhere = (S.open ?? []).filter((a) => a.floor !== f.id).length;
-  const chip = `<span class="schip" style="--fc:${esc(f.color)};color:${inkOn(f.color)}"><span class="fname">${esc(f.name)}</span>${all ? `<span class="fall">· ALL</span>` : ""}<button class="sx" type="button" data-scope-out aria-label="Out of the ${esc(f.name)} floor">×</button></span>`;
-  const what = all ? "" : elsewhere ? `+${elsewhere} ON OTHER FLOORS` : "";
+  const chip = `<span class="schip" style="--fc:${esc(f.color)};color:${inkOn(f.color)}"><span class="fname">${esc(f.name)}</span>${all ? `<span class="fall">· ALL</span>` : ""}<button class="sx" type="button" data-scope-out aria-label="Out of the ${esc(f.name)} floor"><span class="sxw">LEAVE</span><span class="sxm">×</span></button></span>`;
+  const what = all ? "" : elsewhere ? `<b class="sn">+${elsewhere}</b> <span class="son2">ON </span>OTHER FLOORS` : "";
   return chip + `<button class="sall" type="button" data-scope-all title="${all ? "Show this floor only" : `${elsewhere} waiting on you on other floors: show every floor's lists`}">`
     + (what ? `<span class="swhat">${what}</span><span class="ssep">·</span>` : "") + `<span class="sgo">${all ? "THIS FLOOR ONLY" : "SHOW ALL"}</span></button>`;
 }
@@ -179,11 +179,11 @@ document.addEventListener("click", (e) => {
   else if (t.matches("[data-floor-edit]")) openPanel({ mode: "edit", id: t.dataset.floorEdit });
   else if (t.matches("[data-floor-pick]")) openPanel({ mode: "edit", id: t.dataset.floorPick, focus: "hq" });
 });
-// A lane's tag (on a question, a message, the card) selects its worker: on another floor, go there first so the
-// office shows it. Before the click that selects it (core/clicks.js).
+// A lane's chip (in a room, on the work board, in the drawer) selects its worker: on another floor, go there first so the
+// office shows it. Before the click that selects it (core/clicks.js). Not a question's tag: the list you are answering stays.
 document.addEventListener("click", (e) => {
   const sel = e.target.closest?.("[data-select]");
-  if (!sel || !S || !multi(S)) return;
+  if (!sel || sel.closest("[data-ask]") || !S || !multi(S)) return;
   const lane = S.lanes.find((l) => l.name === sel.dataset.select);
   if (lane?.floor && lane.floor !== officeFloor()) enter(lane.floor);
 }, true);

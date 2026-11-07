@@ -1,0 +1,32 @@
+/* One sheet on a phone (core/sheet.js adds the class while one is open). :not(#_) outranks each panel's own rules, so a
+   panel keeps what it needs elsewhere and this is the one place a sheet looks like a sheet. */
+.sheet:not(#_) {
+  position: fixed;
+  inset: auto max(8px, env(safe-area-inset-right, 0px)) calc(8px + env(safe-area-inset-bottom, 0px)) max(8px, env(safe-area-inset-left, 0px));
+  width: auto;
+  max-width: none;
+  max-height: calc(100vh - 16px);
+  max-height: calc(100dvh - 16px);
+  margin: 0;
+  padding: 12px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  transform: none;
+  border: 3px solid var(--edge);
+  border-radius: 12px;
+  background: var(--box);
+  box-shadow: 0 8px 0 rgba(0, 0, 0, .25);
+  animation: sheetin .18s ease-out;
+}
+.sheet:not(#_):focus { outline: none; }
+@keyframes sheetin { from { transform: translateY(24px); opacity: 0; } to { transform: none; opacity: 1; } }
+.sheetbg { position: fixed; inset: 0; background: rgba(0, 0, 0, .45); touch-action: none; }
+.sheetbg[hidden] { display: none; }
+html.sheetopen { overflow: hidden; }
+/* A confirmation: on a wide screen, where there is no sheet, it sits at the corner of the screen. */
+.confirm { position: fixed; z-index: 60; right: 14px; bottom: 14px; width: min(420px, calc(100vw - 28px)); display: grid; gap: 12px; padding: 14px; }
+.confirm[hidden] { display: none; }
+.confirm p { margin: 0; font-size: 15px; line-height: 1.4; overflow-wrap: anywhere; }
+.confirmacts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.confirmacts .btn-s { min-height: 44px; }
+.confirmacts .danger { border-color: var(--red); background: var(--red); color: var(--on-fill); }

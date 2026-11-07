@@ -13,7 +13,8 @@ import { clock, dur, esc, setHTML } from "../core/format.js";
 import { fence, md, mdInline } from "../core/markdown.js";
 import { ranked, themeOf } from "../room/looks.js";
 import { settings } from "../settings/prefs.js";
-import { on } from "../core/bus.js";
+import { emit, on } from "../core/bus.js";
+import { sheet } from "../core/sheet.js";
 
 const EVERY = 3000;
 let live = null; // { name, terminal: { text, at, error }, said: [...] } for the selected lane, from the server
@@ -53,7 +54,7 @@ export function renderCard() {
   setHTML(card, `<button class="cardx" type="button" data-card-close aria-label="Close">✕</button><h3>${esc(lane.name)}</h3>
     <div class="sub">${mdInline(lane.title)}</div>${tree}
     <div class="row"><span class="status" style="background:${color}">${esc(label.toUpperCase())}</span>${since(lane, asks) ? `<span class="tag">FOR <span data-since="${since(lane, asks)}">${dur(Date.now() - since(lane, asks))}</span></span>` : ""}${lane.machine ? `<span class="tag">${esc(lane.machine)} ${esc(lane.pane || "")}</span>` : ""}</div>
-    ${asks.map((a) => `<section class="agq"><h4>ITS OPEN QUESTION</h4><b>${mdInline(a.title)}</b>${a.options?.length ? `<div class="agopts">${a.options.map((o) => `<span>${mdInline(o, { links: false })}${o === a.recommended ? ` <i>${esc(pickWord(a))}</i>` : ""}</span>`).join("")}</div>` : ""}<button class="agjump" type="button" data-answer-jump="${esc(lane.name)}">ANSWER IN NEEDS YOU ›</button></section>`).join("")}
+    ${asks.map((a) => `<section class="agq"><h4>ITS OPEN QUESTION</h4><b>${mdInline(a.title)}</b>${a.options?.length ? `<div class="agopts">${a.options.map((o) => `<span>${mdInline(o, { links: false })}${o === a.recommended ? ` <i>${esc(pickWord(a))}</i>` : ""}</span>`).join("")}</div>` : ""}<button class="agjump" type="button" data-answer-jump="${esc(lane.name)}" data-answer-ask="${a.id}">ANSWER IN NEEDS YOU ›</button></section>`).join("")}
     ${lane.status === "blocked" ? `<div class="prompt"><span class="k">BLOCKED ON A PROMPT · ANSWER IT IN HERDR ON ${esc(String(lane.machine || "?").toUpperCase())}, PANE ${esc(lane.pane || "?")}</span><div class="md">${md(fence(lane.prompt))}</div></div>` : ""}
     ${lane.note ? `<div class="note md">${md(lane.note)}</div>` : ""}
     <section class="agsec"><h4><i class="agdot${live?.terminal?.text != null ? " on" : ""}"></i>NOW · ITS TERMINAL<em>${live?.terminal?.at ? `read ${clock(live.terminal.at)}, every 3 s` : "reading…"}</em></h4>${terminalHTML()}</section>
@@ -121,9 +122,11 @@ $("card").addEventListener("click", (e) => {
   document.querySelector('[data-qtab="questions"]')?.click();
   const name = b.dataset.answerJump;
   // A phone's sheet would cover the question: the page goes to the question, and the sheet closes.
-  select(name, true);
+  emit("needs:go", Number(b.dataset.answerAsk));
+  select(name);
   if (!matchMedia("(min-width: 1151px)").matches) select(null);
 });
+sheet($("card"), () => select(null));
 $("card").addEventListener("click", (e) => { if (e.target.closest("[data-card-close]")) select(null); });
 // Beside a brief or a page, or alone again (split/): over the left pane only, or the whole office.
 on("split", () => { if (!$("card").hidden) renderCard(); });

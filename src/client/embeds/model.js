@@ -4,6 +4,8 @@
 // A card: { ref, kind, word, title, chips: [{ t, c, status? }], preview, floor, href, tab, thumb }. word is the kind
 // as the card says it, c a chip's look (new, hot, ok, muted, lane, st for a lane's status), preview one line of
 // markdown, floor the floor it is on, href where a click goes (tab: in a new tab), thumb a picture's address.
+import { headingOf } from "../core/heading.js";
+
 const KIND_WORD = { decision: "QUESTION", action: "TO DO", info: "FYI" };
 const IMAGE = /\.(png|jpe?g|gif|webp|avif|svg)$/i;
 const PAGE = /\.html?$/i;
@@ -13,8 +15,8 @@ const PAGE = /\.html?$/i;
 export function firstLine(text) {
   let heading = "";
   for (const l of String(text ?? "").split("\n")) {
-    const h = l.match(/^\s{0,3}#{1,6}\s+(.*?)\s*#*\s*$/);
-    if (h) { heading ||= h[1]; continue; }
+    const h = headingOf(l);
+    if (h) { heading ||= h.text; continue; }
     const t = l.replace(/^\s*(?:>\s*|[-*+]\s+(?:\[[ xX]\]\s+)?|\d{1,9}[.)]\s+)/, "").trim();
     if (t && !/^(?:`{3,}|~{3,}|\|?\s*:?-{2,})/.test(t)) return clip(t);
   }
