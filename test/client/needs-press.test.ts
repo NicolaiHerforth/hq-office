@@ -157,7 +157,8 @@ for (const run of RUNS) {
       await toFocus(false);
       const [a, b] = await k.openIds();
       // Slow both ways: the second press comes before the first reaches the server, and each push before its own reply.
-      await ev(`window.__slow = 500; window.__late = 900`);
+      // The first card leaves at the press, so the second waits out the hold that starts.
+      await ev(`window.__slow = 900; window.__late = 900`);
       for (const id of [a, b]) {
         const box = `#hud [data-ask="${id}"] textarea`;
         await ev(`document.querySelector(${JSON.stringify(box)}).scrollIntoView({ block: "center", behavior: "instant" })`);
@@ -167,6 +168,7 @@ for (const run of RUNS) {
         await k.d.type(`My words on ${id}.`);
       }
       for (const id of [a, b]) {
+        await quiet();
         await ev(`document.querySelector('#hud [data-ask="${id}"] .send').scrollIntoView({ block: "center", behavior: "instant" })`);
         await Bun.sleep(50);
         await k.clickEl(`document.querySelector('#hud [data-ask="${id}"] .send')`);

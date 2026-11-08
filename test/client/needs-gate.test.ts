@@ -408,15 +408,13 @@ for (const run of RUNS) {
       await k!.until(`!document.querySelector(${JSON.stringify(card(b))})`);
     });
 
-    test("one answer per card in flight: NOT YET while DONE is on its way posts nothing", async () => {
+    test("one answer per card in flight: DONE takes the card away at once, so NOT YET cannot follow it", async () => {
       await desk(many("action", "Do", 4));
       const [a] = k!.ids;
       await ev(`window.__slow = 700`);
       await center(`${card(a)} .send`);
       await k!.clickEl(`document.querySelector(${JSON.stringify(`${card(a)} .send`)})`);
-      await Bun.sleep(100);
-      await k!.clickEl(`document.querySelector(${JSON.stringify(`${card(a)} .notyet`)})`);
-      await k!.until(`!document.querySelector(${JSON.stringify(card(a))})`);
+      expect(await ev(`!document.querySelector(${JSON.stringify(card(a))})`)).toBe(true);
       await Bun.sleep(900);
       await ev(`window.__slow = 0`);
       expect(await posted(a)).toBe(1);

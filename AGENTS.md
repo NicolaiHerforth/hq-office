@@ -37,7 +37,7 @@ what it is for. `docs/structure.md` explains the layout and its trade-offs.
 - `src/server/routes/`: one file per resource; the router loads them all.
 - `src/server/schema/`: one `.sql` file per table, applied at startup.
 - `test/`: the original tests; `test/server/` and `test/client/` mirror `src/`.
-- `scripts/`: `mobile-audit.ts` (every surface at three phone sizes, both themes: screenshots and what spills, on a throwaway server), `mobile-walk-check.ts` (every way in and out on a phone with real taps; through the suite lock), `release.ts` (the release routine, below), `restructure.ts` (how the split was made; re-runnable), `room-hash.ts` (pixel and style hashes of the page).
+- `scripts/`: `answer-speed.ts` (an answer's press to the card gone, the toast and the count, desktop and phone over a delay proxy, on a seeded throwaway server; run it on two trees to compare), `mobile-audit.ts` (every surface at three phone sizes, both themes: screenshots and what spills, on a throwaway server), `mobile-walk-check.ts` (every way in and out on a phone with real taps; through the suite lock), `release.ts` (the release routine, below), `restructure.ts` (how the split was made; re-runnable), `room-hash.ts` (pixel and style hashes of the page).
 
 ## Working in parallel (lanes)
 

@@ -5,12 +5,15 @@ import { announce } from "../questions/announce.js";
 import { announceUpdates } from "../messages/messages.js";
 import { syncWorkers } from "../room/workers.js";
 import { scheduleTick, tick } from "../questions/questions.js";
-import { emit } from "./bus.js";
+import { emit, on } from "./bus.js";
+import { withoutLeaving } from "../questions/place.js";
 
-let first = true, pageStamp = null;
+// served: the server's open asks, with the ones you have just answered still in them.
+let first = true, pageStamp = null, served = [];
 function apply(part, whole) {
   setS(whole ? part : Object.assign(S, part));
   const changed = (k) => whole || k in part;
+  if (changed("open")) S.open = withoutLeaving((served = S.open));
   setCONFIG(S.config ?? CONFIG);
   if (pageStamp == null) pageStamp = S.page;
   else if (S.page !== pageStamp) { keepDrafts(); location.reload(); return; }
@@ -22,6 +25,8 @@ function apply(part, whole) {
   tick();
   scheduleTick();
 }
+// An answer left or came back (questions/answer.js): the list, the counts and the stage change at once.
+on("asks:leaving", () => { if (S) apply({ open: served }); });
 async function load() { apply(await (await fetch("/api/state")).json(), true); }
 let stream = null;
 function connect() {

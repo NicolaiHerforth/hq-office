@@ -12,7 +12,7 @@ import { enter, pick, scope, tagged } from "../core/scope.js";
 import { floorById, floorTagHTML, hqShown, readingOf } from "../core/floors.js";
 import { fillFrames, holdFrames, onSmall, onStage, pageSlotHTML, stagedAsk } from "./ask-page.js";
 import { askerOf, forWhom, pickWord } from "./asker.js";
-import { arrive, beforeRemove, eyeLine, hold, isLeaving, onScreen, remember, scrollOn, settle, watchCard } from "./place.js";
+import { arrive, beforeRemove, eyeLine, hold, isLeaving, onScreen, remember, scrollOn, sentAnswer, settle, watchCard } from "./place.js";
 import { cardChanged } from "./hold.js";
 import { focusOn, focusTo, focused, leftOnStage, setFocus, stepFrom, syncFocus } from "./focus.js";
 import { dropLeft, holdsWords, leftCard, showParked, syncLeft, toldAfterReload, turnLeft } from "./left.js";
@@ -343,8 +343,8 @@ function renderList() {
     }
     leftFor = beforeRemove(card, !isOpen(id)) ?? leftFor;
     card.remove();
-    // Nothing of yours is on it: a pick means nothing once its question has gone.
-    if (!isOpen(id)) drafts.delete(id);
+    // Nothing of yours is on it: a pick means nothing once its question has gone. An answer on its way keeps it until it lands.
+    if (!isOpen(id) && !isLeaving(id)) drafts.delete(id);
   }
   // After a reload: what you left on a question that closed meanwhile, however long ago, newest first, and the question on
   // the stage if it is the one. The words stay until you discard them; a bare pick does not.
@@ -365,7 +365,7 @@ function renderList() {
   if (syncLeft()) changed = true;
   if (parkedNow?.length) toast(focusOn() ? "A QUESTION WITH YOUR DRAFT CLOSED WHILE YOU WERE AWAY. IT STAYS ON ITS CARD." : toldAfterReload());
   for (const id of secretDrafts.keys()) if (!isOpen(id)) secretDrafts.delete(id);
-  for (const key of imageKeys()) if (/^\d+$/.test(key) && !S.open.some((a) => String(a.id) === key)) clearImages(key);
+  for (const key of imageKeys()) if (/^\d+$/.test(key) && !S.open.some((a) => String(a.id) === key) && !isLeaving(Number(key))) clearImages(key);
   // A card that has closed stays where it is among the others.
   const skipLeft = (el) => { while (el?.classList.contains("left")) el = el.nextElementSibling; return el; };
   let at = skipLeft(hud.querySelector(":scope > .ask"));
@@ -415,7 +415,7 @@ function renderDock() {
     return;
   }
   dockCard = null;
-  const done = (S.answered ?? []).find((x) => x.id === id);
+  const done = (S.answered ?? []).find((x) => x.id === id) ?? sentAnswer(id);
   setHTML(dock, `<div class="dockdone"><span class="sk">${done ? (done.status === "withdrawn" ? "WITHDRAWN" : "ANSWERED") : "NOT OPEN"}</span>${done ? `<h3>${mdInline(done.title)}</h3>${done.answer ? `<div class="md">${mdClip(done.answer, `dock${id}`)}</div>` : ""}` : "<span>This question is not waiting on you.</span>"}</div>`);
   tick();
 }

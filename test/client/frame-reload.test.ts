@@ -54,13 +54,15 @@ test.skipIf(!chromeFound)("the theme switched a few milliseconds into a page's f
     const to = i % 2 ? "light" : "dark", ms = i % 10;
     await ev(`(() => { document.documentElement.dataset.theme = ${JSON.stringify(to === "dark" ? "light" : "dark")}; window.__loads = []; location.hash = "#page/rooms/pricing/files/theme.html"; setTimeout(() => { document.documentElement.dataset.theme = ${JSON.stringify(to)}; }, ${ms}); return true; })()`);
     await until(`!!${frame}`);
-    await Bun.sleep(2000);
-    const got = await ev(`JSON.stringify({ last: window.__loads.at(-1) ?? null, src: ${frame}?.getAttribute("src") })`);
-    const { last, src } = JSON.parse(got);
+    // The frame switches only once its first load is done, and that load can take seconds on a busy machine: wait for the
+    // end, a while, instead of a fixed time. A frame that never gets there is still caught.
+    const read = async () => JSON.parse(await ev(`JSON.stringify({ last: window.__loads.at(-1) ?? null, src: ${frame}?.getAttribute("src") })`));
+    let { last, src } = await read();
+    for (const end = Date.now() + 10_000; (last !== to || !src?.endsWith(`theme=${to}`)) && Date.now() < end; await Bun.sleep(100)) ({ last, src } = await read());
     if (last !== to || !src.endsWith(`theme=${to}`)) stale.push(`try ${i} (${ms} ms): wanted ${to}, the page last loaded in ${last}, the frame asks for ${src}`);
     await ev(`location.hash = "", true`);
     await until(`!${frame}`);
   }
   expect(stale).toEqual([]);
   expect(errors).toEqual([]);
-}, 90_000);
+}, 300_000);

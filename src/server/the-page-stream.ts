@@ -12,11 +12,18 @@ const parts = new Map<string, { json: string; gen: number }>();
 let partGen = 0;
 export const PING_MS = 120_000; // the minute's machine sample pushes anyway; this only keeps a quiet stream open
 // What the page shows of the state. It leaves out what no page reads and what changes without anything on the page
-// changing: the event log (HQ reads it through /api/state), the herdr sync stamps, the server clock, and when herdr
-// last saw each lane (it is stamped every sync). /api/state still has all of it.
+// changing: the event log (HQ reads it through /api/state), the herdr sync stamps, the server clock, when herdr
+// last saw each lane (it is stamped every sync), and the ages the board and the machines count from the clock (the page
+// counts them from their times). /api/state still has all of it.
 function pageView() {
   const { events, untracked, sync, now, ...rest } = state();
-  return { ...rest, lanes: rest.lanes.map(({ herdr_seen, ...lane }) => lane) };
+  const { now: _, ...board } = rest.board;
+  return {
+    ...rest,
+    lanes: rest.lanes.map(({ herdr_seen, ...lane }) => lane),
+    machines: rest.machines.map(({ age, ...m }) => m),
+    board: { ...board, items: board.items.map((i) => (i.last ? { ...i, last: { at: i.last.at, what: i.last.what } } : i)) },
+  };
 }
 export function refreshParts() {
   for (const [key, value] of Object.entries(pageView())) {

@@ -72,9 +72,12 @@ test.skipIf(!chromeFound)("ADD: a link with a title, and files from the picker, 
   await page.evaluate(`(() => { const i = document.querySelector("#roomView [data-shelf-file]"); i.files = window.__dt([["plan notes.md", "text/markdown", "# plan"], ["chart.png", "image/png"]]).files; i.dispatchEvent(new Event("change", { bubbles: true })); })()`);
   await until(`document.querySelectorAll("#roomView .art").length === 4`);
   const items = await shelf();
-  expect(items.map((a) => [a.title, a.kind, a.by])).toEqual([["The spec", "link", "owner"], ["example.com/board", "link", "owner"], ["plan notes.md", "file", "owner"], ["chart.png", "image", "owner"]]);
-  expect(items[2].path).toEndWith("/rooms/ope-3/files/plan notes.md");
-  expect(await (await fetch(`${server.base}${items[2].url}`)).text()).toBe("# plan");
+  // The picker's files upload side by side, so either may land first.
+  expect(items.slice(0, 2).map((a) => [a.title, a.kind, a.by])).toEqual([["The spec", "link", "owner"], ["example.com/board", "link", "owner"]]);
+  expect(items.slice(2).map((a) => [a.title, a.kind, a.by]).sort()).toEqual([["chart.png", "image", "owner"], ["plan notes.md", "file", "owner"]]);
+  const plan = items.find((a) => a.title === "plan notes.md")!;
+  expect(plan.path).toEndWith("/rooms/ope-3/files/plan notes.md");
+  expect(await (await fetch(`${server.base}${plan.url}`)).text()).toBe("# plan");
   expect(await page.evaluate(`[...document.querySelectorAll("#roomView .art .am")].every((m) => m.textContent.startsWith("you"))`)).toBe(true);
   // The image shows inline, from the room's folder.
   await until(`document.querySelector("#roomView .art.image img")?.naturalWidth === 1`);

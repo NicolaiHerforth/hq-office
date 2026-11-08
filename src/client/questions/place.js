@@ -83,11 +83,18 @@ sizes.observe($("main"));
 sizes.observe(document.body);
 export const watchCard = (card) => sizes.observe(card);
 
-// You answered this card: when it leaves, the next one takes its place, under the eye if it was above the screen.
-const leaving = new Set();
-export const leave = (id) => { leaving.add(id); };
+// You answered this card: it leaves the list at once, before the server hears of it, and the next one takes its place,
+// under the eye if it was above the screen. It stays out until the server's list no longer holds it, or comes back if
+// the answer fails. sent: what the stage shows meanwhile ({ title, answer, status }).
+const leaving = new Map();
+export const leave = (id, sent) => { leaving.set(id, sent); };
 export const stay = (id) => { leaving.delete(id); };
 export const isLeaving = (id) => leaving.has(id);
+export const sentAnswer = (id) => leaving.get(id);
+export function withoutLeaving(open) {
+  for (const id of leaving.keys()) if (!open.some((a) => a.id === id)) leaving.delete(id);
+  return leaving.size ? open.filter((a) => !leaving.has(a.id)) : open;
+}
 export function onScreen(card) {
   const { top, bottom } = card.getBoundingClientRect();
   return !hud.hidden && bottom > eyeLine() && top < (pageScrolls() ? innerHeight : hud.getBoundingClientRect().bottom);
@@ -96,7 +103,7 @@ export function onScreen(card) {
 // is held back from the press meant for this one. Leaving the list for another floor closes nothing.
 const shownFrom = (card, step) => { let c = card[step]; while (c && !c.getClientRects().length) c = c[step]; return c; };
 export function beforeRemove(card, closed) {
-  const mine = leaving.delete(Number(card.dataset.ask)), { top } = card.getBoundingClientRect(), seen = onScreen(card);
+  const mine = leaving.has(Number(card.dataset.ask)), { top } = card.getBoundingClientRect(), seen = onScreen(card);
   // FOCUS shows one card at a time: the hold asks only whether there is another, and the jump needs one you can see.
   if ((mine || closed) && seen && (card.nextElementSibling ?? card.previousElementSibling)) cardChanged();
   const next = shownFrom(card, "nextElementSibling") ?? shownFrom(card, "previousElementSibling");

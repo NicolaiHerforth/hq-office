@@ -1,5 +1,6 @@
 // Answering: options, drafts as you type, SEND, COPY, and deleting a secret.
 import { $, toast } from "../core/dom.js";
+import { emit } from "../core/bus.js";
 import { drafts, secretDrafts } from "./drafts.js";
 import { S } from "../core/state.js";
 import { copyCode } from "../core/markdown.js";
@@ -11,7 +12,7 @@ import { forWhom, keptFor } from "./asker.js";
 import { attachedTo, clearImages, notReady, withImages } from "../images/images.js";
 
 // One answer per card on its way, from the list or the stage: the server would take only the first. NOT YET's; an answer's
-// is isLeaving, which lasts until its card has gone.
+// is isLeaving, which lasts until the server's list no longer holds the ask.
 const flying = new Set();
 
 // Whom the answer reaches, read before it is sent (once answered, the ask leaves S.open): the asker, or HQ. A lane
@@ -80,18 +81,20 @@ $("main").addEventListener("click", async (e) => {
   const answer = d.opt ? (text ? `${d.opt}. ${text}` : d.opt) : text || (ask.kind === "action" ? "done" : "seen");
   const values = secretDrafts.get(id);
   const to = sentTo(id);
+  const undo = (err) => { stay(id); emit("asks:leaving"); toast(err.message); };
   going(true);
-  leave(id);
+  leave(id, { title: ask.title, answer, status: "answered" });
+  emit("asks:leaving");
   if (ask.secrets?.length && values && Object.values(values).some(Boolean)) {
     // Cleared at once, whatever the server says.
     secretDrafts.delete(id);
     for (const inp of card.querySelectorAll("[data-secret]")) inp.value = "";
     try { await post(`/api/asks/${id}/secrets`, { values, minutes: Number(d.minutes ?? 60), note: d.opt ? answer : text }); drafts.delete(id); clearImages(id); toast(`SECRETS SAVED. ${reached(to, "HAS THE NAMES")}`); }
-    catch (err) { stay(id); toast(err.message); back(); }
+    catch (err) { undo(err); }
     return;
   }
   try { await post(`/api/asks/${id}/answer`, { answer }); drafts.delete(id); clearImages(id); toast(`SENT. ${reached(to, "HAS IT")}`); }
-  catch (err) { stay(id); toast(err.message); back(); }
+  catch (err) { undo(err); }
 });
 $("main").addEventListener("input", (e) => {
   const card = e.target.closest("[data-ask]");

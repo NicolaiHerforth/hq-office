@@ -3,6 +3,15 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.41.1] - 2026-11-08
+### Fixed
+
+- **Answering is instant.** The card leaves, the count drops and the stage shows your answer at the press, on a desktop and
+  on a phone, instead of after the server's next update. If sending fails, the card comes back with your words. The 400 ms
+  hold on a second tap now starts at your press, so it never catches a tap you make a moment later.
+- **The page's live updates are smaller**: they no longer resend the work board's and the machines' clocks every time
+  anything changes.
+
 ## [0.41.0] - 2026-11-07
 ### Added
 

@@ -13,11 +13,11 @@ import "./fit.js";
 // name is the long part: a full top bar keeps only that square, then only the number (fit.js).
 export function renderMachines() {
   const ms = S.machines ?? [];
-  const rows = ms.map(({ machine, sample, age, ok }) => {
+  const rows = ms.map(({ machine, sample, ok }) => {
     const name = machine.toUpperCase();
     if (!sample || !ok) return { name, state: "off", tip: `${name}: offline${sample?.error ? ` (${sample.error})` : ""}` };
     const bad = sample.cpu_busy > 90 || sample.mem_used > 90;
-    return { name, state: bad ? "bad" : "", cpu: Math.round(sample.cpu_busy), mem: Math.round(sample.mem_used), tip: `${name}: CPU ${Math.round(sample.cpu_busy)}% · MEM ${Math.round(sample.mem_used)}% · load ${sample.load1.toFixed(1)} on ${sample.cores} cores, ${dur(age)} ago` };
+    return { name, state: bad ? "bad" : "", cpu: Math.round(sample.cpu_busy), mem: Math.round(sample.mem_used), tip: `${name}: CPU ${Math.round(sample.cpu_busy)}% · MEM ${Math.round(sample.mem_used)}% · load ${sample.load1.toFixed(1)} on ${sample.cores} cores, ${dur(Date.now() - sample.at)} ago` };
   });
   const bad = rows.find((r) => r.state === "bad"), off = rows.find((r) => r.state === "off");
   const named = bad ?? off ?? rows[0];
