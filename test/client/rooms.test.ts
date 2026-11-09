@@ -187,7 +187,22 @@ test.skipIf(!chromeFound)("the thread keeps its height beside a long brief and s
     };
   })()`);
   expect(v.threadH).toBeGreaterThan(v.viewH * 0.5);
-  expect(v).toMatchObject({ overlap: false, sendBelow: true, threadScrolls: true, railScrolls: true, nested: false, newest: true, pageScroll: false });
+  expect(v).toMatchObject({ overlap: false, sendBelow: true, threadScrolls: true, nested: false, newest: true, pageScroll: false });
+});
+
+test.skipIf(!chromeFound)("beside a long brief the shelf is in view: the brief shows its start with MORE, all of it after", async () => {
+  await load("#room/ope-9");
+  await until(`document.querySelectorAll("#roomView .rshelf .art").length === 6 && !!document.querySelector("#roomView .rbrief [data-brief-more]:not([hidden])")`);
+  const look = () => page.evaluate(`(() => {
+    const r = document.getElementById("roomView"), rail = r.querySelector(".rvrail"), b = r.querySelector(".rbrief");
+    return { shelfInView: r.querySelector(".rshelf .k").getBoundingClientRect().bottom <= rail.getBoundingClientRect().bottom, more: b.querySelector("[data-brief-more]")?.textContent, cut: b.querySelector(".md").scrollHeight > b.querySelector(".md").clientHeight + 1 };
+  })()`);
+  expect(await look()).toEqual({ shelfInView: true, more: "MORE", cut: true });
+  await click("#roomView .rbrief [data-brief-more]");
+  await until(`document.querySelector("#roomView .rbrief [data-brief-more]")?.textContent === "LESS"`);
+  expect(await look()).toMatchObject({ more: "LESS", cut: false });
+  await click("#roomView .rbrief [data-brief-more]");
+  await until(`document.querySelector("#roomView .rbrief [data-brief-more]")?.textContent === "MORE"`);
 });
 
 test.skipIf(!chromeFound)("a message's line breaks show: a break for a new line, a paragraph for a blank one, lists and code as markdown", async () => {

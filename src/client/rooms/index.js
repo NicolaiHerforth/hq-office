@@ -273,6 +273,9 @@ async function showBriefVersion(slug, v) {
     if (briefVers.slug === slug) { briefVers.shown = data.version; briefVers.open = false; renderBrief(detail); }
   } catch (err) { toast(err.message); }
 }
+// Beside the thread a long brief shows its start, with MORE, so the shelf under it stays in reach (rooms.css cuts it);
+// the phone's BRIEF tab is the brief alone and shows all of it.
+const briefOpen = new Set(); // rooms whose brief is shown in full here
 function renderBrief(d) {
   if (briefVers.slug !== d?.slug) briefVers = { slug: d?.slug ?? null, open: false, list: null, key: "", shown: null };
   const n = d?.briefVersions ?? 0;
@@ -288,8 +291,13 @@ function renderBrief(d) {
   const old = briefVers.shown, i = old && briefVers.list ? briefVers.list.findIndex((x) => x.v === old.v) : -1;
   const body = !d ? ""
     : old ? `<div class="bold"><span><b>OLDER VERSION${i >= 0 ? ` V${briefVers.list.length - i}` : ""}</b>read-only · ${esc(old.by)} · ${ago(old.at)}</span><button class="btn-s" type="button" data-brief-version="">SHOW LATEST</button></div><div class="md">${md(old.body ?? "")}</div>`
-    : d.briefHtml ? `<div class="md"><p>This brief is a page.</p><p><a class="btn-s" href="#page/rooms/${esc(d.slug)}/brief">OPEN THE BRIEF</a></p></div>` : d.brief ? `<div class="md">${md(d.brief)}</div>` : `<div class="md none">No brief yet. The owning lane pins one with hud room brief ${esc(d.slug)}.</div>`;
+    : d.briefHtml ? `<div class="md"><p>This brief is a page.</p><p><a class="btn-s" href="#page/rooms/${esc(d.slug)}/brief">OPEN THE BRIEF</a></p></div>` : d.brief ? `<div class="md bclip${briefOpen.has(d.slug) ? " open" : ""}">${md(d.brief)}</div><button class="more" type="button" data-brief-more hidden></button>` : `<div class="md none">No brief yet. The owning lane pins one with hud room brief ${esc(d.slug)}.</div>`;
   setHTML(part("rbrief"), head + list + body);
+  const clip = part("rbrief").querySelector(".bclip"), more = part("rbrief").querySelector("[data-brief-more]");
+  if (!clip) return;
+  const open = briefOpen.has(d.slug);
+  more.hidden = fullScreen.matches || (!open && clip.scrollHeight <= clip.clientHeight + 1);
+  more.textContent = open ? "LESS" : "MORE";
 }
 
 // Pixel icons for the shelf's cards.
@@ -571,7 +579,7 @@ function fitViewport() {
 }
 vv?.addEventListener("resize", fitViewport);
 vv?.addEventListener("scroll", fitViewport);
-fullScreen.addEventListener("change", () => { fitViewport(); if (openSlug) { renderStrip(roomOf(openSlug)); renderBar(roomOf(openSlug)); } });
+fullScreen.addEventListener("change", () => { fitViewport(); if (openSlug) { renderStrip(roomOf(openSlug)); renderBar(roomOf(openSlug)); } if (detail) renderBrief(detail); });
 
 // ---- sending ----
 
@@ -674,6 +682,7 @@ view.addEventListener("click", (e) => {
   if (retry) { retry.disabled = true; post(`/api/rooms/${encodeURIComponent(openSlug)}/messages/${retry.dataset.roomRetry}/retry`, {}).catch((err) => { toast(err.message); retry.disabled = false; }); return; }
   const sendBtn = t.closest("[data-room-send]");
   if (sendBtn) { send(sendBtn); return; }
+  if (t.closest("[data-brief-more]")) { if (!briefOpen.delete(openSlug)) briefOpen.add(openSlug); renderBrief(detail); return; }
   // MORE / LESS on a long message: core/clicks.js flips it after this handler; draw the thread once it has.
   if (t.closest(".more[data-more]")) setTimeout(() => detail && renderThread(detail, roomOf(openSlug)), 0);
 });

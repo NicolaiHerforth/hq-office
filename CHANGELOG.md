@@ -3,6 +3,13 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.41.2] - 2026-11-09
+### Fixed
+
+- **A room's shelf is in reach beside a long brief.** On a wide screen the brief in a room's rail shows its start with
+  MORE, so the shelf sits right under it; MORE shows the whole brief and LESS folds it again. The phone's BRIEF tab
+  still shows all of it.
+
 ## [0.41.1] - 2026-11-08
 ### Fixed
 

@@ -127,6 +127,9 @@
 .art .ak span { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
 .art .ak svg { flex: 0 0 auto; width: 14px; height: 14px; fill: currentColor; }
 .art .ak .av { flex: none; margin-left: auto; padding: 2px 4px; border-radius: 4px; background: var(--hover); color: var(--ink); }
+/* a long brief beside the thread shows its start and MORE, so the shelf under it stays in reach; the phone's BRIEF tab shows it all */
+.rbrief .bclip:not(.open) { max-height: 200px; overflow: hidden; mask-image: linear-gradient(to bottom, black 70%, transparent); }
+.rbrief [data-brief-more] { justify-self: start; }
 /* the brief's VERSIONS: a short list under its head; an earlier markdown brief shows in place, marked read-only */
 .rbrief .k .vbtn { margin-left: auto; min-height: 24px; padding: 4px 8px; font-size: 8px; }
 .bvers { display: grid; gap: 2px; padding: 4px; border: 2px solid var(--rule); border-radius: 6px; }
@@ -205,6 +208,7 @@
   .roomview.typing .rvpix, .roomview.typing .rvhead { display: none; }
   .rvbody, .roomview.folded .rvbody { grid-template-columns: minmax(0, 1fr); }
   .roomview[data-pane="chat"] .rvrail { display: none; }
+  .rbrief .bclip:not(.open) { max-height: none; mask-image: none; }
   .roomview:not([data-pane="chat"]) .rvchat { display: none; }
   .roomview:not([data-pane="chat"]) .rvrail, .roomview.folded:not([data-pane="chat"]) .rvrail { display: grid; }
   .roomview[data-pane="brief"] .rshelf, .roomview[data-pane="shelf"] .rtop, .roomview[data-pane="shelf"] .rmount, .roomview[data-pane="shelf"] .rbrief { display: none; }

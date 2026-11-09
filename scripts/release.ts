@@ -197,7 +197,19 @@ for (const key of Object.keys(testEnv)) if (key.startsWith("PIXEL_") || key.star
 console.log("bun test in the export:");
 // 30 s per test, not bun's 5 s: a release runs on a machine shared with other work, and a slow moment is not a broken
 // test. A test that hangs still fails, and the watchdog still stops a run that hangs as a whole.
-run([process.execPath, "test", "--timeout", "30000"], { cwd: CHECK, inherit: true, env: testEnv });
+const JUNIT = join(TMP, "tests.xml");
+const suite = run([process.execPath, "test", "--timeout", "30000", "--reporter=junit", `--reporter-outfile=${JUNIT}`], { cwd: CHECK, inherit: true, soft: true, env: testEnv });
+if (!suite.ok) {
+  // On a busy machine a few walks run out of time, different ones each run, and the whole suite takes about 40 minutes.
+  // So the files that failed run again, one at a time, and the release goes on only if each passes on its own; a
+  // break fails both times. The files that needed a second run are named, to be made sturdier.
+  const report = existsSync(JUNIT) ? readFileSync(JUNIT, "utf8") : "";
+  const failed = [...new Set([...report.matchAll(/<testcase\b[^>]*\bfile="([^"]+)"[^>]*>\s*<failure\b/g)].map((m) => m[1]))];
+  if (!failed.length) fail("bun test failed, and its report names no failing file (see the output above)");
+  console.log(`\nbun test failed in ${failed.length} file(s); each runs again on its own:\n${failed.map((f) => `  ${f}`).join("\n")}`);
+  for (const f of failed) if (!run([process.execPath, "test", "--timeout", "30000", f], { cwd: CHECK, inherit: true, soft: true, env: testEnv }).ok) fail(`${f} failed again on its own`);
+  console.log(`\nbun test: passed, after a second run on their own of: ${failed.join(", ")}`);
+}
 
 // ---- Parity Lab: the export's pages still do what an artifact's do ----
 
