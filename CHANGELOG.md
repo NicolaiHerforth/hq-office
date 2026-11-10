@@ -3,6 +3,17 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.41.3] - 2026-11-10
+### Added
+
+- **HIDE on the "HQ isn't receiving" strip.** It hides the strip in this browser for the floors whose HQ is down now.
+  It comes back when another floor's HQ stops receiving, or the same one stops again after it was back. The page's
+  title and TELL HQ still say it while the strip is hidden, and what you send is still kept for that HQ.
+
+### Fixed
+
+- A room's brief is measured again for its MORE when you open the folded rail.
+
 ## [0.41.2] - 2026-11-09
 ### Fixed
 

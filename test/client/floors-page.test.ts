@@ -374,6 +374,19 @@ test.skipIf(!chromeFound)("an HQ that was receiving and stopped: red on its floo
   // It stopped and its name cannot be given back: START ITS HQ and PICK ANOTHER beside CHECK NOW, on its tile, its
   // list row and inside it; its state says "stopped" plainly.
   expect(await ev(`!!document.querySelector('.hqdown [data-floor-start="backend"]') && !!document.querySelector('.hqdown [data-floor-pick="backend"]') && !!document.querySelector('.hqdown [data-hq="check"]')`)).toBe(true);
+  // HIDE, once, on its first line: the strip goes; another floor's HQ stopping brings it back with both.
+  expect(await ev(`document.querySelectorAll(".hqdown [data-hq-hide]").length`)).toBe(1);
+  await click(".hqdown [data-hq-hide]");
+  await until(`document.querySelector(".hqdown").hidden`);
+  const sales = herdr.agents().find((a) => a.name === "hq-sales")!;
+  herdr.world(herdr.agents().filter((a) => a.name !== "hq-sales"));
+  await post("/api/sync", {});
+  await until(`!document.querySelector(".hqdown").hidden && document.querySelector(".hqdown").innerText.includes("SALES")`);
+  expect(await text(".hqdown")).toContain("BACKEND");
+  herdr.world([...herdr.agents(), sales]);
+  await post("/api/sync", {});
+  // Sales receives again; the backend is still hidden, so the strip goes again.
+  await until(`document.querySelector(".hqdown").hidden`);
   expect(await ev(`!!document.querySelector('.ftile[data-floor="backend"] [data-floor-start]')`)).toBe(true);
   expect(await text('.ftile[data-floor="backend"] .ffix')).toContain("hq-backend stopped");
   expect(await text('.ftile[data-floor="backend"] .hqword')).toBe("stopped");

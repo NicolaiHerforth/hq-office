@@ -88,3 +88,27 @@ test.skipIf(!chromeFound)("NAME gives HQ its name back: the held note goes and t
   expect(await page.evaluate(`document.querySelector("#lastNote").innerText`)).not.toContain("HELD");
   expect(errors).toEqual([]);
 }, 20_000);
+
+test.skipIf(!chromeFound)("HIDE takes the banner away in this browser, also after a reload, with the title still saying it; HQ's next stop shows it again", async () => {
+  writeFileSync(mode, "unnamed");
+  await server.post("/api/sync", {});
+  await until(`!!${banner} && !${banner}.hidden`);
+  await page.evaluate(`${banner}.querySelector("[data-hq-hide]").click()`);
+  await until(`${banner}.hidden`);
+  expect(await page.evaluate("document.title")).toBe("HQ ISN'T RECEIVING · HQ Office");
+  await page.s("Page.navigate", { url: `${server.base}/` });
+  await until(`!!document.querySelector("#lastNote")?.innerHTML && document.title.startsWith("HQ ISN'T")`);
+  await Bun.sleep(500);
+  expect(await page.evaluate(`!${banner} || ${banner}.hidden`)).toBe(true);
+  // Receiving again, it is forgotten; the next stop shows the banner.
+  writeFileSync(mode, "up");
+  await server.post("/api/sync", {});
+  await until(`document.title === "HQ Office" && localStorage.getItem("hq-down-hidden") === null`);
+  writeFileSync(mode, "unnamed");
+  await server.post("/api/sync", {});
+  await until(`!!${banner} && !${banner}.hidden`);
+  writeFileSync(mode, "up");
+  await server.post("/api/sync", {});
+  await until(`${banner}.hidden`);
+  expect(errors).toEqual([]);
+}, 30_000);

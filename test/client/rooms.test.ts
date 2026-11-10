@@ -203,6 +203,13 @@ test.skipIf(!chromeFound)("beside a long brief the shelf is in view: the brief s
   expect(await look()).toMatchObject({ more: "LESS", cut: false });
   await click("#roomView .rbrief [data-brief-more]");
   await until(`document.querySelector("#roomView .rbrief [data-brief-more]")?.textContent === "MORE"`);
+  // A brief drawn again while the rail is folded has no height to measure: it is measured again when the rail opens.
+  await click("#roomView [data-rail-toggle]");
+  await until(`document.getElementById("roomView").classList.contains("folded")`);
+  await server.post("/api/rooms/ope-9/brief", { body: `${LONG_BRIEF}\n\nOne more line.` });
+  await until(`document.querySelector("#roomView .rbrief .bclip")?.textContent.includes("One more line.")`);
+  await click("#roomView [data-rail-toggle]");
+  await until(`!document.querySelector("#roomView .rbrief [data-brief-more]").hidden`);
 });
 
 test.skipIf(!chromeFound)("a message's line breaks show: a break for a new line, a paragraph for a blank one, lists and code as markdown", async () => {

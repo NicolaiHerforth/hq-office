@@ -633,6 +633,8 @@ view.addEventListener("click", (e) => {
     railFolded = !railFolded;
     store("hq-room-rail", railFolded ? "folded" : null);
     renderHead(roomOf(openSlug), detail);
+    // A brief drawn in a folded rail had no height to measure: measure it again for its MORE.
+    if (!railFolded && detail) renderBrief(detail);
     return;
   }
   if (t.closest("[data-room-close]") && sheetMode()) {
