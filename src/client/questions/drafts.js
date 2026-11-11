@@ -6,7 +6,6 @@ import { renderMachines, renderStats } from "../topbar/topbar.js";
 import { renderHud } from "./questions.js";
 import { renderCard } from "../card/card.js";
 import { renderMsgs, renderQTabs, replyText, replyTo, setReply } from "../messages/messages.js";
-import { renderWork } from "../work-board/work-board.js";
 import { restoreImages, savedImages } from "../images/images.js";
 import { noteAbout } from "./left.js";
 import { readingOrder, seedOrder } from "./focus.js";
@@ -51,7 +50,6 @@ export const PANELS = [
   [["lanes", "open", "config"], () => renderCard()],
   [["notes", "hq"], () => renderLastNote()],
   [["secrets", "secretsLost"], () => renderSecrets()],
-  [["open", "updatesUnread", "board"], () => renderQTabs()],
-  [["board", "open"], () => renderWork()],
+  [["open", "updatesUnread"], () => renderQTabs()],
   [["updates", "notes", "answered", "hq", "askers"], () => renderMsgs()],
 ];

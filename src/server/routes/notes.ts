@@ -6,6 +6,8 @@ import { notifyHq } from "../hq-link.ts";
 import { checkScope } from "../asks.ts";
 import { firstFloor } from "../floors.ts";
 import { fileItem, queueOn } from "../hq-queue.ts";
+import { sortHint } from "../requests.ts";
+import { requests } from "../owner-requests.ts";
 import type { Route } from "../router.ts";
 
 const routes: Route[] = [
@@ -15,10 +17,15 @@ const routes: Route[] = [
     if (!String(body.text ?? "").trim()) throw new Error("text is required");
     if (caller().all) throw new Error("a note goes to one floor");
     const floor = caller().explicit ?? firstFloor();
-    const { lastInsertRowid } = db.query("INSERT INTO notes (at, text, floor) VALUES (?, ?, ?)").run(Date.now(), String(body.text).trim(), floor);
-    event(OWNER, `told HQ: ${String(body.text).trim()}`, null, floor);
-    if (queueOn() && body.urgent !== true) fileItem({ floor, from: "owner", text: String(body.text).trim(), via: "page", ref: `note:${lastInsertRowid}` });
-    else notifyHq(`HUD note from ${OWNER}${body.urgent === true ? " (URGENT)" : ""}: ${String(body.text).trim()}`, `note:${lastInsertRowid}`, floor);
+    const text = String(body.text).trim();
+    const { lastInsertRowid } = db.query("INSERT INTO notes (at, text, floor) VALUES (?, ?, ?)").run(Date.now(), text, floor);
+    // Every note is a request (requests.ts); an acknowledgement is filed closed and gets no hint.
+    const request = requests.fileNote({ floor, text, note: Number(lastInsertRowid) });
+    event(OWNER, `told HQ: ${text}`, null, floor);
+    // Queued, HQ reads it with hud req next, which names the request; typed in, the line ends with it.
+    if (queueOn() && body.urgent !== true) fileItem({ floor, from: "owner", text, via: "page", ref: `note:${lastInsertRowid}` });
+    else notifyHq(`HUD note from ${OWNER}${body.urgent === true ? " (URGENT)" : ""}: ${text}${sortHint(request)}`, `note:${lastInsertRowid}`, floor);
+    return { ok: true, request: request.status === "new" ? request.id : null };
   } },
   { method: "POST", pattern: /^\/api\/notes\/(\d+)\/ack$/, handle: ({ m, caller }) => {
     checkScope("note", Number(m[1]), caller());

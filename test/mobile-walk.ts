@@ -111,6 +111,11 @@ export async function startOffice(root: string) {
   for (let i = 1; i <= 6; i++) await post("/api/updates", { lane: i % 2 ? LONG_LANE : "crm-dedupe", title: i === 3 ? `A_very_long_update_title_with_no_spaces_that_goes_on_past_the_edge_of_the_phone_screen_${i}` : `Update ${i}: halfway there`, body: i % 3 === 0 ? RICH : i === 1 ? SMALL_TABLE : "Two lines of news.\nThe second line." });
   await post("/api/notes", { text: `Keep going. ${URL_LONG}` });
   await post("/api/notes", { text: "Short note." });
+  // Each note is a request (WORK): one with a long lane, an issue and a PR, one delivered with a long link.
+  const [first, second] = (await (await fetch(`${server.base}/api/state`)).json()).requests as { id: number }[];
+  await post(`/api/requests/${first.id}/assign`, { lane: LONG_LANE, issue: "OPE-20021", pr: "812" }, "w1:p1");
+  await post(`/api/requests/${first.id}/move`, { text: `Retrying with the same key. ${URL_LONG}` }, "w1:p1");
+  await post(`/api/requests/${second.id}/deliver`, { link: URL_LONG, text: "A delivery line that is long enough to wrap on a phone, and then some more words." }, "w1:p1");
 
   await post("/api/board/track", { issue: "OPE-1934", lane: LONG_LANE });
   await post("/api/board/track", { issue: "OPE-20021", lane: "crm-dedupe" });
@@ -247,7 +252,9 @@ export const SURFACES: Surface[] = [
   { name: "lanes-board", stored: { "hq-layout": "board" }, go: enterFloor, shows: ".lanesboard .lbrow" },
   { name: "agent-drawer", stored: { "hq-layout": "board" }, go: async (t) => { await enterFloor(t); await t.tap("[data-lane-pick]"); }, shows: ".card:not([hidden])", sheet: ".card:not([hidden])" },
   { name: "messages", stored: { "hq-qtab": "messages" }, shows: "#msgs [data-msg]" },
-  { name: "work-board", stored: { "hq-qtab": "work" }, shows: "#work .wi" },
+  { name: "requests", stored: { "hq-qtab": "work" }, shows: "#work .rq" },
+  { name: "request-history", stored: { "hq-qtab": "work" }, go: (t) => t.tap("#work .rq [data-rq-toggle]"), shows: "#work .rqmoves li" },
+  { name: "request-reopen", stored: { "hq-qtab": "work" }, go: (t) => t.tap("#work [data-rq-reopen]"), shows: "#work [data-rq-re] input" },
   { name: "rooms-list", stored: { "hq-qtab": "rooms" }, shows: "#rooms article[data-room]" },
   { name: "new-room", stored: { "hq-qtab": "rooms" }, go: (t) => t.tap(".rnew"), shows: ".nrpanel", sheet: ".nrpanel" },
   { name: "briefs-list", stored: { "hq-qtab": "briefs" }, shows: "#briefs .brow" },

@@ -5,6 +5,7 @@ import { answerAsk, checkScope, createAsk, laneCaller, notYet } from "../asks.ts
 import type { Route } from "../router.ts";
 import { json } from "../json.ts";
 import { askPageKey, hasAskPage, serveAskPage } from "../ask-pages.ts";
+import { requests } from "../owner-requests.ts";
 
 // The new ask's id, and its page's key when it has one (hud ask prints where to read what the owner does in it).
 export const withPage = (id: number) => (hasAskPage(id) ? { id, page: askPageKey(id) } : { id });
@@ -25,6 +26,8 @@ const routes: Route[] = [
       Date.now(),
       Number(m[1]),
     );
+    // A request that waited on this ask goes back to its lane (requests.ts).
+    requests.askSettled(Number(m[1]));
     const ask = db.query("SELECT lane, floor FROM asks WHERE id = ?").get(Number(m[1])) as { lane: string | null; floor: string | null } | null;
     event(by ?? "hq", `withdrew ask #${m[1]}${body.reason ? `: ${body.reason}` : ""}`, ask?.lane, ask?.floor);
   } },

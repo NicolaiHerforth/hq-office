@@ -1,6 +1,7 @@
 // The same markdown through every surface that shows text HQ or a lane wrote: NEEDS YOU (title, body, the ledger's
 // checklist and comments), MESSAGES (your answers too) and the last note, the worker card (title, note and
-// the blocked prompt as a code box), the WORK board, ROOMS (list, brief, thread) and the HQ-isn't-receiving strip.
+// the blocked prompt as a code box), WORK (a request's words and HQ's last movement), ROOMS (list, brief, thread) and
+// the HQ-isn't-receiving strip.
 // Seeded on a temporary server whose herdr has no HQ, so a note is held. Needs Chrome; skipped without it.
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -63,6 +64,10 @@ beforeAll(async () => {
   await server.post(`/api/asks/${done}/answer`, { answer: BLOCK });
   await server.post("/api/updates", { lane: "golf", title: INLINE, body: BLOCK });
   await server.post("/api/notes", { text: BLOCK });
+  // The note is a request; HQ's last movement on it is its line on WORK.
+  const request = (await (await fetch(`${server.base}/api/state`)).json()).requests[0].id;
+  await server.post(`/api/requests/${request}/assign`, { lane: "bravo" });
+  await server.post(`/api/requests/${request}/move`, { text: INLINE });
   await server.post("/api/board/track", { issue: "ABC-9", lane: "bravo" });
   await server.post("/api/board/pause", { issue: "ABC-9", reason: INLINE });
   await server.post("/api/rooms", { slug: "abc-7", title: INLINE, owner: "golf", members: ["bravo"] });
@@ -119,10 +124,11 @@ test.skipIf(!chromeFound)("the worker card: the title, the note, and the blocked
   expect(prompt.b).toBe(0);
 }, 20_000);
 
-test.skipIf(!chromeFound)("the WORK board's why", async () => {
+test.skipIf(!chromeFound)("WORK: your words in a request, and HQ's last movement on it", async () => {
   await tab("work");
-  await until(`!!document.querySelector("#work .wi .what")`);
-  expect(await look("#work .wi .what")).toMatchObject(inline);
+  await until(`!!document.querySelector("#work .rq .moved .what")`);
+  expect(await look("#work .rq .words")).toMatchObject(block);
+  expect(await look("#work .rq .moved .what")).toMatchObject(inline);
   await tab("questions");
 }, 20_000);
 

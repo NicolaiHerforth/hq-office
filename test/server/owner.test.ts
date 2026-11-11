@@ -6,6 +6,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnServer } from "../../scripts/room-hash.ts";
 import { LEGACY_OWNER_WHO } from "../../src/server/config.ts";
+import { sortHint } from "../../src/server/requests.ts";
 
 const ROOT = join(import.meta.dir, "..", "..");
 const stops: (() => Promise<void>)[] = [];
@@ -48,7 +49,7 @@ describe("HUD_OWNER set", async () => {
 
   test("a note reaches HQ under the owner's name, and the log says who told it", async () => {
     expect((await o.post("/api/notes", { text: "ship it" })).status).toBe(200);
-    expect(await o.sent("ship it")).toContain("agent prompt hq HUD note from Robin: ship it");
+    expect(await o.sent("ship it")).toContain(`agent prompt hq HUD note from Robin: ship it${sortHint({ id: 1, status: "new" })}`);
     expect(await o.events()).toContain("Robin told HQ: ship it");
   });
 
@@ -78,7 +79,7 @@ describe("HUD_OWNER unset", async () => {
 
   test("the note says the owner", async () => {
     await o.post("/api/notes", { text: "ship it" });
-    expect(await o.sent("ship it")).toContain("agent prompt hq HUD note from the owner: ship it");
+    expect(await o.sent("ship it")).toContain(`agent prompt hq HUD note from the owner: ship it${sortHint({ id: 1, status: "new" })}`);
     expect(await o.events()).toContain("the owner told HQ: ship it");
     expect((await o.state()).events.some((e: any) => e.who === LEGACY_OWNER_WHO)).toBe(false);
   });

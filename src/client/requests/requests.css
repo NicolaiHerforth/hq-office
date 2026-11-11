@@ -1,0 +1,60 @@
+/* REQUESTS on the WORK tab: one row per thing the owner asked for, oldest first. Quiet by default; amber only on a row
+   that has not moved for more than a day, green on one that is delivered. Colours are the tokens of core/base.css. */
+.work[hidden] { display: none; }
+.work { display: grid; gap: 10px; align-content: start; padding: 12px 14px; }
+@media (min-width: 1151px) { .work { height: 100%; overflow-y: auto; overscroll-behavior: contain; } }
+.work .rsum { font: 8px/1.6 var(--pixel); color: var(--muted); }
+.work .rsum b { font-weight: inherit; color: var(--amber-strong); }
+.rq { position: relative; display: grid; gap: 5px; min-width: 0; padding: 8px 10px; border: 2px solid var(--rule); border-radius: 8px; cursor: pointer; }
+.rq.stale { border-color: var(--amber-edge); background: var(--amber-tint); }
+.rq.s-delivered { border-color: var(--green-edge-soft); background: var(--green-tint); }
+/* the history mark sits in the row's corner, so the line of tags wraps without it */
+.rq .meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; padding-right: 22px; }
+.rq .meta .tag { text-decoration: none; }
+/* a tag that is a link reads as ink, underlined: the link blue is too faint on a chip */
+.rq .meta a.tag.link { color: var(--ink); text-decoration: underline; text-underline-offset: 2px; }
+.rq :is(.moved, .out, .rqmoves) a { color: inherit; }
+.rq .sent { margin-left: auto; font: 8px/1.4 var(--pixel); color: var(--muted); white-space: nowrap; }
+.rq .rqx { position: absolute; top: 3px; right: 3px; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 6px; background: none; font: 700 13px/1 var(--text); color: var(--muted); }
+@media (hover: hover) { .rq .rqx:hover { background: var(--lift); color: var(--ink); } }
+.rq .words { min-width: 0; font-size: 14px; color: var(--ink); overflow-wrap: anywhere; }
+.rq :is(.moved, .out) { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; min-width: 0; font-size: 13px; color: var(--ink-2); }
+.rq :is(.moved, .out) .what { min-width: 0; overflow-wrap: anywhere; }
+.rq :is(.moved, .out) .when { color: var(--muted); white-space: nowrap; }
+.rq.stale .moved .when { color: var(--amber-strong); font-weight: 800; }
+.rq .out .btn-s { margin-left: auto; }
+/* what it is: the status says it in words, the fill only repeats it */
+.tag.rs.s-open, .tag.none { background: var(--chip); color: var(--muted); }
+.tag.rs.s-assigned { background: var(--blue); color: var(--on-fill); }
+.tag.rs.s-waiting { background: var(--owner-fill); color: var(--on-fill); }
+.tag.rs.s-delivered { background: var(--green-tint-2); color: var(--green-strong); box-shadow: inset 0 0 0 1px var(--green-edge-soft); }
+.tag.rs.s-withdrawn { background: var(--idle-fill); color: var(--on-fill); }
+/* REOPEN: his words, in the row */
+.rqre { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; cursor: auto; }
+.rqre input { flex: 1 1 160px; min-width: 0; padding: 7px 10px; border: 2px solid var(--edge-2); border-radius: 8px; background: var(--field); color: var(--ink); font: 14px/1.4 var(--text); }
+.rqre input:focus { outline: none; border-color: var(--edge); }
+.rqre .send { min-height: 34px; }
+/* a row's history: every move, oldest first, and CLOSE */
+.rqhist { display: grid; gap: 8px; min-width: 0; margin-top: 2px; padding-top: 8px; border-top: 2px solid var(--rule); cursor: auto; }
+.rq.stale .rqhist { border-top-color: var(--amber-edge); }
+.rq.s-delivered .rqhist { border-top-color: var(--green-edge-soft); }
+.rqmoves { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.rqmoves li { display: grid; grid-template-columns: auto auto minmax(0, 1fr); align-items: baseline; gap: 8px; font-size: 13px; color: var(--ink-2); }
+.rqmoves .hat, .rqmoves .hby { font: 8px/1.6 var(--pixel); color: var(--muted); white-space: nowrap; }
+.rqmoves .hby { color: var(--ink); }
+.rqmoves .htext { min-width: 0; overflow-wrap: anywhere; }
+.rqmoves .htext i { color: var(--muted); }
+.rqhist .hint { font-size: 12px; color: var(--muted); }
+.rqacts { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.rqacts .hint { flex: 1; min-width: 0; }
+@media (max-width: 1150px) and (pointer: coarse) {
+  /* Full 44 px targets that keep a tag's look and the row's height: the rest is a clear border, taken back by a margin. */
+  html .rq .meta a.tag.link { display: block; box-sizing: border-box; min-width: 44px; min-height: 44px; margin-block: -12px; border-block: 12px solid transparent; border-radius: 4px / 16px; background-clip: padding-box; line-height: 1.4; text-align: center; }
+  html .rq .meta button.tag.lane { overflow: visible; white-space: normal; overflow-wrap: anywhere; text-overflow: clip; text-align: left; }
+  html .rq .rqx { top: 0; right: 0; width: 44px; height: 44px; }
+  .rq .meta { row-gap: 10px; padding-right: 30px; }
+  .rqmoves li { grid-template-columns: auto minmax(0, 1fr); }
+  .rqmoves .htext { grid-column: 1 / -1; }
+  .rqre input { flex-basis: 100%; }
+  .rqre .send, .rqre .btn-s { flex: 1 1 0; }
+}

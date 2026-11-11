@@ -385,9 +385,9 @@ for (const phone of PHONES) {
   }, 180_000);
 }
 
-test.skipIf(!chromeFound)("on the work board a lane tag is a 44 px target that shows the whole name", async () => {
+test.skipIf(!chromeFound)("on WORK a request's lane tag is a 44 px target that shows the whole name", async () => {
   await tab.size(PHONES[1]);
-  await openSurface(tab, office, SURFACES.find((s) => s.name === "work-board")!);
+  await openSurface(tab, office, SURFACES.find((s) => s.name === "requests")!);
   const tag = await tab.ev(`(() => { const e = document.querySelector("#work .tag.lane"), r = e.getBoundingClientRect(); return { target: r.height >= 44 && r.width >= 44, whole: e.scrollWidth <= e.clientWidth, name: e.textContent.trim() }; })()`);
   expect(tag).toEqual({ target: true, whole: true, name: expect.stringContaining("migration") });
 }, 180_000);

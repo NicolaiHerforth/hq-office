@@ -32,16 +32,21 @@ const briefs = () => pick(S?.briefs ?? []);
 // The brief's floor, when the list shows every floor: a small chip in its colour.
 const floorChip = (id) => { const f = S && tagged() ? floorById(S, id) : null; return f ? `<span class="bfloor" style="--fc:${esc(f.color)}">${esc(f.name)}</span>` : ""; };
 
+// Age-out, display only: the list shows the briefs of the last 14 days; the older wait behind OLDER (N) at its end. One
+// you have not opened, or with a reply you have not read, stays in the list whatever its age.
+const OLD_MS = 14 * 86_400_000;
+let showOld = false;
 function renderList() {
   if (!S) return;
-  const all = briefs(), open = openId();
+  const all = briefs(), open = openId(), cut = Date.now() - OLD_MS;
   const unread = all.filter((b) => !b.read).length;
+  const old = all.filter((b) => b.at < cut && b.read && !S.comments?.[`briefs/${b.id}`]?.unread), shown = showOld ? all : all.filter((b) => !old.includes(b));
   setHTML(list, all.length
-    ? `<div class="bsum">${all.length} ${all.length === 1 ? "BRIEF" : "BRIEFS"}${unread ? ` · ${unread} NEW` : ""}</div>` + all.map((b) => `<a class="brow${b.read ? "" : " unread"}${b.id === open ? " here" : ""}" href="#brief/${b.id}">
+    ? `<div class="bsum">${shown.length} ${shown.length === 1 ? "BRIEF" : "BRIEFS"}${unread ? ` · ${unread} NEW` : ""}${old.length && !showOld ? " · LAST 14 DAYS" : ""}</div>` + shown.map((b) => `<a class="brow${b.read ? "" : " unread"}${b.id === open ? " here" : ""}" href="#brief/${b.id}">
         <div class="meta">${floorChip(b.floor)}<span class="when">${esc(when(b.at))}</span>${b.read ? "" : `<span class="tag new">NEW</span>`}${S.comments?.[`briefs/${b.id}`]?.unread ? `<span class="tag new">REPLY</span>` : ""}<span class="by">${esc(b.by)}</span></div>
         <b class="bt">${mdInline(b.title, { links: false })}</b>
         <span class="blead">${mdInline(lead(b.lead), { links: false })}</span>
-      </a>`).join("")
+      </a>`).join("") + (old.length ? `<button class="btn-s older" type="button" data-older aria-expanded="${showOld}">${showOld ? "HIDE OLDER" : `OLDER (${old.length})`}</button>` : "")
     : `<div class="empty">No briefs yet. A floor's HQ posts one with <code>hud brief --title T --file brief.md</code>: a longer write-up than a message, such as a project update. MESSAGES gets a line when one lands.</div>`);
   const t = $("qtBriefs");
   t.hidden = !unread;
@@ -155,5 +160,6 @@ on("scope", () => {
   renderList();
 });
 on("qtab", (t) => { if (t === "briefs") renderList(); });
+list.addEventListener("click", (e) => { if (e.target.closest("[data-older]")) { showOld = !showOld; renderList(); } });
 renderList();
 route();

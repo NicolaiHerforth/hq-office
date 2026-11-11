@@ -1,11 +1,10 @@
 // The MESSAGES tab: one thread of HQ's updates, your notes and your answers to HQ's questions, with replies.
-import { $, keepPlace, keysHint, pageScrolls, phone, toast } from "../core/dom.js";
+import { $, keepPlace, keepScroll, keysHint, pageScrolls, phone, toast } from "../core/dom.js";
 import { S } from "../core/state.js";
 import { clock, esc, setHTML } from "../core/format.js";
 import { mdClip, mdInline } from "../core/markdown.js";
 import { post } from "../core/net.js";
 import { renderBelow } from "../questions/questions.js";
-import { renderWork } from "../work-board/work-board.js";
 import { on } from "../core/bus.js";
 import { clearImages, composer, hasImages, notReady, withImages } from "../images/images.js";
 import { emit } from "../core/bus.js";
@@ -41,8 +40,7 @@ export function setQTab(t) {
   msgStick = !was || was.bottom > 0 || phone();
   renderQTabs();
   if (t === "messages") renderMsgs(); else renderBelow();
-  renderWork();
-  emit("qtab", t); // ROOMS (rooms/) and BRIEFS (briefs/) draw themselves when shown
+  emit("qtab", t); // WORK (requests/), ROOMS (rooms/) and BRIEFS (briefs/) draw themselves when shown
   if (!was) return;
   const now = wrap.getBoundingClientRect();
   if (was.bottom <= 0) scrollBy(0, now.bottom - was.bottom);
@@ -57,7 +55,7 @@ export function renderQTabs() {
   }
   $("hud").hidden = qTab !== "questions";
   $("msgs").hidden = qTab !== "messages";
-  $("work").hidden = qTab !== "work";
+  $("work").hidden = qTab !== "work"; // its list and count are requests/
   $("rooms").hidden = qTab !== "rooms"; // its count is set by rooms/
   $("briefs").hidden = qTab !== "briefs"; // its list and count are briefs/
   if (!S) return;
@@ -140,6 +138,20 @@ function msgNode(m, depth) {
   walk(m);
   return [m, ...flat.sort((a, b) => a.at - b.at)].map((x, i) => msgItem(x, i > 0)).join("");
 }
+// Age-out, display only: a thread whose newest message is older than 7 days waits behind OLDER (N) at the top, where
+// it would be. One that is still new from HQ, or that you are replying to, stays.
+const OLD_MS = 7 * 86_400_000;
+let showOld = false;
+const size = (m) => 1 + m.kids.reduce((n, k) => n + size(k), 0);
+function threadHTML() {
+  const { roots } = msgModel(), cut = Date.now() - OLD_MS;
+  const fresh = (m) => m.at >= cut || m.unread || m.key === replyTo || m.kids.some(fresh);
+  const old = roots.filter((m) => !fresh(m)), n = old.reduce((sum, m) => sum + size(m), 0);
+  const shown = showOld || !n ? roots : roots.filter(fresh);
+  if (!roots.length) return `<div class="empty">No messages yet. HQ's updates, your notes and your answers land here.</div>`;
+  return (n ? `<button class="btn-s older" type="button" data-older aria-expanded="${showOld}">${showOld ? "HIDE OLDER" : `OLDER (${n})`}</button>` : "")
+    + (shown.map((m) => msgNode(m, 0)).join("") || `<div class="empty">Nothing in the last 7 days.</div>`);
+}
 // Built only when the state changes or you act on the list, never per frame. Reading sends nothing to HQ:
 // it only marks the shown updates read, the same call the FROM HQ tab makes.
 let msgAtEnd = false, msgInput = false;
@@ -154,7 +166,7 @@ export function renderMsgs() {
     post(`/api/updates/${u.id}/read`, {}).catch(() => readSent.delete(u.id));
   }
   const caret = document.activeElement?.closest?.("[data-rbox]") ? document.activeElement.selectionStart : null;
-  const html = (msgModel().roots.map((m) => msgNode(m, 0)).join("") || `<div class="empty">No messages yet. HQ's updates, your notes and your answers land here.</div>`);
+  const html = threadHTML();
   if (pageScrolls()) {
     // The page scrolls, not the thread: on the newest message (just opened, or already there), stay on it;
     // reading older ones, what you read stays where it is.
@@ -200,8 +212,15 @@ async function sendReply(btn) {
   } catch (err) { toast(err.message); btn.disabled = false; }
 }
 $("qtabs").addEventListener("click", (e) => { const b = e.target.closest("[data-qtab]"); if (b) setQTab(b.dataset.qtab); });
-$("stall").addEventListener("click", () => setQTab("work"));
 $("msgs").addEventListener("click", (e) => {
+  // OLDER: the older messages open above what you were reading, which stays where it is.
+  if (e.target.closest("[data-older]")) {
+    showOld = !showOld;
+    const keep = pageScrolls() ? null : keepScroll($("msgs"), "data-msg");
+    renderMsgs();
+    keep?.();
+    return;
+  }
   const r = e.target.closest("[data-reply]");
   if (r) {
     if (replyTo === r.dataset.reply) replyTo = null; else { replyTo = r.dataset.reply; replyText = ""; clearImages("reply"); }

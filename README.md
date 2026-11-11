@@ -334,9 +334,41 @@ its lane's floor. Your answers and notes reach the HQ of their floor only. `hud 
 and `room list` show the caller's floor; `--all` shows every floor, and `--floor ID` picks one by hand. The details
 and the state the page reads are in [docs/floors.md](docs/floors.md).
 
-## The work board
+## Requests (the WORK tab)
 
-The WORK tab lists every piece of work in flight: an issue key, its pull requests and the lane that owns it. HQ adds one with `hud track ISSUE --lane L --pr N`, and `hud lane NAME --issue X --pr N` links a lane's work too. Each item's state is worked out from facts, in this order: done (all PRs merged or closed, or `hud done ISSUE`), waiting on you (an open question names its lane, issue or PR), waiting on CI (a check is running), paused (`hud pause ISSUE REASON`, undone with `hud resume ISSUE`), moving (the lane is working, or something changed in the last 45 minutes), and otherwise stalled. Stalled work shows red at the top of the question column and at the top of `hud board` (`--json` for JSON).
+Nothing you ask for lives only in a conversation. Every note you send HQ becomes a request: your words, the time and an
+id, tracked until you have what you asked for. A plain acknowledgement ("ok", "thanks", a thumbs up) is filed already
+closed, so it makes no row. Answers to HQ's questions are not requests; an answer on a question a request waits on moves
+that request on.
+
+HQ sorts each new request as it arrives and moves it until it is delivered:
+
+```sh
+hud work                                       # your floor's requests, oldest first (--all, --closed)
+hud work show ID                               # the request and every move
+hud work assign ID LANE [--issue X] [--pr N]   # a lane (or hq) owns it
+hud work attach ID OTHER                       # it repeats an open request: its words join that one
+hud work drop ID WHY                           # not work (thanks, chatter): a reason is required
+hud work wait ID ASK                           # it waits on you: an open question
+hud work move ID TEXT                          # progress, no status change
+hud work deliver ID LINK TEXT                  # done: the link and one line
+hud work withdraw ID WHY                       # given up, with the reason
+hud work add TEXT [--from n:ID|a:ID]           # something you said elsewhere
+hud work import FILE [--dry-run]               # a markdown ledger: # | Date | Request | Owner | Status | Next step | Last moved
+```
+
+HQ cannot close a request: only you can, or a delivery you have seen. The WORK tab lists every request that is not
+closed, oldest first: its status, owner, issue and PR, the question it waits on, its last movement and how long ago.
+Rows that have not moved for a day are amber, and the tab counts them. A delivered or withdrawn request shows its link
+or reason with REOPEN (your words go to HQ), and closes itself 24 hours after you have seen it, or 7 days after
+delivery. Tap a row for its history and CLOSE. With HQ SWEEP on, every sweep names the requests HQ has not sorted and
+those that have not moved since the previous sweep.
+
+MESSAGES folds threads older than 7 days, and BRIEFS briefs older than 14 days, behind OLDER (N); nothing unread folds.
+
+### The work board (HQ only)
+
+The board is no longer on the page; `hud board` still lists every piece of work in flight: an issue key, its pull requests and the lane that owns it. HQ adds one with `hud track ISSUE --lane L --pr N`, and `hud lane NAME --issue X --pr N` links a lane's work too. Each item's state is worked out from facts, in this order: done (all PRs merged or closed, or `hud done ISSUE`), waiting on you (an open question names its lane, issue or PR), waiting on CI (a check is running), paused (`hud pause ISSUE REASON`, undone with `hud resume ISSUE`), moving (the lane is working, or something changed in the last 45 minutes), and otherwise stalled. Stalled work shows at the top of `hud board` (`--json` for JSON).
 
 PR facts come from the `gh` CLI. The server caches them and refreshes them every 10 minutes while anything is open, and when HQ runs `hud board` if the cache is over a minute old. Page loads never call GitHub.
 

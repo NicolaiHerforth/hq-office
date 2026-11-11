@@ -1,6 +1,6 @@
 // The HQ sweep nudge: with HQ SWEEP on in SETTINGS (off by default), the server types one "HUD sweep:" line into HQ
 // when HQ is idle or done right now, is receiving, the interval has passed since the last nudge, and the hour is in
-// the window. It lists what HQ should look at: idle or done lanes, lanes on HQ's turn, stalled board items,
+// the window. It lists what HQ should look at: the owner's requests (requests.test.ts), idle or done lanes, lanes on HQ's turn,
 // questions waiting on the owner, rooms with undelivered messages; with nothing to list it sends nothing. A nudge HQ
 // does not act on doubles the wait (up to 2 h). Never queued: a nudge that cannot be sent is dropped.
 // A stub herdr: agents.json is what `agent list` answers; prompts are logged. One minute is 40 ms here.

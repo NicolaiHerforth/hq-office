@@ -10,6 +10,7 @@ import { answerOwner, askerOf, recordAsker, tellAsker } from "./ask-routing.ts";
 import { commentAsk } from "./ledger.ts";
 import { floorOr, isHqAgent, laneFloor } from "./floors.ts";
 import { askPageKey, hasAskPage, pageOfFields, setAskPage } from "./ask-pages.ts";
+import { requests } from "./owner-requests.ts";
 
 // On its lane's floor, else the caller's (the first floor when no caller is known). With an HTML page (--file q.html,
 // or a body that is a page): ask-pages.ts. A lane that asks gets the answer (ask-routing.ts); `agent` is the caller.
@@ -45,6 +46,8 @@ export function answerAsk(id: number, answer: string) {
   if (!ask) throw new Error(`no ask ${id}`);
   if (ask.status !== "open") throw new Error(`ask ${id} is already ${ask.status}`);
   db.query("UPDATE asks SET status = 'answered', answer = ?, answered_at = ? WHERE id = ?").run(answer, Date.now(), id);
+  // A request that waited on this ask goes back to its lane (requests.ts).
+  requests.askSettled(id);
   const asker = askerOf(ask);
   event(OWNER, `answered${asker ? ` for ${asker}` : ""} "${ask.title}": ${answer}`, ask.lane, ask.floor);
   // An ask with a page: what the owner did in it (picks, rows, notes) is in the page's data, not in the answer.

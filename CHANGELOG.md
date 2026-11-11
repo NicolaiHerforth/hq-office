@@ -3,6 +3,30 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.42.0] - 2026-11-12
+### Added
+
+- **Requests: nothing you ask for lives only in a conversation.** Every note you send HQ becomes a request with your
+  words, the time and an id, tracked until you have what you asked for. HQ sorts each one as it arrives (a lane owns
+  it, it repeats an open request and joins it, or it is not work, with a reason) and moves it with `hud work`: assign,
+  wait on a question, progress, deliver with a link, or withdraw with a reason. HQ cannot close a request: you can, or
+  a delivery you have seen. A plain "ok" or "thanks" is filed closed and makes no row, and answers to HQ's questions
+  are not requests; an answer on a question a request waits on moves that request on.
+- **The WORK tab shows your requests**, oldest first, instead of the work board: status, owner, issue and PR, the
+  question it waits on, its last movement and how long ago. Rows that have not moved for a day are amber and counted on
+  the tab. A delivered or withdrawn one shows its link or reason with REOPEN, and closes itself 24 hours after you have
+  seen it (7 days after delivery at most). Tap a row for its history and CLOSE.
+- **The HQ sweep names every request HQ has not sorted, and every one that has not moved** since the previous sweep.
+  Requests waiting on you are listed but do not repeat a nudge on their own.
+- `hud work import FILE` reads a markdown ledger (`# | Date | Request | Owner | Status | Next step | Last moved`) into
+  requests, once; `--dry-run` shows what it would make.
+
+### Changed
+
+- **Old things fold away.** MESSAGES folds threads older than 7 days, and BRIEFS briefs older than 14 days, behind
+  OLDER (N); nothing unread folds.
+- The work board is no longer on the page, nor its red stalled strip; `hud board` and `hud track` still work for HQ.
+
 ## [0.41.3] - 2026-11-10
 ### Added
 

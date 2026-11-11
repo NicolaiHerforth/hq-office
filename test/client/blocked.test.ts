@@ -1,6 +1,6 @@
 // The page for a lane blocked on a prompt in herdr: a BLOCKED count in the top bar (only while there is one), a red
-// bubble at the lane's desk (not the queue), the card with the excerpt and where to answer it, and the WORK board
-// with the blocked item on top. Needs Chrome (CHROME_BIN); skipped without it.
+// bubble at the lane's desk (not the queue) and the card with the excerpt and where to answer it. (The WORK tab lists
+// the owner's requests now, not the board.) Needs Chrome (CHROME_BIN); skipped without it.
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { chmodSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -69,7 +69,7 @@ afterAll(async () => {
   rmSync(dir, { recursive: true, force: true });
 });
 
-test.skipIf(!chromeFound)("a blocked lane: BLOCKED in the top bar, a red bubble at its desk, the prompt on its card, first on WORK", async () => {
+test.skipIf(!chromeFound)("a blocked lane: BLOCKED in the top bar, a red bubble at its desk, the prompt on its card", async () => {
   // The top bar.
   await until(`!!document.querySelector("#sBlocked:not([hidden])")`);
   expect(await page.evaluate(`document.querySelector("#sBlocked .k").textContent + " " + document.querySelector("#sBlocked .v").textContent`)).toBe("BLOCKED 1");
@@ -83,11 +83,5 @@ test.skipIf(!chromeFound)("a blocked lane: BLOCKED in the top bar, a red bubble 
   expect(card).toContain("BLOCKED ON A PROMPT");
   expect(card).toContain("ANSWER IT IN HERDR ON LOCAL, PANE w3:p2");
   expect(card).toContain("Remove the build folder · Do you want to proceed?\n1. Yes\n2. No, and tell Claude what to do differently (esc)");
-  // WORK: the blocked item first, the excerpt as its why.
-  await page.evaluate(`document.querySelector('[data-qtab="work"]').click()`);
-  await until(`!!document.querySelector("#work .wi")`);
-  const first = await page.evaluate(`(() => { const a = document.querySelector("#work .wi"); return { cls: a.className, key: a.querySelector(".key").textContent, what: a.querySelector(".what").textContent }; })()`);
-  expect(first).toEqual({ cls: "wi blocked", key: "ABC-7", what: "Remove the build folder · Do you want to proceed? / 1. Yes / 2. No, and tell Claude what to do differently (esc)" });
-  expect(await page.evaluate(`document.querySelector("#work h4").textContent`)).toBe("BLOCKED ON A PROMPT (1)");
   expect(errors).toEqual([]);
 }, 40_000);

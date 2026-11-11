@@ -52,6 +52,19 @@
 //   hud done ISSUE                                close it by hand (merged or closed PRs close it on their own)
 //   hud pause ISSUE REASON...  /  hud resume ISSUE deliberately on hold, so it is not called stalled
 //   hud board [--json]                            blocked on a prompt, then stalled, first; refreshes GitHub if the cache is over a minute old
+// requests: what the owner asked for, tracked until delivered. Every note he sends files one; HQ sorts and moves it.
+// Your floor's unless --floor F or --all. Each reply is one line; an unknown id, another floor's request or a wrong
+// status exits 2 and says why. There is no close: only the owner closes a request, or a delivery he has seen.
+//   hud work [list] [--all] [--closed]            not-closed requests, oldest first (--closed: the closed ones)
+//   hud work show ID                              the request and every move
+//   hud work add TEXT [--from n:ID|a:ID]          by hand (he told you in the terminal, or work out of a note or an answer)
+//   hud work assign ID LANE [--issue X] [--pr N]  a lane (or hq) owns it
+//   hud work attach ID OTHER                      ID, not yet sorted, repeats OTHER: its words go on OTHER and it closes
+//   hud work drop ID WHY                          ID, not yet sorted, is not work (thanks, an answer, chatter)
+//   hud work wait ID ASK                          it waits on the owner: an open ask on its floor
+//   hud work move ID TEXT                         progress, no status change ("PR #12 in review")
+//   hud work deliver ID LINK TEXT  /  hud work withdraw ID WHY
+//   hud work import FILE [--dry-run]              a markdown ledger: # | Date | Request | Owner | Status | Next step | Last moved
 //   hud guide            how HQ talks to the owner (through the HUD, never only in its terminal)
 //   hud ref KIND ID [--json]   the reference to paste into markdown for an HQ thing; on a line of its own it shows as
 //                        a card of the thing, live. KIND: brief, room, lane, ask, floor, file (ID: SLUG/NAME, a file on
@@ -114,7 +127,8 @@ If the HUD is not running, start it: herdr plugin action invoke hq-office.start`
   process.exit(1);
 }
 
-async function call(method: string, path: string, body?: unknown) {
+// `refused` is the exit code when the server says no (hud work: 2).
+async function call(method: string, path: string, body?: unknown, refused = 1) {
   const res = await fetch(BASE + path, {
     method,
     headers: { "content-type": "application/json", "x-hud": "1", ...who() },
@@ -123,7 +137,7 @@ async function call(method: string, path: string, body?: unknown) {
   const data = await res.json();
   if (!res.ok) {
     console.error(data.error ?? res.statusText);
-    process.exit(1);
+    process.exit(refused);
   }
   return data;
 }
@@ -145,7 +159,10 @@ const START = cmd === "floor" && argv.includes("--start");
 const URGENT = cmd === "request" && argv.includes("--urgent");
 // --pdf and --html (hud brief export) take no value either.
 const EXPORT_AS = cmd === "brief" ? ["pdf", "html"].filter((f) => argv.includes(`--${f}`)) : [];
-const { flags, rest, one } = parse(argv.filter((a) => a !== "--all" && !(cmd === "floor" && a === "--start") && !(cmd === "request" && a === "--urgent") && !(cmd === "brief" && (a === "--pdf" || a === "--html" || a === "--anyway"))));
+// --closed and --dry-run (hud work) take no value either.
+const WORK_CLOSED = cmd === "work" && argv.includes("--closed");
+const WORK_DRY = cmd === "work" && argv.includes("--dry-run");
+const { flags, rest, one } = parse(argv.filter((a) => a !== "--all" && !(cmd === "floor" && a === "--start") && !(cmd === "request" && a === "--urgent") && !(cmd === "brief" && (a === "--pdf" || a === "--html" || a === "--anyway")) && !(cmd === "work" && (a === "--closed" || a === "--dry-run"))));
 // `hud floor` names its floor as an argument; everywhere else --floor ID picks the floor by hand.
 const FLOOR = ALL ? "all" : cmd === "floor" ? undefined : one("floor");
 
@@ -325,6 +342,9 @@ switch (cmd) {
     process.stdout.write(await res.text());
     break;
   }
+  case "work":
+    await workCmd();
+    break;
   case "guide":
     console.log(rest[0] === "lane" ? LANE_GUIDE : GUIDE);
     break;
@@ -356,7 +376,7 @@ switch (cmd) {
     await floorCmd();
     break;
   default:
-    console.log("usage: hud ask|update|comment|item|lane|rm-lane|tree|withdraw|event|tell|say|brief|request|req|inbox|ack|wait|state|sync|secret|track|done|pause|resume|board|room|page|floor|guide|ref");
+    console.log("usage: hud ask|update|comment|item|lane|rm-lane|tree|withdraw|event|tell|say|brief|request|req|work|inbox|ack|wait|state|sync|secret|track|done|pause|resume|board|room|page|floor|guide|ref");
     console.log("HQ: run `hud guide` for how to reach the owner (through the HUD, never only in your terminal).");
 }
 
@@ -772,6 +792,8 @@ async function reqCmd() {
       console.log(item.from_name === "owner"
         ? `Answer the owner: hud req answer ${item.id} TEXT (an update he reads), or hud req close ${item.id} WHY.`
         : item.from_name === "unknown" ? `Close it once handled: hud req close ${item.id} WHY.` : `Answer ${item.from_name} (typed into its pane): hud req answer ${item.id} TEXT, or hud req close ${item.id} WHY.`);
+      // The owner's note is a request (hud work): say which, and how to sort it.
+      if (item.from_name === "owner" && item.ref) for (const r of (await call("GET", `/api/requests?ref=${encodeURIComponent(item.ref)}`)).requests) if (r.hint) console.log(r.hint.replace(/^\(|\)$/g, ""));
       if (item.left) console.log(`${item.left} more unread: hud req next`);
       break;
     }
@@ -796,6 +818,65 @@ async function reqCmd() {
       break;
     default:
       console.error("usage: hud req next | list [--all] | answer ID TEXT | close ID [WHY] | line");
+      process.exit(2);
+  }
+}
+
+// ---- requests (hud work ...): what the owner asked for, tracked until delivered ----
+
+async function workCmd() {
+  const [verb = "list", id, ...words] = rest;
+  const USAGE = "usage: hud work [list [--all] [--closed]] | show ID | add TEXT [--from n:ID|a:ID] | assign ID LANE [--issue X] [--pr N] | attach ID OTHER | drop ID WHY | wait ID ASK | move ID TEXT | deliver ID LINK TEXT | withdraw ID WHY | import FILE [--dry-run]";
+  const num = (v: string | undefined) => String(v ?? "").replace(/^#/, "");
+  const text = async (path: string) => {
+    const res = await fetch(BASE + path, { headers: who() }).catch(unreachable);
+    if (!res.ok) { console.error((await res.json().catch(() => ({}))).error ?? res.statusText); process.exit(2); }
+    process.stdout.write(await res.text());
+  };
+  const needId = () => { if (!/^\d+$/.test(num(id))) { console.error(USAGE); process.exit(2); } };
+  const act = async (what: string, body: unknown) => { needId(); console.log((await call("POST", `/api/requests/${num(id)}/${what}`, body, 2)).line); };
+  switch (verb) {
+    case "list":
+      await text(`/api/requests?format=text${WORK_CLOSED ? "&closed=1" : ""}`);
+      break;
+    case "show":
+      needId();
+      await text(`/api/requests/${num(id)}?format=text`);
+      break;
+    case "add":
+      console.log((await call("POST", "/api/requests", { text: [id, ...words].filter(Boolean).join(" "), from: one("from") }, 2)).line);
+      break;
+    case "assign":
+      await act("assign", { lane: words[0], issue: one("issue"), pr: one("pr") });
+      break;
+    case "attach":
+      await act("attach", { other: num(words[0]) });
+      break;
+    case "drop":
+      await act("drop", { why: words.join(" ") });
+      break;
+    case "wait":
+      await act("wait", { ask: num(words[0]) });
+      break;
+    case "move":
+      await act("move", { text: words.join(" ") });
+      break;
+    case "deliver":
+      await act("deliver", { link: words[0], text: words.slice(1).join(" ") });
+      break;
+    case "withdraw":
+      await act("withdraw", { why: words.join(" ") });
+      break;
+    case "import": {
+      const f = Bun.file(id ?? "");
+      if (!id || !(await f.exists())) { console.error(id ? `hud work import: no file ${id}` : USAGE); process.exit(2); }
+      const r = await call("POST", "/api/requests/import", { text: await f.text(), dryRun: WORK_DRY }, 2);
+      if (WORK_DRY) for (const row of r.added) console.log(row);
+      console.log(r.line);
+      break;
+    }
+    default:
+      console.error(USAGE);
       process.exit(2);
   }
 }

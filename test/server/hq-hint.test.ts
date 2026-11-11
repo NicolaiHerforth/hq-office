@@ -6,6 +6,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnServer } from "../../scripts/room-hash.ts";
 import { HINT } from "../../src/hq-guide.ts";
+import { sortHint } from "../../src/server/requests.ts";
+// Every note is a request: the line typed into HQ ends with it.
+const sort = (id: number) => sortHint({ id, status: "new" });
 
 const ROOT = join(import.meta.dir, "..", "..");
 const stops: (() => Promise<void>)[] = [];
@@ -53,7 +56,7 @@ describe("reply reminder on (the default)", async () => {
 
   test("a note carries it, on a line of its own", async () => {
     await o.post("/api/notes", { text: "ship it" });
-    expect(await o.prompt("ship it")).toBe(`HUD note from the owner: ship it\n${HINT}`);
+    expect(await o.prompt("ship it")).toBe(`HUD note from the owner: ship it${sort(1)}\n${HINT}`);
   });
 
   test("an answer carries it", async () => {
@@ -65,7 +68,7 @@ describe("reply reminder on (the default)", async () => {
   test("a reply from the messages tab carries it", async () => {
     const { id } = await o.post("/api/updates", { title: "PR is up" });
     await o.post("/api/notes", { text: `re: #u${id} ("PR is up") looks good` });
-    expect(await o.prompt("looks good")).toEndWith(`re: #u${id} ("PR is up") looks good\n${HINT}`);
+    expect(await o.prompt("looks good")).toEndWith(`re: #u${id} ("PR is up") looks good${sort(2)}\n${HINT}`);
   });
 
   test("the reminder is one line and names the commands", () => {
@@ -80,11 +83,11 @@ describe("HUD_HQ_HINT=0", async () => {
 
   test("a note, an answer and a reply go without it", async () => {
     await o.post("/api/notes", { text: "plain note" });
-    expect(await o.prompt("plain note")).toBe("HUD note from the owner: plain note");
+    expect(await o.prompt("plain note")).toBe(`HUD note from the owner: plain note${sort(1)}`);
     const { id } = await o.post("/api/asks", { title: "Q" });
     await o.post(`/api/asks/${id}/answer`, { answer: "plain answer" });
     expect(await o.prompt("plain answer")).not.toContain(HINT);
     await o.post("/api/notes", { text: "re: #n1 plain reply" });
-    expect(await o.prompt("plain reply")).toBe("HUD note from the owner: re: #n1 plain reply");
+    expect(await o.prompt("plain reply")).toBe(`HUD note from the owner: re: #n1 plain reply${sort(2)}`);
   });
 });
