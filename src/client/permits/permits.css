@@ -1,0 +1,4 @@
+/* A question that allows a lane's request (src/server/lane-permits.ts) shows the whole command: its code box wraps,
+   and a run of spaces takes its lines, so nothing of the command sits off the side of the box while "Allow this once"
+   can be pressed. Everywhere else a code box scrolls sideways (core/controls.css). */
+.ask:has(.opt[data-opt="Allow this once"]) .codebox pre { white-space: break-spaces; overflow-wrap: anywhere; }

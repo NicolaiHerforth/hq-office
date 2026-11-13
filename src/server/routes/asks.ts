@@ -14,8 +14,9 @@ const routes: Route[] = [
   // An ask's HTML page, served sandboxed like every page (ask-pages.ts), whatever the ask's status.
   { method: "GET", pattern: /^\/asks\/(\d+)\.html$/, handle: ({ m, url }) => serveAskPage(Number(m[1]), url.searchParams.get("theme")) ?? json({ error: `ask #${m[1]} has no page` }, 404) },
   { method: "POST", path: "/api/asks", handle: ({ body, caller }) => withPage(createAsk(body, caller().floor, caller().agent)) },
-  { method: "POST", pattern: /^\/api\/asks\/(\d+)\/answer$/, handle: ({ body, m }) => {
-    answerAsk(Number(m[1]), String(body.answer ?? "").trim() || "done");
+  // Who sent it goes along: a question that allows a lane's request takes only the owner's answer on the page.
+  { method: "POST", pattern: /^\/api\/asks\/(\d+)\/answer$/, handle: ({ body, m, req }) => {
+    answerAsk(Number(m[1]), String(body.answer ?? "").trim() || "done", { pane: req.headers.get("x-hud-pane"), page: req.headers.has("origin") });
   } },
   { method: "POST", pattern: /^\/api\/asks\/(\d+)\/notyet$/, handle: ({ body, m }) => notYet(Number(m[1]), body.note) },
   { method: "POST", pattern: /^\/api\/asks\/(\d+)\/withdraw$/, handle: ({ body, m, caller }) => {

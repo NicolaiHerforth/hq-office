@@ -3,6 +3,25 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.43.0] - 2026-11-13
+### Added
+
+- **Lanes no longer wait on permission prompts.** Start a lane with the lane settings file
+  (`herdr agent start NAME --kind claude --pane P -- --settings "$(hud lane-settings)"`) and a hook answers every
+  permission prompt in it through the HUD: the lane is refused on the spot, told to go another way or tell HQ, and
+  keeps working. If the HUD is down or slow, the hook refuses just the same. The file also refuses pages on claude.ai
+  outright (a lane gets such a page as a file). Nothing is added to `~/.claude/settings.json`.
+- **Allow this once.** When a lane truly needs a refused action, HQ runs `hud permit ask ID` and you get a question
+  showing the lane, the folder and the exact command as the lane's hook recorded it, never in HQ's words. **Allow this
+  once** lets that exact call through one time within the hour, also when it was auto mode's own check that blocked
+  it; the next identical call is refused again. Only your answer on the HUD's page counts: one from an agent's pane or
+  a command is refused, and so is a yes on a question that was edited after it was raised. Every allow and every use
+  is in the log. Lanes run as your user, so this keeps an honest lane exact, not a determined one out (the README
+  says what it does not stop).
+- `hud permit` lists what lanes were refused, `hud permit show ID` shows one request, and a lane that shows a prompt
+  its hook could not answer is logged on its card. See "Lanes and permission prompts" in the README and
+  `docs/lane-permits.md`. HQ's guide (`hud guide`) and the lane guide say how lanes start and what a refusal means.
+
 ## [0.42.0] - 2026-11-12
 ### Added
 

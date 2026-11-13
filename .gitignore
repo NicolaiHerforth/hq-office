@@ -4,6 +4,9 @@ node_modules
 uploads/
 config.env
 .data/
+/lane-settings.json*
+/lane-hook.ts*
+/lane-permits-open
 AGENTS.local.md
 .release-exclude
 .release-denylist

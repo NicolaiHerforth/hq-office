@@ -65,6 +65,14 @@
 //   hud work move ID TEXT                         progress, no status change ("PR #12 in review")
 //   hud work deliver ID LINK TEXT  /  hud work withdraw ID WHY
 //   hud work import FILE [--dry-run]              a markdown ledger: # | Date | Request | Owner | Status | Next step | Last moved
+// permits: a lane started with the lane settings file never waits on a permission prompt: its hook asks the HUD and is
+// refused, unless the owner allowed that exact request once on the HUD. Your floor's unless --all.
+//   hud permit [list]                  recent requests lanes were refused: id, age, lane, kind, status, the command or url
+//   hud permit show ID                 one request as its hook recorded it
+//   hud permit ask ID [--why TEXT]     ask the owner to allow it once: the question shows the request as recorded (never
+//                                      your wording; --why is one line under it, marked as HQ's); his answer goes to the lane
+//   hud lane-settings                  the path of the lane settings file (written first if missing or stale), for
+//                                      herdr agent start NAME --kind claude --pane P -- --settings "$(hud lane-settings)"
 //   hud guide            how HQ talks to the owner (through the HUD, never only in its terminal)
 //   hud ref KIND ID [--json]   the reference to paste into markdown for an HQ thing; on a line of its own it shows as
 //                        a card of the thing, live. KIND: brief, room, lane, ask, floor, file (ID: SLUG/NAME, a file on
@@ -345,6 +353,12 @@ switch (cmd) {
   case "work":
     await workCmd();
     break;
+  case "permit":
+    await permitCmd();
+    break;
+  case "lane-settings":
+    console.log((await call("GET", "/api/lane-settings")).path);
+    break;
   case "guide":
     console.log(rest[0] === "lane" ? LANE_GUIDE : GUIDE);
     break;
@@ -376,7 +390,7 @@ switch (cmd) {
     await floorCmd();
     break;
   default:
-    console.log("usage: hud ask|update|comment|item|lane|rm-lane|tree|withdraw|event|tell|say|brief|request|req|work|inbox|ack|wait|state|sync|secret|track|done|pause|resume|board|room|page|floor|guide|ref");
+    console.log("usage: hud ask|update|comment|item|lane|rm-lane|tree|withdraw|event|tell|say|brief|request|req|work|permit|lane-settings|inbox|ack|wait|state|sync|secret|track|done|pause|resume|board|room|page|floor|guide|ref");
     console.log("HQ: run `hud guide` for how to reach the owner (through the HUD, never only in your terminal).");
 }
 
@@ -879,6 +893,24 @@ async function workCmd() {
       console.error(USAGE);
       process.exit(2);
   }
+}
+
+// ---- permits (hud permit ...): what lanes were refused, and asking the owner to allow one request once ----
+
+async function permitCmd() {
+  const [verb = "list", id] = rest;
+  const USAGE = "usage: hud permit [list] [--all] | show ID | ask ID [--why TEXT]";
+  const num = String(id ?? "").replace(/^#/, "");
+  const text = async (path: string) => {
+    const res = await fetch(BASE + path, { headers: who() }).catch(unreachable);
+    if (!res.ok) { console.error((await res.json().catch(() => ({}))).error ?? res.statusText); process.exit(2); }
+    process.stdout.write(await res.text());
+  };
+  if (verb === "list") return text("/api/permits?format=text");
+  if (!/^\d+$/.test(num) || !["show", "ask"].includes(verb)) { console.error(USAGE); process.exit(2); }
+  if (verb === "show") return text(`/api/permits/${num}?format=text`);
+  const r = await call("POST", `/api/permits/${num}/ask`, { why: one("why") }, 2);
+  console.log(`ask #${r.ask}: the owner is asked to allow permit #${r.permit} once; his answer goes to ${r.lane}`);
 }
 
 // ---- floors (hud floor ...): one HQ agent and everything it runs ----

@@ -14,7 +14,8 @@ import { requests } from "./owner-requests.ts";
 
 // On its lane's floor, else the caller's (the first floor when no caller is known). With an HTML page (--file q.html,
 // or a body that is a page): ask-pages.ts. A lane that asks gets the answer (ask-routing.ts); `agent` is the caller.
-export function createAsk(body: any, callerFloor?: string, agent?: string | null) {
+// `by` is who raised it, for the log, when that is not who gets the answer (HQ asking for a lane's permit).
+export function createAsk(body: any, callerFloor?: string, agent?: string | null, by?: string | null) {
   if (!body.title) throw new Error("title is required");
   const { page, body: text } = pageOfFields(body);
   const floor = laneFloor(body.lane) ?? floorOr(callerFloor);
@@ -37,14 +38,23 @@ export function createAsk(body: any, callerFloor?: string, agent?: string | null
   const id = Number(res.lastInsertRowid);
   if (page !== undefined) setAskPage(id, page);
   recordAsker(id, agent, floor);
-  event(askerOf({ id, floor }) ?? "hq", `asked: ${body.title}`, body.lane, floor);
+  event(by ?? askerOf({ id, floor }) ?? "hq", `asked: ${body.title}`, body.lane, floor);
   return id;
 }
 
-export function answerAsk(id: number, answer: string) {
+// Where an answer came from: the herdr pane its sender named, and whether a browser page sent it (an Origin).
+export type AnswerFrom = { pane: string | null; page: boolean };
+// A feature whose asks mean something on the server registers here (lane-permits.ts: a question that allows a lane's
+// request). `check` runs before an answer is stored and refuses it by throwing; `answered` runs once it is stored and
+// may return what whoever asked is told in place of the usual line.
+export type AskHook = { check?(ask: Ask, answer: string, from?: AnswerFrom): void; answered?(ask: Ask, answer: string): string | null | undefined };
+export const askHooks: AskHook[] = [];
+
+export function answerAsk(id: number, answer: string, from?: AnswerFrom) {
   const ask = db.query("SELECT * FROM asks WHERE id = ?").get(id) as Ask | null;
   if (!ask) throw new Error(`no ask ${id}`);
   if (ask.status !== "open") throw new Error(`ask ${id} is already ${ask.status}`);
+  for (const h of askHooks) h.check?.(ask, answer, from);
   db.query("UPDATE asks SET status = 'answered', answer = ?, answered_at = ? WHERE id = ?").run(answer, Date.now(), id);
   // A request that waited on this ask goes back to its lane (requests.ts).
   requests.askSettled(id);
@@ -52,7 +62,8 @@ export function answerAsk(id: number, answer: string) {
   event(OWNER, `answered${asker ? ` for ${asker}` : ""} "${ask.title}": ${answer}`, ask.lane, ask.floor);
   // An ask with a page: what the owner did in it (picks, rows, notes) is in the page's data, not in the answer.
   const data = hasAskPage(id) ? ` (it has a page: what the owner did in it: hud page data ${askPageKey(id)})` : "";
-  tellAsker(ask, `HUD answer #${id}${ask.lane ? ` (${ask.lane})` : ""}: "${ask.title}" -> ${answer}${data}`, `ask:${id}`);
+  const told = askHooks.map((h) => h.answered?.(ask, answer)).find(Boolean);
+  tellAsker(ask, told ?? `HUD answer #${id}${ask.lane ? ` (${ask.lane})` : ""}: "${ask.title}" -> ${answer}${data}`, `ask:${id}`);
 }
 
 // An ask that requests secrets is answered with their values: each one goes to the secret store, and the

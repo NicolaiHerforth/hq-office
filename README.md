@@ -223,6 +223,31 @@ A page resolves only the references its author wrote into it: the ones in its st
 
 The hook does nothing in any session but a floor's HQ's own (the HUD matches the session id herdr reports for HQ), and nothing while HQ QUEUE is off. It fails open: if the HUD is down, slow (1.5 s) or answers anything else, the message reaches HQ untouched; a message is held only after the HUD has stored it. Without the hook, the queue still takes your notes and `hud request`, and still prompts an idle HQ; lanes' typed messages then reach HQ directly, as before.
 
+## Lanes and permission prompts
+
+A lane is an agent nobody watches, so a permission prompt in its pane is a question nobody sees. Start every lane with the lane settings file and it never waits on one:
+
+```sh
+herdr agent start NAME --kind claude --pane P -- --settings "$(hud lane-settings)"
+```
+
+`hud lane-settings` prints the file's path. The file and the hook it runs are both in the HUD's data folder and the server refreshes them at every start, so a plugin update that moves the plugin's code leaves running lanes covered. Nothing is added to `~/.claude/settings.json` or any shared settings. The file gives the session:
+
+- **a hook that answers every permission prompt through the HUD.** The prompt never shows. The lane is refused on the spot with `nobody answers prompts in this pane; do it another way, or tell HQ what you need. This exact request is permit #7 (HQ: hud permit ask 7)`, and keeps working. If the HUD is down or slow (2 s), the hook refuses just the same.
+- **a rule that refuses pages on claude.ai outright.** Claude Code lets no hook approve a page made outside your organization, so a lane gets such a page as a file. Lanes can still publish.
+
+**Allow this once.** When a lane truly needs the refused action, it tells HQ, and HQ runs `hud permit ask 7`. You get a question in NEEDS YOU: "Allow this once?", with the lane, the folder and the exact command in a code box that wraps so all of it shows, as the lane's hook recorded it, never in HQ's words (HQ's `--why` is one line under it, marked as HQ's). It says when the command would run outside the sandbox, and when it was auto mode's own check that blocked it. **Allow this once** lets that exact call through one time within the hour: the lane is told to retry, and the next identical call is refused again. **No** (or anything else you type) leaves it refused, and the lane hears your words, as it does words you add to a yes.
+
+```sh
+hud permit                      # recent requests on your floor: id, age, lane, kind, status, the command
+hud permit show 7               # one request as recorded
+hud permit ask 7 --why "..."    # the question for it; refused for what can never be allowed
+```
+
+Your yes is yours only: the question shows the request as recorded and cannot allow anything once it has been edited; an answer to it counts only from the HUD's page, never from an agent's pane or a command; a lane cannot raise the question for itself; and every allow and every use is in the log. An allow is for one lane, one folder and one exact command.
+
+What it does not stop: lanes run as the same user as the HUD, so a lane that set out to could write the HUD's database or imitate the page. Permits keep an honest lane from waiting and make your yes exact; they are not a sandbox. Lanes on another machine are not covered, and a new git repository's trust dialog comes before any hook: start lanes in folders you already trust. [docs/lane-permits.md](docs/lane-permits.md) has the rest, and the trial behind it.
+
 ## Layouts
 
 **MENU**, top right, holds SECRETS, SETTINGS, SOUND and LAYOUT. LAYOUT is each viewer's own choice, remembered in that browser:
