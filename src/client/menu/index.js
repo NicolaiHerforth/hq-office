@@ -1,5 +1,5 @@
-// MENU, top right: SECRETS (the panel over the stage), SETTINGS, MONITOR (the resource monitor's page, in a tab of
-// its own, as MACHINES in the top bar opens it: on a phone MENU is where it is found), SOUND, LAYOUT and THEME in one place. LAYOUT is
+// MENU, top right: SECRETS (the panel over the stage), SETTINGS, MONITOR (the resource monitor's page, in this tab,
+// as MACHINES in the top bar opens it: on a phone MENU is where it is found), SOUND, LAYOUT and THEME in one place. LAYOUT is
 // each viewer's own choice, remembered in this browser: OFFICE (the default: the office takes the whole right column)
 // or LANES BOARD (the board of every lane under the office, lanes/). It is set as data-layout on the root, which
 // core/layout.css reads. THEME is each viewer's own too: SYSTEM (the default: the browser's light or dark, live),
@@ -13,6 +13,7 @@ import { setText } from "../core/format.js";
 import { liveSecrets, lostSecrets, openSecrets } from "../secrets/secrets.js";
 import { sheet, sheetMode, sheetsNow } from "../core/sheet.js";
 import { openTell } from "../tell/tell.js";
+import { openMonitor } from "../monitor/index.js";
 
 const KEY = "hq-layout";
 export const LAYOUTS = ["office", "board"];
@@ -103,7 +104,7 @@ drop.addEventListener("click", (e) => {
   if (t) { setTheme(t.dataset.setTheme); return; }
   // These two focus what is in them on this same click, which takes the page unlocked first.
   if (e.target.closest("#secretsBtn")) { closeMenu(); sheetsNow(); openSecrets(); return; }
-  if (e.target.closest("#monitorBtn")) { closeMenu(); window.open("/monitor", "_blank", "noopener"); return; }
+  if (e.target.closest("#monitorBtn")) { closeMenu(); openMonitor(e); return; }
   if (e.target.closest("#menuTell")) { closeMenu(); sheetsNow(); openTell(); return; }
   if (e.target.closest("#menuOffice")) { closeMenu(); setTimeout(toOffice); return; }
   if (e.target.closest("#menuSubs")) { closeMenu(); setTimeout(() => $("subsBtn").click()); return; }

@@ -236,6 +236,38 @@ test.skipIf(!chromeFound || process.platform !== "darwin")("a monitor that could
   }
 });
 
+// The ways in open the monitor in this same tab: a tab a script opens is out of sight, or never opens, in an app window
+// or a phone's home-screen app. ← HQ comes back, and an unsent note is still there. ⌘-click still gives a tab of its own.
+test.skipIf(!chromeFound)("MACHINES and MENU › MONITOR open the monitor in this tab, and ← HQ comes back", async () => {
+  await page.s("Emulation.setDeviceMetricsOverride", { width: 1440, height: 900, deviceScaleFactor: 1, mobile: false });
+  const hud = async () => {
+    await until(`location.pathname === "/" && document.readyState === "complete" && document.getElementById("machines").getAttribute("role") === "link" && !!document.querySelector("#menuDrop .seg.on[data-set-theme]")`);
+  };
+  const tabs = async () => (await chrome.cdp.send("Target.getTargets")).targetInfos.filter((t: any) => t.type === "page").length;
+  const before = await tabs();
+  await page.s("Page.navigate", { url: `${server.base}/` });
+  await hud();
+  await ev(`(document.getElementById("noteText").value = "a note not sent yet", true)`);
+  await click("#machines");
+  await until(`location.pathname === "/monitor" && !!document.querySelector("#app.ready .tile:not(.nil)")`);
+  expect(await tabs()).toBe(before);
+  await click("a.home");
+  await hud();
+  expect(await ev(`document.getElementById("noteText").value`)).toBe("a note not sent yet");
+  await click("#menuBtn");
+  await click("#monitorBtn");
+  await until(`location.pathname === "/monitor" && !!document.querySelector("#app.ready .tile:not(.nil)")`);
+  expect(await tabs()).toBe(before);
+  await click("a.home");
+  await hud();
+  const at = await ev(`(() => { const r = document.getElementById("machines").getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
+  for (const type of ["mousePressed", "mouseReleased"]) await page.s("Input.dispatchMouseEvent", { type, x: at[0], y: at[1], button: "left", clickCount: 1, modifiers: 4 });
+  for (const end = Date.now() + 10_000; Date.now() < end && (await tabs()) === before; ) await Bun.sleep(50);
+  expect(await tabs()).toBe(before + 1);
+  expect(await ev(`location.pathname`)).toBe("/");
+  for (const t of (await chrome.cdp.send("Target.getTargets")).targetInfos) if (t.type === "page" && t.url.endsWith("/monitor")) await chrome.cdp.send("Target.closeTarget", { targetId: t.targetId });
+}, 120_000);
+
 test.skipIf(!chromeFound)("the page raised no error", () => {
   expect(errors).toEqual([]);
 });

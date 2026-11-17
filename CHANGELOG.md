@@ -3,6 +3,14 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.44.1] - 2026-11-17
+### Fixed
+
+- **MACHINES and MENU › MONITOR open the monitor where you are.** They opened it in a new tab. In an app window, a
+  phone's home-screen app, or a browser that puts such a tab out of sight, the click seemed to do nothing. The monitor
+  now opens in the HUD's own tab, and **← HQ** at its top left comes back. Text you typed and had not sent is still
+  there when you return. ⌘- or Ctrl-click still opens it in a tab of its own.
+
 ## [0.44.0] - 2026-11-17
 ### Added
 

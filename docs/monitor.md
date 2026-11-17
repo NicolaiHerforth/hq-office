@@ -28,7 +28,7 @@ about 820 processes, 24 herdr panes), in November 2026.
 | `src/server/monitor-standing.ts` | the verdict on now by itself, which MACHINES in the HUD's top bar speaks by |
 | `src/server/routes/monitor.ts` | starts it (macOS, where `HUD_MONITOR=1` asks for it), serves the page at `/monitor` and its data under `/api/monitor/page/`, `/api/monitor/now` and `/api/monitor/marks` |
 | `public/monitor.html` | the page: memory as one picture of tiles that you scrub through time |
-| `src/client/monitor/` | the way in: MACHINES in the HUD's top bar opens the page in a tab of its own |
+| `src/client/monitor/` | the way in: MACHINES in the HUD's top bar (and MENU › MONITOR) opens the page in the same tab; its ← HQ comes back |
 | `scripts/monitor-fixture.ts` | writes an invented hour, `calm` or `capped`, for a replay |
 | `hud monitor mark TEXT [--kind K]` | puts a mark on the timeline; never fails, never waits more than 1.5 s |
 | `scripts/monitor-probe.ts` | runs it without the server on a folder of your choosing, and prints a report from the database |

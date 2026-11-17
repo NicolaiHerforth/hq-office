@@ -76,6 +76,8 @@ button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cu
 .brand{display:flex;align-items:center;gap:7px;color:var(--ink-2);font-size:13px;white-space:nowrap}
 .brand b{color:var(--ink);font-weight:600;letter-spacing:-.01em}
 .brand svg{display:block}
+.home{display:inline-flex;align-items:center;gap:4px;min-height:44px;min-width:44px;margin:-10px 0 -10px -6px;padding:0 6px;color:var(--ink-2);font-size:13px;font-weight:600;text-decoration:none;white-space:nowrap}
+.home:hover{color:var(--ink)}
 .meta{flex:1;display:flex;gap:18px;justify-content:flex-end;min-width:0}
 .meta span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .meta span:last-child{flex:none}
@@ -537,6 +539,7 @@ i.cd{display:inline-block;width:12px;height:12px;border-radius:3px}
 <body>
 <div class="app" id="app">
   <header class="top">
+    <a class="home" href="/" aria-label="Back to HQ Office">← HQ</a>
     <div class="brand">
       <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="1" width="14" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="3.5" y="8" width="5" height="4.5" rx="1" fill="currentColor"/><rect x="9.5" y="5.5" width="3" height="7" rx="1" fill="currentColor"/></svg>
       <b id="hostname"></b><span>resource map</span>

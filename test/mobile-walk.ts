@@ -235,8 +235,8 @@ export type Surface = {
 };
 
 const room = "#room/pay-migration";
-// THE MONITOR's page is a page of its own (/monitor), not a panel of the HUD's: MACHINES opens it in a new tab, which
-// this one tab cannot follow, so the walk goes to its address here. AUDIT reads the HUD's .wrap on whatever page it
+// THE MONITOR's page is a page of its own (/monitor), not a panel of the HUD's: MACHINES opens it in this same tab
+// (test/client/monitor-walk.test.ts walks that way in), and the walk goes to its address here. AUDIT reads the HUD's .wrap on whatever page it
 // measures, so the page's root is given that class for the measure.
 const monitorPage = async (t: Tab) => {
   await t.ev(`(location.assign("/monitor"), true)`);

@@ -281,7 +281,8 @@ Codex or python3 shows as "no source" in the dropdown; with no source anywhere, 
 ## The resource monitor
 
 **MACHINES** in the top bar says how full a machine is. The monitor says who filled it. Click MACHINES, or
-**MENU › MONITOR**, and a page of its own opens at `/monitor`: the machine's memory as one map, with a tile for
+**MENU › MONITOR**, and a page of its own opens at `/monitor`, in the same tab (**← HQ** comes back; ⌘- or
+Ctrl-click opens it in a new tab): the machine's memory as one map, with a tile for
 every lane and app sized by what it holds, the verdict as a sentence above it ("not capped right now", or what is
 the limit and who holds most of it), and a strip of time underneath that you drag to see any moment of the last
 hour, day, week or 90 days. It also lists the worst moments, what keeps coming back, and the sizes of the large
