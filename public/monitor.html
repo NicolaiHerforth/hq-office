@@ -2561,9 +2561,11 @@ function apply(changed) {
   if (boot || changed.has("patterns") || changed.has("days")) refocus($("#pats"), "pat", buildPatterns);
   if (boot || changed.has("days")) refocus($("#calgrid"), "day", buildCalendar);
   if (boot || changed.has("growers")) buildGrowers();
-  const self = DATA.self, cost = self.cpuPercentOfOneCore == null ? `${self.memMB} MB` : `${self.cpuPercentOfOneCore}% of one core and ${self.memMB} MB`;
-  txt($("#meta-self"), `This monitor costs ${cost}.`);
-  txt($("#prov"), `Recorded on ${HOST.name}, one sample every ${DATA.tickSeconds} s. The monitor costs ${cost} of memory, and its database holds ${self.dbMB} of ${self.dbLimitMB} MB.`);
+  /* The CPU is the monitor's own. The memory is the whole server's, HUD and monitor together: one process holds
+     both, so the monitor's share of it cannot be read apart. */
+  const self = DATA.self, cpu = self.cpuPercentOfOneCore == null ? "" : `This monitor costs ${self.cpuPercentOfOneCore}% of one core. `;
+  txt($("#meta-self"), `${self.cpuPercentOfOneCore == null ? "" : `Monitor ${self.cpuPercentOfOneCore}% of one core · `}HUD server ${self.memMB} MB`);
+  txt($("#prov"), `Recorded on ${HOST.name}, one sample every ${DATA.tickSeconds} s. ${cpu}The HUD's server it runs in, monitor included, holds ${self.memMB} MB of memory, and the monitor's database holds ${self.dbMB} of ${self.dbLimitMB} MB.`);
   LIVE.stale = isStale();
   if (boot) { LIVE.ready = true; $("#app").classList.add("ready"); relayout(); return; }
   if (ZONE !== zone) measureStage();

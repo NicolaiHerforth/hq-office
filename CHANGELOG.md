@@ -3,6 +3,16 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.44.2] - 2026-11-17
+### Fixed
+
+- **The monitor holds far less memory, and says whose memory it shows.** Each sample left about a megabyte of
+  garbage, which was collected only every few minutes: the server running the monitor swung between 65 and 90 MB.
+  It now cleans up after every sample, for 1 to 3 ms of CPU, and holds a flat 63 to 65 MB, with the monitor's page
+  open or not. The clean-up covers the rest of the HUD's garbage too. The page said "This monitor costs 132 MB", but
+  that figure was the whole HUD server, which the monitor runs inside. It now says "HUD server", and gives the
+  monitor's own CPU separately.
+
 ## [0.44.1] - 2026-11-17
 ### Fixed
 

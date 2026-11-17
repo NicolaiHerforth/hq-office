@@ -53,6 +53,7 @@ export function createMonitor(opts: { dir: string; herdr: string; now?: () => nu
   // The macOS source opens system libraries when it loads, so it loads at the first tick, not with this file: a
   // server on another system can still import the monitor and leave it off.
   let source: (Source & { known: ReturnType<typeof remembering> }) | null = opts.source ? { ...opts.source, known: remembering(opts.source.lookup) } : null;
+  const collect = !opts.source;
   const mask = opts.mask ?? ((text: string) => text);
   const { store, setAside } = openOrRenew(join(opts.dir, "monitor.db"), now());
   // Said on the timeline too, at the place where the history ends that the new database does not have.
@@ -123,6 +124,11 @@ export function createMonitor(opts: { dir: string; herdr: string; now?: () => nu
     last = { at: reading.at, host, rows: named };
     // Not waited for: a walk takes minutes, and a tick must not.
     if (disk?.due()) void disk.read().then((cpuMs) => (carried += cpuMs));
+    // A tick leaves about a megabyte of garbage (the process table, ps's text, the rows), and the runtime let it pile
+    // up for minutes: the monitor alone grew from 33 to 59 MB in four. Collected after every tick it stays at 31, for
+    // 1 to 3 ms of CPU, counted in what the monitor costs. Only on this machine's reader: a test's ticks come by the
+    // hundred.
+    if (collect) Bun.gc(true);
     carried += cpuNow() - after;
   }
 

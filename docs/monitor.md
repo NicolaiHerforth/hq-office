@@ -213,6 +213,18 @@ between two instants, so it includes what the server did while the tick waited a
 An earlier hour, before the containers were read and before `ps` was limited, measured 0.32% and 44 MB, and the
 process's own CPU time over that hour plus the `ps` runs agreed with the sum of the ticks' figures.
 
+**Memory, since 0.44.2.** The footprint the page shows is the whole server's: the HUD and the monitor are one
+process, and the monitor's share of it cannot be read apart, so the page says "HUD server", never "the monitor". The
+monitor's share was measured instead, with two throwaway servers from one tree side by side, `HUD_MONITOR=1` and `0`,
+for ten minutes, the monitor's page open for the second five. A tick leaves about a megabyte of garbage (the process
+table, `ps`'s text, the rows), and the runtime let it pile up for minutes: the server with the monitor swung between
+65 and 90 MB and reached 103, and the monitor alone grew from 33 to 59 MB in four minutes. Now every tick ends with a
+full collection, 1 to 3 ms of CPU, counted in the tick's cost. The server with the monitor then held 63 to 65 MB,
+page open or not, where the one without it swung between 45 and 76; the monitor alone held 31 MB, of which the bare
+runtime is 10, the monitor's code 8, and most of the rest pages the engine's allocator keeps (its live heap is 3 to 5
+MB, SQLite's page cache 0.1). The collection also takes the HUD's own garbage, which is why the server with the
+monitor is below the other's average.
+
 ## Disk growers
 
 A tick records how much of the disk is free. It does not say what fills the disk. `monitor-disk.ts` reads the sizes
