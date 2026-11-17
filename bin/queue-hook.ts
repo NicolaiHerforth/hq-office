@@ -9,7 +9,15 @@ import { dirname, join } from "node:path";
 export const EVENTS = ["UserPromptSubmit", "PostToolUse", "Stop"] as const;
 export const MARK = "hq-queue-hook.ts";
 export const settingsPath = (home: string) => join(home, ".claude", "settings.json");
-export const hookCommand = (bun: string, root: string, url: string) => `HUD_URL=${url} ${JSON.stringify(bun)} ${JSON.stringify(join(root, "bin", MARK))}`;
+// marker: a file that is there while HQ QUEUE is OFF (the server keeps it: src/server/hq-queue.ts). The command tests
+// for it before anything else, so while the queue is off every prompt, tool call and stop of every Claude Code
+// session of this user costs one file test, not a process (as the lane hook does for PreToolUse). Any doubt runs the
+// hook, as it ran before the test was put in front: no file (a server that has not written it, another data folder,
+// a write that failed) means the hook runs, and the hook asks the HUD. Without a marker the command is the hook alone.
+const sh = (s: string) => `'${s.replaceAll("'", `'\\''`)}'`;
+export const queueMarker = (dataDir: string) => join(dataDir, "hq-queue.off");
+export const hookCommand = (bun: string, root: string, url: string, marker?: string) =>
+  `${marker ? `[ -e ${sh(marker)} ] || ` : ""}HUD_URL=${url} ${JSON.stringify(bun)} ${JSON.stringify(join(root, "bin", MARK))}`;
 
 function read(path: string): any {
   if (!existsSync(path)) return {};
@@ -39,7 +47,10 @@ export function installed(home: string) {
 export function install(home: string, command: string, now = Date.now()) {
   const path = settingsPath(home);
   const s = read(path);
-  if (EVENTS.every((e) => (s.hooks?.[e] ?? []).some(ours))) return { changed: false, path, backup: null };
+  // In place already, and saying exactly this: nothing to do. One from an earlier version (no file test before it,
+  // or another path) is written again.
+  const same = (g: any) => ours(g) && g.hooks.some((h: any) => h?.command === command);
+  if (EVENTS.every((e) => (s.hooks?.[e] ?? []).some(same))) return { changed: false, path, backup: null };
   const saved = backup(path, now);
   s.hooks = s.hooks && typeof s.hooks === "object" ? s.hooks : {};
   for (const e of EVENTS) {

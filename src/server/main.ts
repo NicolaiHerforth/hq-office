@@ -23,7 +23,7 @@ import { STATS_MS, sampleMachines } from "./machines.ts";
 import { board } from "./work-board.ts";
 
 syncHerdr();
-setInterval(syncHerdr, SYNC_MS);
+setInterval(() => void syncHerdr(), SYNC_MS);
 // Fills the GitHub cache once, and starts the board poll if there are open items.
 board.refresh(0).catch(() => {});
 // The machine sample bumps once a minute, which also keeps stale detection and the score fresh;

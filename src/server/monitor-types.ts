@@ -36,6 +36,9 @@ export type Host = {
   load1: number;
   memTotal: number;
   memFree: number;
+  // What MACHINES counts as not used (machine-stats.sh): free, inactive and speculative pages. Not stored: it is
+  // only there so MACHINES can take this machine's memory reading from a tick (monitor-machine.ts).
+  memReclaimable?: number;
   memWired: number;
   // Anonymous memory that is not compressed: what apps hold in RAM.
   memApp: number;
@@ -103,6 +106,7 @@ export type HostUsage = {
   load1: number;
   memTotalKb: number;
   memFreeKb: number;
+  memReclaimableKb?: number;
   memWiredKb: number;
   memAppKb: number;
   memCachedKb: number;

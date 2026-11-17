@@ -1,5 +1,6 @@
-// Machine health: CPU, memory, load, swap and free disk per machine, sampled once a minute (machine-stats.sh), and the
-// temp folders' size, read less often because it walks their files; each minute's row carries the latest.
+// Machine health: CPU, memory, load, swap and free disk per machine, sampled once a minute (machine-stats.sh, or for
+// this machine the monitor's newest tick while it runs), and the temp folders' size, read less often because it
+// walks their files; each minute's row carries the latest.
 import { DIR, HERDR, LOCAL, MACHINES } from "./config.ts";
 import { db } from "./db.ts";
 import { bump } from "./push.ts";
@@ -80,13 +81,26 @@ async function readTemp(machine: string) {
 // A reading the script left out is NULL, never NaN or zero.
 const reading = (v: string | undefined) => (v === undefined || !Number.isFinite(Number(v)) ? null : Number(v));
 
+// This machine's reading from somewhere that already has it: the monitor, while it runs (routes/monitor.ts sets it;
+// monitor-machine.ts makes the reading). stats: what the script would print, or null when the monitor has no fresh
+// tick, and then the script runs as on any machine. tempGb: the temp folders' size from the monitor's daily
+// reading, or undefined when it has none (its disk readings are off, or the first has not come), and then the
+// walk here goes on as before.
+type LocalReader = () => { stats: Record<string, string> | null; tempGb: number | undefined };
+let localReader: LocalReader | null = null;
+export const setLocalReader = (reader: LocalReader | null) => void (localReader = reader);
+
 export async function sampleMachines() {
   const now = Date.now();
-  for (const machine of MACHINES) readTemp(machine);
+  const own = MACHINES.includes(LOCAL) ? (localReader?.() ?? null) : null;
+  for (const machine of MACHINES) {
+    if (machine === LOCAL && own?.tempGb !== undefined) temp.set(machine, { at: now, gb: own.tempGb, reading: false });
+    else readTemp(machine);
+  }
   const samples: [string, Record<string, string> | Error][] = [];
   for (const machine of MACHINES) {
     try {
-      samples.push([machine, await readStats(machine)]);
+      samples.push([machine, (machine === LOCAL && own?.stats) || (await readStats(machine))]);
     } catch (e) {
       samples.push([machine, e as Error]);
     }
@@ -110,7 +124,7 @@ export async function sampleMachines() {
     }
     db.query("DELETE FROM machine_stats WHERE at < ?").run(now - STATS_KEEP_MS);
   })();
-  bump();
+  bump("the machines' sample");
 }
 
 // The latest sample per machine. A machine is "ok" only if its last sample succeeded and is recent.

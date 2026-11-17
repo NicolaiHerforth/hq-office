@@ -12,7 +12,8 @@ The server and `hud` come first; the page is built on the state contract below (
 - Table `floors`: `id` (a slug), `name`, `color` (`#rrggbb`, never red, amber or green: see "The floor UI rules"; a
   floor that wore one is moved at start to the nearest allowed colour, `src/server/floor-colors.ts`), `hq` (the herdr
   agent that is its HQ), `position`,
-  `created_at`, and `hq_pane` / `hq_seen_at` (the pane its HQ was last seen in, for the NAME button and the heal).
+  `created_at`, and `hq_pane` / `hq_seen_at` (the pane its HQ was last seen in, for the NAME button and the heal,
+  and when it was first seen there: written when the pane changes, not at every sync).
 - **The upgrade.** At start, with no floors, the server makes the first floor: id and name `hq` / `HQ`, or from
   `HUD_FLOOR_NAME` (its id is the name as a slug), with `HUD_HQ_AGENT` as its HQ and the pane `hq_link` held. Every
   existing row is put on it. Its `hq` is stored empty and read from `HUD_HQ_AGENT`, so that setting keeps working;

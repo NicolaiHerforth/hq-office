@@ -153,6 +153,48 @@ describe("the panes: which shell is whose", () => {
     expect(lists()).toBe(3);
   });
 
+  // The server's own herdr sync has both lists every 20 s: given them, the minute's look starts no herdr for a list.
+  test("lists that someone else has are taken, and herdr is asked for neither", async () => {
+    const herdr = stubHerdr();
+    herdr.set([], [], { "w1:p1": 500, "w1:p2": 600 });
+    const clock = { t: 1_000_000 };
+    const given = { at: clock.t, panes: [{ pane_id: "w1:p1", cwd: "/work/api" }, { pane_id: "w1:p2", cwd: "/work/notes" }], agents: [{ name: "builder", pane_id: "w1:p1" }] };
+    const panes = createPanes(herdr.bin, () => clock.t, () => given);
+    expect(await panes.panes(table(500, 600))).toEqual([
+      { pane: "w1:p1", shellPid: 500, lane: "builder", cwd: "/work/api" },
+      { pane: "w1:p2", shellPid: 600, lane: null, cwd: "/work/notes" },
+    ]);
+    const lists = () => herdr.calls().filter((c) => c === "pane list" || c === "agent list").length;
+    expect(lists()).toBe(0);
+    // A minute on, with newer lists: still neither, and the agent's new name is there.
+    clock.t += 60_000;
+    Object.assign(given, { at: clock.t - 5_000, agents: [{ name: "renamed", pane_id: "w1:p1" }] });
+    expect((await next(panes, table(500, 600))).map((p) => p.lane)).toEqual(["renamed", null]);
+    expect(lists()).toBe(0);
+    expect(herdr.calls().filter((c) => c.startsWith("pane process-info")).length).toBe(2);
+  });
+
+  test("lists older than a minute are not taken: herdr is asked", async () => {
+    const herdr = stubHerdr();
+    herdr.set([{ pane_id: "w1:p1" }], [{ name: "fresh", pane_id: "w1:p1" }], { "w1:p1": 500 });
+    const clock = { t: 1_000_000 };
+    const panes = createPanes(herdr.bin, () => clock.t, () => ({ at: clock.t - 61_000, panes: [{ pane_id: "w1:p1" }], agents: [{ name: "stale", pane_id: "w1:p1" }] }));
+    expect((await panes.panes(table(500))).map((p) => p.lane)).toEqual(["fresh"]);
+    expect(herdr.calls().filter((c) => c === "pane list").length).toBe(1);
+  });
+
+  test("a new pane is asked of herdr itself, at once, whatever lists there are", async () => {
+    const herdr = stubHerdr();
+    herdr.set([{ pane_id: "w1:p1" }, { pane_id: "w1:p2" }], [{ name: "tester", pane_id: "w1:p2" }], { "w1:p1": 500, "w1:p2": 600 });
+    const clock = { t: 1_000_000 };
+    // The lists the sync has are from before the pane was made.
+    const panes = createPanes(herdr.bin, () => clock.t, () => ({ at: clock.t, panes: [{ pane_id: "w1:p1" }], agents: [] }));
+    expect((await panes.panes(table(500))).map((p) => p.pane)).toEqual(["w1:p1"]);
+    clock.t += 10_000;
+    expect((await next(panes, table(500, 600))).map((p) => [p.pane, p.lane])).toEqual([["w1:p1", null], ["w1:p2", "tester"]]);
+    expect(herdr.calls().filter((c) => c === "pane list").length).toBe(1);
+  });
+
   test("a pane herdr could not name a shell for is asked about again before the minute is over", async () => {
     const herdr = stubHerdr();
     herdr.set([{ pane_id: "w1:p1" }, { pane_id: "w1:p2" }], [], { "w1:p1": 500 });

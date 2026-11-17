@@ -3,6 +3,31 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.45.0] - 2026-11-17
+### Changed
+
+- **HQ Office costs this machine about half the CPU it did, and much less at startup.** Measured on a database the
+  size of a long-running one, against 0.44.2: the server's own CPU 1.08 → 0.52% of one core, the programs it starts
+  0.35 → 0.20%, one rebuild of what the page shows 279 → 14 ms, and the memory peak at startup 172 → 101 MB. Nothing
+  you see or do changed, and answering a question is as fast as before.
+- **The server rebuilds only what changed, and sends nothing when nothing did.** Each piece of the page's state is
+  rebuilt only when what it reads was written, a request that changed nothing wakes no page, and two new database
+  indexes and one query in place of hundreds make the rest cheap.
+- **Finished lanes are read once a minute.** A lane resting with no prompt on its screen is read when its status
+  changes, then once a minute (it was every 20 s), so "2 shells still running" on such a lane can show up to a minute
+  late. A blocked lane, or one showing a prompt, is still read at every sync. A sync that finds nothing changed
+  writes nothing.
+- **MACHINES reads this machine from the monitor** while the monitor is on, in place of a script of its own every
+  minute; the temp folders' size comes from the monitor's daily reading. The monitor reuses the lane lists the
+  server already has, and the subscriptions' usage is read only when its files change.
+- **Smaller costs:** EXPORT and its printer load the first time you use them; HQ QUEUE's hook does nothing (3 ms, in
+  place of 19 ms and 27 MB) while the queue is off; greet gives up sooner on an agent with no name, except on HQ's
+  own pane; the work board that nothing drew is gone from the page.
+
+### Fixed
+
+- **The test run no longer leaves a temporary folder behind** each time it runs.
+
 ## [0.44.2] - 2026-11-17
 ### Fixed
 

@@ -2,7 +2,7 @@
 // stay as they were, a backup is written before each change, a second run changes nothing, and an unreadable file is
 // refused rather than overwritten. Never the real home.
 import { afterAll, beforeEach, expect, test } from "bun:test";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { EVENTS, MARK, hookCommand, install, installed, remove, settingsPath } from "../../bin/queue-hook.ts";
@@ -81,4 +81,43 @@ test("the plugin actions do it for this plugin and port, and say where the backu
   expect(run("remove-queue-hook").exitCode).toBe(0);
   expect(settings()).toEqual({ model: "opus" });
   expect(existsSync(join(home, ".claude", "settings.json"))).toBe(true);
+});
+
+// A file test in front: while HQ QUEUE is off the hook's command starts nothing (docs/footprint.md). Only a file that
+// says the queue is off skips it: no file, or one in another folder, runs the hook as before.
+test("with a marker, the command skips the hook only while the off-marker is there", () => {
+  const marker = join(home, "data dir", "it's", "hq-queue.off");
+  mkdirSync(join(home, "data dir", "it's"), { recursive: true });
+  // A "bun" that only notes it was started.
+  const bun = join(home, "bun"), log = join(home, "started");
+  writeFileSync(bun, `#!/bin/sh\necho "$HUD_URL $1" >> ${JSON.stringify(log)}\n`);
+  chmodSync(bun, 0o755);
+  const cmd = hookCommand(bun, "/opt/hq-office", "http://127.0.0.1:4747", marker);
+  expect(cmd.startsWith("[ -e '")).toBe(true);
+  expect(cmd).toContain(MARK);
+  const run = () => Bun.spawnSync(["sh", "-c", cmd], { stdin: new Blob(["{}"]) });
+  const started = () => (existsSync(log) ? readFileSync(log, "utf8").trim().split("\n").length : 0);
+  // No marker (a server that never wrote one, or writes it in another folder): the hook runs.
+  expect(run().exitCode).toBe(0);
+  expect(started()).toBe(1);
+  expect(readFileSync(log, "utf8")).toBe("http://127.0.0.1:4747 /opt/hq-office/bin/hq-queue-hook.ts\n");
+  // The queue is off: nothing starts.
+  writeFileSync(marker, "off\n");
+  expect(run().exitCode).toBe(0);
+  expect(started()).toBe(1);
+  // On again: the marker is gone, and the hook runs.
+  rmSync(marker);
+  expect(run().exitCode).toBe(0);
+  expect(started()).toBe(2);
+});
+
+test("a hook from before the file test is written again with it, once", () => {
+  install(home, CMD, 1);
+  const withTest = hookCommand("/usr/local/bin/bun", "/opt/hq-office", "http://127.0.0.1:4747", "/data/hq-queue.off");
+  expect(install(home, withTest, 2)).toMatchObject({ changed: true });
+  for (const e of EVENTS) expect(settings().hooks[e]).toEqual([{ hooks: [{ type: "command", command: withTest, timeout: 5 }] }]);
+  expect(install(home, withTest, 3).changed).toBe(false);
+  expect(installed(home)).toBe(true);
+  remove(home, 4);
+  expect(settings()).toEqual({});
 });

@@ -250,7 +250,7 @@ walk("WORK lists what he asked for, oldest first, in his words, with where each 
   expect(await count("#work input, #work textarea, #work select")).toBe(0);
   expect(await count("#work .rq.stale")).toBe(0);
   expect(await badge()).toBe(null);
-  expect(await ev(`document.getElementById("stall").hidden`)).toBe(true);
+  expect(await count("#stall, .stall")).toBe(0);
   expect(errors).toEqual([]);
 }, 30_000);
 
@@ -379,7 +379,7 @@ walk("unmoved for more than a day: the row turns amber by itself and the badge c
   await click('[data-qtab="questions"]');
   await until(`!document.getElementById("hud").hidden`);
   expect(await badge()).toBe("2");
-  expect(await ev(`document.getElementById("stall").hidden`)).toBe(true);
+  expect(await count("#stall, .stall")).toBe(0);
   // HQ moves one: it is amber no more, at once.
   await post(`/api/requests/${ids.deploy}/move`, { text: "merged, deploying tonight" }, HQ);
   await until(`document.getElementById("qtStalled").textContent === "1"`);

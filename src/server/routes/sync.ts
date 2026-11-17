@@ -4,7 +4,8 @@ import type { Route } from "../router.ts";
 
 const routes: Route[] = [
   { method: "POST", path: "/api/sync", handle: async () => {
-    await syncHerdr();
+    // Asked for by hand (hud sync): every pane that is read at all is read now.
+    await syncHerdr({ readAll: true });
   } },
 ];
 export default routes;

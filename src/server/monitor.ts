@@ -8,7 +8,7 @@ import { join } from "node:path";
 import { attribute } from "./monitor-attribution.ts";
 import { asProcs, ownerByFolder, type Container } from "./monitor-containers.ts";
 import { createDisk, type Spawn } from "./monitor-disk.ts";
-import { createPanes } from "./monitor-panes.ts";
+import { createPanes, type Lists } from "./monitor-panes.ts";
 import { openOrRenew } from "./monitor-store.ts";
 import type { HostUsage, Lookup, Owner, Proc, Reading, Usage } from "./monitor-types.ts";
 import { usage } from "./monitor-usage.ts";
@@ -48,7 +48,7 @@ function remembering(lookup: Lookup) {
 }
 
 // ticked is called after every tick that was stored, for whoever follows what the monitor says.
-export function createMonitor(opts: { dir: string; herdr: string; now?: () => number; mask?: (text: string) => string; source?: Source; disk?: { home: string; spawn?: Spawn }; ticked?: () => void }) {
+export function createMonitor(opts: { dir: string; herdr: string; now?: () => number; mask?: (text: string) => string; source?: Source; disk?: { home: string; spawn?: Spawn }; ticked?: () => void; lists?: () => Lists | null }) {
   const now = opts.now ?? Date.now;
   // The macOS source opens system libraries when it loads, so it loads at the first tick, not with this file: a
   // server on another system can still import the monitor and leave it off.
@@ -58,7 +58,7 @@ export function createMonitor(opts: { dir: string; herdr: string; now?: () => nu
   const { store, setAside } = openOrRenew(join(opts.dir, "monitor.db"), now());
   // Said on the timeline too, at the place where the history ends that the new database does not have.
   if (setAside) store.mark(now(), "monitor", `The monitor's database could not be read and was set aside as ${setAside}. Recording began anew.`);
-  const panes = createPanes(opts.herdr, now);
+  const panes = createPanes(opts.herdr, now, opts.lists);
   const ctx = { self: process.pid, uid: userInfo().uid, home: homedir() };
   // The disk is read only when the caller says whose: a walk of the large folders costs a minute of CPU, and no
   // probe, test or server that is only being tried out should start one by leaving an option out.

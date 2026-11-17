@@ -10,16 +10,18 @@
 // Stop hook), and is prompted when it sits idle with unread items (kick, after each sync, for any agent kind). HQ
 // reads the next item with hud req next; a lane's item stays open until HQ answers it (hud req answer: typed into the
 // lane's pane) or closes it (hud req close), so a lane waiting for a go never waits unseen.
-import { OWNER, HERDR, LOCAL } from "./config.ts";
+import { DATA, OWNER, HERDR, LOCAL } from "./config.ts";
 import { db } from "./db.ts";
 import { event } from "./events.ts";
 import { addStatePart } from "./state.ts";
-import { getSettings } from "./settings.ts";
+import { getSettings, settingsChanged } from "./settings.ts";
 import { postUpdate } from "./updates.ts";
 import { live, promptAgent } from "./herdr.ts";
 import { agentOfSession, floorList, floorOf, floorOfHq, floorOr, hasSession, hqOf } from "./floors.ts";
 import { hqLink, hqNowOf } from "./hq-link.ts";
-import { installed as hookInstalled } from "../../bin/queue-hook.ts";
+import { installed as hookInstalled, queueMarker } from "../../bin/queue-hook.ts";
+import { rmSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 
 export type Item = { id: number; floor: string; at: number; from_name: string; text: string; via: string; ref: string | null; urgent: number; read_at: number | null; answered_at: number | null; answer: string | null; closed_at: number | null; closed_why: string | null };
 const MAX_TEXT = 50_000;
@@ -27,6 +29,22 @@ const KICK_EVERY = Number(process.env.HUD_QUEUE_KICK_MS) || 5 * 60_000;
 const CLEAR_AFTER = Number(process.env.HUD_QUEUE_CLEAR_MS) || 400;
 
 export const queueOn = () => getSettings().hqQueue === true;
+// A file that is there exactly while HQ QUEUE is off: HQ's hook tests for it before it starts anything
+// (bin/queue-hook.ts), so with the queue off the hook costs every session one file test per event. Only this file
+// skips the hook: a missing one runs it, so a write that fails costs a process per event, never a queue that is on
+// and skipped. The file of the queue as it was (hq-queue.on, before this) is removed.
+const MARKER = queueMarker(DATA);
+function markQueue() {
+  try {
+    rmSync(join(DATA, "hq-queue.on"), { force: true });
+    if (queueOn()) rmSync(MARKER, { force: true });
+    else writeFileSync(MARKER, "HQ QUEUE is off. HQ's hook (bin/hq-queue-hook.ts) starts nothing while this file is here.\n");
+  } catch (e) {
+    console.error(`hq-queue: could not write or remove ${MARKER}; HQ's hook runs at every event until it can: ${(e as Error).message}`);
+  }
+}
+markQueue();
+settingsChanged.add(markQueue);
 const OPEN = "closed_at IS NULL AND answered_at IS NULL";
 
 export function fileItem(o: { floor: string; from: string; text: string; via: string; ref?: string | null; urgent?: boolean; read?: boolean }) {

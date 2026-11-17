@@ -3,7 +3,8 @@
 # Claude: grazr's account files (grazr, a herdr plugin, keeps what Claude hands its status line after every message).
 # Codex: the last rate_limits in its newest session log. Prints one JSON line of names, percentages and times; this
 # line is all that leaves the machine. No email, no credential, no transcript text, and it never calls a provider.
-# Runs locally or over ssh (`ssh host sh -s < sub-usage.sh`). macOS and Linux. No python3: says so and stops.
+# Runs locally or over ssh (`ssh host sh -s [WORD] < sub-usage.sh`). macOS and Linux. No python3: says so and stops.
+# WORD: what the last answer was made of (its "sig"); when nothing changed since, the answer is {"same":true}.
 # python3 is looked up on the PATH it runs with (launchd's and ssh's both have /usr/bin), so a test can hide it.
 PATH="${PATH:-/usr/bin:/bin}"
 export PATH
@@ -11,7 +12,28 @@ none='{"v":1,"python":false,"claude":null,"codex":null}'
 P=$(command -v python3) || { echo "$none"; exit 0; }
 # On a Mac without the developer tools, /usr/bin/python3 is a stub that opens an installer dialog: never run it.
 if [ "$(uname)" = "Darwin" ] && [ "$P" = /usr/bin/python3 ] && ! xcode-select -p >/dev/null 2>&1; then echo "$none"; exit 0; fi
-"$P" - <<'PY' 2>/dev/null || echo "$none"
+# What the answer below is made of, as one word: every file the reader opens, with its size and when it was last
+# written, the day folders it looks in, and the login ids in Claude's own file (that file is rewritten all day, and
+# one id is all that is read from it). Given the word of the last answer as $1, and the same word now, nothing has
+# changed: say so and start no python at all. The server asks for a whole answer every ten minutes whatever the word.
+state="${XDG_STATE_HOME:-$HOME/.local/state}"
+grazr="$state/herdr/plugins/wazum.grazr"
+[ -d "$grazr/accounts" ] || grazr="$HOME/.grazr"
+claude_json="${CLAUDE_CONFIG_DIR:+$CLAUDE_CONFIG_DIR/.claude.json}"
+claude_json="${claude_json:-$HOME/.claude.json}"
+sessions="${CODEX_HOME:-$HOME/.codex}/sessions"
+# The time to the fraction of a second the file system keeps: a file rewritten twice in one second, to the same
+# size, is still a change.
+if [ "$(uname)" = "Darwin" ]; then seen() { stat -f '%N %z %Fm' "$@" 2>/dev/null; }; else seen() { stat -c '%n %s %y' "$@" 2>/dev/null; }; fi
+days=$(ls -d "$sessions"/[0-9][0-9][0-9][0-9]/[0-9][0-9]/[0-9][0-9] 2>/dev/null | tail -7)
+sig=$( {
+  seen "$grazr"/accounts "$grazr"/accounts/*.json
+  grep -o '"accountUuid" *: *"[^"]*"' "$claude_json" 2>/dev/null | sort -u
+  echo "$days"
+  for d in $days; do seen "$d" "$d"/*.jsonl; done
+} | cksum | tr -d ' \n\t' )
+if [ -n "$1" ] && [ "$1" = "$sig" ]; then echo "{\"v\":1,\"same\":true,\"sig\":\"$sig\"}"; exit 0; fi
+HUD_SUBS_SIG="$sig" "$P" - <<'PY' 2>/dev/null || echo "$none"
 import glob, json, os, re
 from datetime import datetime, timezone
 
@@ -176,5 +198,5 @@ def safe(fn):
         return None
 
 
-print(json.dumps({"v": 1, "python": True, "claude": safe(claude), "codex": safe(codex)}, separators=(",", ":")))
+print(json.dumps({"v": 1, "python": True, "claude": safe(claude), "codex": safe(codex), "sig": os.environ.get("HUD_SUBS_SIG") or None}, separators=(",", ":")))
 PY

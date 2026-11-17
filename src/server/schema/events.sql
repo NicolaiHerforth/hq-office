@@ -6,3 +6,5 @@ CREATE TABLE IF NOT EXISTS events (
   who TEXT NOT NULL,
   text TEXT NOT NULL
 );
+-- The last event on a lane: the work board asks for it once per lane, on every state build.
+CREATE INDEX IF NOT EXISTS events_lane_at ON events (lane, at);

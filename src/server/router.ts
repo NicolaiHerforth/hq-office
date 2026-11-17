@@ -5,12 +5,13 @@
 // GET: the handler returns the Response. POST needs the x-hud header (a page on another origin cannot send it
 // without a preflight, which this server never grants). A raw POST reads the body itself; any other POST gets the
 // parsed JSON body, and its return value is the JSON reply ({ ok: true } when it returns nothing). Every write is
-// followed by bump(), so open pages refetch. A thrown error is a 400 with its message.
+// followed by bump(), so open pages hear of it. A thrown error is a 400 with its message.
 // caller() says who is calling and on which floor (floors.ts), worked out the first time a handler asks.
 import { readdirSync } from "node:fs";
 import { join } from "node:path";
 import { json } from "./json.ts";
-import { bump } from "./push.ts";
+import { bump, touch } from "./push.ts";
+import { dbStamp } from "./db-stamp.ts";
 import { callerOf, type Caller } from "./floors.ts";
 
 export type Ctx = { req: Request; url: URL; path: string; body: any; m: RegExpMatchArray; caller: () => Caller };
@@ -56,8 +57,14 @@ export async function handle(req: Request): Promise<Response> {
     body = await req.json().catch(() => ({}));
     const hit = find("POST", path, false);
     if (!hit) return json({ error: "not found" }, 404);
+    // A write is followed by bump(), so open pages hear of it and whoever waits on a write wakes. A POST that left
+    // the database as it was (a hook that had nothing to say, a "seen" for what was seen) bumps nothing: pages are
+    // only told to look, for what it may have changed in memory.
+    const before = dbStamp();
     const result = await hit.route.handle({ req, url, path, body, m: hit.m, caller });
-    bump();
+    const cause = `POST ${hit.route.path ?? hit.route.prefix ?? hit.route.pattern?.source ?? path}`;
+    if (dbStamp() !== before) bump(cause);
+    else touch(cause);
     return json(result === undefined ? { ok: true } : result);
   } catch (e) {
     return json({ error: (e as Error).message }, 400);

@@ -4,7 +4,7 @@
 // one for a lane that is away is kept and typed in when herdr sees the lane again. Nothing in a thread is ever lost.
 import { CONFIG, OWNER } from "./config.ts";
 import { db } from "./db.ts";
-import { bump, listeners, secrets } from "./push.ts";
+import { bump, listeners, secrets, watchers } from "./push.ts";
 import { event } from "./events.ts";
 import { addStatePart } from "./state.ts";
 import { parsePr } from "./board.ts";
@@ -303,7 +303,9 @@ function deliver(id: number) {
 // A lane that was away is back when herdr sees it again: its kept messages go to it then, once each. Checked after
 // every change of the state (herdr's sync bumps when a lane's status changes), never on a timer of its own.
 let checkQueued = false;
-listeners.add(() => {
+// On every look (a write, or a POST that may have changed what time decides, such as hud sync): watchers, not
+// listeners, which hear writes only (push.ts).
+watchers.add(() => {
   if (checkQueued) return;
   checkQueued = true;
   queueMicrotask(() => {

@@ -42,7 +42,7 @@ const BSDINFO = { flavor: 3, size: 136, ppid: 16, uid: 20, comm: 48, name: 64, s
 const SHORTINFO = { flavor: 13, size: 64, ppid: 4, comm: 16, uid: 36, ruid: 44 };
 const RUSAGE = { flavor: 4, size: 296, user: 16, system: 24, footprint: 72, childUser: 96, childSystem: 104, read: 144, written: 152 };
 const CPU_LOAD = { flavor: 3, count: 4 };
-const VM = { flavor: 4, count: 38, free: 0, wired: 12, pageins: 32, pageouts: 40, purgeable: 88, speculative: 92, swapins: 112, swapouts: 120, compressor: 128, external: 136, internal: 140, stored: 144 };
+const VM = { flavor: 4, count: 38, free: 0, inactive: 8, wired: 12, pageins: 32, pageouts: 40, purgeable: 88, speculative: 92, swapins: 112, swapouts: 120, compressor: 128, external: 136, internal: 140, stored: 144 };
 const TICK_MS = 10;
 
 const host = sys.mach_host_self();
@@ -84,6 +84,9 @@ function readHost(): Host {
   const vm = {
     // The free count includes speculative pages, which are file pages and already counted as cached.
     memFree: Math.max(0, pages(VM.free) - pages(VM.speculative)),
+    // vm_stat's free, inactive and speculative together: its "free" leaves the speculative pages out, the count
+    // here has them in.
+    memReclaimable: pages(VM.free) + pages(VM.inactive),
     memWired: pages(VM.wired),
     memApp: Math.max(0, pages(VM.internal) - pages(VM.purgeable)),
     memCached: pages(VM.external) + pages(VM.purgeable),

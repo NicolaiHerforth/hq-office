@@ -7,6 +7,34 @@ import { FLOOR_PALETTE, freeColor } from "./floor-colors.ts";
 
 export const db = new Database(`${DATA}/hud.db`, { create: true });
 db.exec("PRAGMA journal_mode = WAL;");
+
+// Which table a write changed, counted per table (db-stamp.ts reads the counts): a statement that inserts into,
+// updates or deletes from a table says so when it ran and changed rows. What is written any other way is found by
+// db-stamp.ts from the connection's own total, and then counts as a change to every table.
+export const tableWrites = new Map<string, number>();
+export const written = { rows: 0 };
+const WRITES = /^\s*(?:INSERT(?:\s+OR\s+\w+)?\s+INTO|REPLACE\s+INTO|UPDATE(?:\s+OR\s+\w+)?|DELETE\s+FROM)\s+["`\[]?(\w+)/i;
+{
+  const query = db.query.bind(db);
+  const wrapped = new WeakSet<object>();
+  db.query = ((sql: string) => {
+    const st = query(sql) as any;
+    const table = wrapped.has(st) ? null : sql.match(WRITES)?.[1];
+    if (table) {
+      wrapped.add(st);
+      const run = st.run;
+      st.run = function (...args: unknown[]) {
+        const r = run.apply(this, args);
+        if (r?.changes) {
+          tableWrites.set(table, (tableWrites.get(table) ?? 0) + 1);
+          written.rows += r.changes;
+        }
+        return r;
+      };
+    }
+    return st;
+  }) as typeof db.query;
+}
 const SCHEMA = join(import.meta.dir, "schema");
 for (const f of readdirSync(SCHEMA).filter((f) => f.endsWith(".sql")).sort()) db.exec(readFileSync(join(SCHEMA, f), "utf8"));
 // Migrations for databases made before a column existed; they run after the tables exist.

@@ -5,6 +5,7 @@
 import { db } from "./db.ts";
 import { event } from "./events.ts";
 import { addStatePart } from "./state.ts";
+import { secretsGen } from "./push.ts";
 import { postUpdate } from "./updates.ts";
 import { floorOf, floorOr, type Caller } from "./floors.ts";
 import { isPage, pageText, pageTitle } from "./pages.ts";
@@ -58,4 +59,7 @@ addStatePart("briefs", () =>
     const html = isPage(b.head);
     return { id: b.id, floor: b.floor, at: b.at, by: b.by, title: b.title, read: !!b.read_at, html, lead: html ? pageText(b.head).slice(0, 240) : b.head.slice(0, 240) };
   }),
+  // The rows, and the secrets a page's first lines are masked with (pageText): the list reads megabytes of bodies
+  // for their first lines, so it is made again only when one of the two changed.
+  { tables: ["briefs"], also: () => secretsGen },
 );

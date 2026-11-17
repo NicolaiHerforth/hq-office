@@ -121,6 +121,7 @@ export function usage(prev: Reading | null, cur: Reading, owners: Map<number, Ow
     load1: h.load1,
     memTotalKb: kb(h.memTotal),
     memFreeKb: kb(h.memFree),
+    ...(h.memReclaimable === undefined ? {} : { memReclaimableKb: kb(h.memReclaimable) }),
     memWiredKb: kb(h.memWired),
     memAppKb: kb(h.memApp),
     memCachedKb: kb(h.memCached),

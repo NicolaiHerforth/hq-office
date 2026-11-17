@@ -275,3 +275,24 @@ test("set refuses a value given as an argument", async () => {
   expect(r.err).toContain("read from stdin");
   expect((await cli(BASE, ["secret", "list"])).out).not.toContain("TEST_KEY_ARG");
 });
+
+// A secret that expires is a change even when an access finds it expired before its timer fires: the access drops it
+// and clears the timer, and what was masked with it must be made again (push.ts secretsGen; the review's fix 4).
+test("a secret an access finds expired counts as a change, once", async () => {
+  const fake = fakeClock(1_000_000);
+  let changes = 0;
+  const store = createSecretStore({ clock: fake.clock, onChange: () => changes++ });
+  store.set("TEST_KEY_GONE", "TEST_ONLY_GONE_VALUE", 1, "owner");
+  expect(changes).toBe(1);
+  expect(store.mask("say TEST_ONLY_GONE_VALUE")).toBe("say [secret TEST_KEY_GONE]");
+  // Past the deadline, the timer not yet run: the next access drops it.
+  fake.advance(61_000);
+  expect(store.mask("say TEST_ONLY_GONE_VALUE")).toBe("say TEST_ONLY_GONE_VALUE");
+  await Promise.resolve();
+  expect(changes).toBe(2);
+  // Further accesses, and the timer, find nothing more to change.
+  expect(store.get("TEST_KEY_GONE")).toBeNull();
+  fake.advance(1_000, true);
+  await Promise.resolve();
+  expect(changes).toBe(2);
+});

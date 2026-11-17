@@ -1,6 +1,7 @@
 // The owner's answer is answered without waiting on herdr: with a herdr whose `agent prompt` never returns, the POST still
 // comes back. And a write that touches neither the board nor the machines pushes neither: the page counts their ages
-// from their times, so a push carries what changed, not the clock.
+// from their times, so a push carries what changed, not the clock. A write that changes nothing a page shows pushes
+// nothing.
 import { afterAll, beforeAll, expect, test } from "bun:test";
 import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -52,11 +53,20 @@ test("a write that touches neither the board nor the machines pushes neither", a
   })();
   await until(() => parts.length === 1, "the whole state");
   expect(parts[0]).toEqual(expect.arrayContaining(["board", "machines"]));
+  // A write no page shows (the event log is HQ's) sends nothing at all: the version alone is not news.
+  for (let i = 0; i < 3; i++) await post("/api/events", { who: "hq", text: `unrelated ${i}` });
+  await Bun.sleep(800);
+  expect(parts.length).toBe(1);
+  // A write a page shows comes as its own part, with the version, and brings neither the board nor the machines.
   for (let i = 0; i < 3; i++) {
-    await post("/api/events", { who: "hq", text: `unrelated ${i}` });
+    await post("/api/updates", { title: `News ${i}` });
     await until(() => parts.length === i + 2, `push ${i + 1}`);
   }
   await reader.cancel();
   await reading.catch(() => {});
-  for (const keys of parts.slice(1)) expect(keys).not.toEqual(expect.arrayContaining(["board"])), expect(keys).not.toEqual(expect.arrayContaining(["machines"]));
+  for (const keys of parts.slice(1)) {
+    expect(keys).toEqual(expect.arrayContaining(["version", "updates"]));
+    expect(keys).not.toContain("board");
+    expect(keys).not.toContain("machines");
+  }
 });

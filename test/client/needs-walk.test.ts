@@ -165,9 +165,11 @@ for (const anchoring of [false, true]) {
       await expectHeld();
     });
     test("a strip appears above the list", async () => {
-      await ev(`(() => { const s = document.getElementById("stall"); s.textContent = "2 STALLED ITEMS"; s.hidden = false; })()`);
+      // The strip the page has above the list is the floors' scope row; with one floor it is not made, so it is
+      // put where the page puts it (floors/index.js) and taken away again.
+      await ev(`(() => { const s = document.createElement("div"); s.className = "scoperow"; s.textContent = "2 QUESTIONS ON OTHER FLOORS"; document.getElementById("qtabs").after(s); })()`);
       await expectHeld();
-      await ev(`document.getElementById("stall").hidden = true`);
+      await ev(`document.querySelector(".scoperow").remove()`);
       await expectHeld();
     });
     test("updates, notes, lanes and syncs arrive", async () => {

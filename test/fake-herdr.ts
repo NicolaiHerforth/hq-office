@@ -14,7 +14,8 @@
 import { chmodSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-export type FakeAgent = { name?: string; agent_status: string; pane_id: string; agent: string; workspace_id?: string; cwd?: string; foreground_cwd?: string; interactive_ready?: boolean; agent_session?: { value: string } };
+// state_change_seq: herdr's count of the agent's changes of status, when a test gives it (newer herdr reports it).
+export type FakeAgent = { name?: string; agent_status: string; pane_id: string; agent: string; workspace_id?: string; cwd?: string; foreground_cwd?: string; interactive_ready?: boolean; agent_session?: { value: string }; state_change_seq?: number };
 
 // Its body is checked in (fake-herdr-bin.js) and <dir>/herdr is a sh wrapper: every Bun start reads each folder above
 // its script, and the system's temp dir can hold tens of thousands of entries, read one start at a time.

@@ -184,3 +184,46 @@ test("any floor's HQ is an HQ: it gets the guide naming its floor; the HUD is as
     hud.stop(true);
   }
 });
+
+// An agent with no name is nobody's HQ: it is given a sixth of the wait, not all of it (docs/footprint.md).
+test("a pane whose agent has no name is given up on after a sixth of the wait", () => {
+  setAgents([{ pane_id: "w7:p1", session: "s-nobody" }]);
+  const began = Date.now();
+  const r = greet("w7:p1", main, { HQ_OFFICE_GREET_WAIT_MS: "6000" });
+  const took = Date.now() - began;
+  expect(r.out).toContain("no HQ agent ready in w7:p1");
+  expect(took).toBeGreaterThanOrEqual(900);
+  expect(took).toBeLessThan(4000);
+});
+
+// herdr drops an HQ's name when its pane reports a new session, and the server's sync gives it back up to 20 s
+// later. In a pane the HUD knows as a floor's HQ pane, greet waits the whole wait for the name to come back.
+test("a floor's HQ pane whose agent lost its name is waited for until the name is back; any other pane is not", async () => {
+  const port = freePort();
+  const hud = Bun.serve({ port, hostname: "127.0.0.1", fetch: (req) => (new URL(req.url).pathname === "/api/floors"
+    ? Response.json({ floors: [{ id: "hq", name: "HQ", hq: "lead" }], caller: "hq", hqPanes: ["w9:p1"] })
+    : new Response("{}", { status: 404 })) });
+  try {
+    const where = makeConfig("renamed", `HUD_HQ_AGENT=lead\nHUD_PORT=${port}\nHERDR_BIN=${herdr}\n`);
+    const greetNow = async (pane: string) => {
+      const p = Bun.spawn([process.execPath, "bin/hud-plugin.ts", "greet"], { cwd: ROOT, env: { PATH: process.env.PATH ?? "/usr/bin:/bin", HOME: join(dir, "home"), TMPDIR: tmpdir(), HERDR_PLUGIN_STATE_DIR: where.state, HERDR_PLUGIN_CONFIG_DIR: where.config, HERDR_PLUGIN_EVENT: "pane.agent_detected", HQ_OFFICE_PLATFORM: "none", HQ_OFFICE_LAUNCHCTL: "/nonexistent/launchctl", HQ_OFFICE_SYSTEMCTL: "/nonexistent/systemctl", HQ_OFFICE_OPENER: "true", HQ_OFFICE_GREET_WAIT_MS: "6000", HERDR_BIN_PATH: herdr, HERDR_PANE_ID: pane }, stdout: "pipe", stderr: "pipe" });
+      const [out, err] = await Promise.all([new Response(p.stdout).text(), new Response(p.stderr).text(), p.exited]);
+      return out + err;
+    };
+    // HQ's pane, its name dropped: greet waits; 2.5 s later the sync has given the name back.
+    setAgents([{ pane_id: "w9:p1", session: "s-renamed" }, { pane_id: "w9:p2", session: "s-other" }]);
+    const before = prompts().length;
+    const hq = greetNow("w9:p1");
+    await Bun.sleep(2500);
+    setAgents([{ name: "lead", pane_id: "w9:p1", session: "s-renamed" }, { pane_id: "w9:p2", session: "s-other" }]);
+    expect(await hq).toContain("greet: sent the HQ guide to lead");
+    expect(prompts().slice(before)).toEqual([{ to: "lead", text: GUIDE }]);
+    // Another nameless pane still gets a sixth of the wait (1 s here).
+    const began = Date.now();
+    expect(await greetNow("w9:p2")).toContain("no HQ agent ready in w9:p2");
+    expect(Date.now() - began).toBeLessThan(4000);
+    expect(prompts().length).toBe(before + 1);
+  } finally {
+    hud.stop(true);
+  }
+}, 30_000);

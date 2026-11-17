@@ -1,5 +1,6 @@
-// herdr: which lanes are live, idle or gone, polled every 20 s, and typing answers and notes into HQ.
-import { HERDR, LOCAL, MACHINES } from "./config.ts";
+// herdr: which lanes are live, idle or gone, polled every 20 s (a lane's pane is read when its status changes and
+// then once a minute), and typing answers and notes into HQ.
+import { HERDR, LOCAL, MACHINES, SYNC_MS } from "./config.ts";
 import { db } from "./db.ts";
 import type { Lane } from "./types.ts";
 import { bump } from "./push.ts";
@@ -21,10 +22,13 @@ export function whereRuns(name: string): string | null {
   return a ? a.machine : null;
 }
 export let lastSync: { at: number; errors: string[] } = { at: 0, errors: [] };
+// When herdr last saw each lane, at the last sync that did. /api/state gives it as the lane's herdr_seen; the row in
+// the database holds the time of the lane's last change of status, which is what a restart starts from.
+export const herdrSeen = new Map<string, number>();
 
 // Every pane herdr has on this machine, agent or not, so a pane hud names that herdr does not have is known for what it
 // is (floors.ts callerOf). null when herdr does not say.
-async function localPaneIds(): Promise<Set<string> | null> {
+async function localPanes(): Promise<any[] | null> {
   try {
     const proc = Bun.spawn([HERDR, "pane", "list"], { stdout: "pipe", stderr: "pipe" });
     const timer = setTimeout(() => proc.kill(), 15_000);
@@ -32,11 +36,15 @@ async function localPaneIds(): Promise<Set<string> | null> {
     clearTimeout(timer);
     if ((await proc.exited) !== 0) return null;
     const panes = JSON.parse(out).result?.panes;
-    return Array.isArray(panes) ? new Set(panes.map((p: any) => String(p.pane_id))) : null;
+    return Array.isArray(panes) ? panes : null;
   } catch {
     return null;
   }
 }
+// This machine's panes and agents as the last sync that got both read them: the monitor takes them from here and
+// asks herdr for neither (monitor-panes.ts).
+let lists: { at: number; panes: any[]; agents: any[] } | null = null;
+export const localLists = () => lists;
 
 export async function herdrList(machine: string): Promise<any[]> {
   const args = machine === LOCAL ? [HERDR, "agent", "list"] : [HERDR, "--machine", machine, "agent", "list"];
@@ -53,8 +61,9 @@ export async function herdrList(machine: string): Promise<any[]> {
 const BG = /(←\s*\d+\s+agents?|\d+\s+shells?(?:,\s*\d+\s+monitors?)?(?:\s+still running)?|\d+\s+monitors?|monitors?\s+still running)/i;
 const SUBAGENT = /^\s*◯\s+([\w.-]+)\s/m;
 // One pane read for a lane that is not working: what still runs in the background (the last 10 lines, as before),
-// and the prompt it waits on, if any (the last 30 lines; see prompt.ts).
-async function readPane(machine: string, pane: string, blocked: boolean): Promise<{ bg: string | null; prompt: string | null }> {
+// and the prompt it waits on, if any (the last 30 lines; see prompt.ts). ok: herdr answered.
+type Reading = { bg: string | null; prompt: string | null };
+async function readPane(machine: string, pane: string, blocked: boolean): Promise<Reading & { ok: boolean }> {
   const args = machine === LOCAL ? [HERDR, "pane", "read", pane, "--lines", "30"] : [HERDR, "--machine", machine, "pane", "read", pane, "--lines", "30"];
   let out = "";
   try {
@@ -62,21 +71,31 @@ async function readPane(machine: string, pane: string, blocked: boolean): Promis
     const timer = setTimeout(() => proc.kill(), 8_000);
     out = await new Response(proc.stdout).text();
     clearTimeout(timer);
-    await proc.exited;
+    if ((await proc.exited) !== 0 && !out) return { ok: false, bg: null, prompt: blocked ? UNREAD : null };
   } catch {
-    return { bg: null, prompt: blocked ? UNREAD : null };
+    return { ok: false, bg: null, prompt: blocked ? UNREAD : null };
   }
   const tail = out.replace(/\n+$/, "").split("\n").slice(-10).join("\n");
   const sub = tail.match(SUBAGENT)?.[1];
   const bg = tail.match(BG)?.[1].replace(/\s+/g, " ") ?? (sub ? `subagent ${sub} running` : null);
-  return { bg, prompt: promptIn(out, blocked) ?? (blocked ? UNREAD : null) };
+  return { ok: true, bg, prompt: promptIn(out, blocked) ?? (blocked ? UNREAD : null) };
 }
+
+// A pane is read when its lane's status changes, and after that once a minute while the lane rests (not blocked, no
+// prompt on its screen): a lane that has finished says the same thing sync after sync, and with twenty of them a read
+// each every 20 s was most of what the server started (docs/footprint.md). So "2 shells still running" on a resting
+// lane whose status did not change shows up to a minute late. A blocked lane, or one showing a prompt, is read at
+// every sync.
+// A read herdr did not answer is not kept: the next sync asks again. `hud sync` reads every pane it would have read.
+const PANE_EVERY_MS = Number(process.env.HUD_PANE_EVERY_MS) || 60_000;
+const readings = new Map<string, { key: string; at: number; value: Reading }>();
+const reading = new Map<string, { key: string; read: ReturnType<typeof readPane> }>();
 
 // Each named agent's machine and the folder it works in (herdr's cwd), from the last sync: the sweep names a done
 // lane's worktree with it.
 export let agentFolders = new Map<string, { machine: string; cwd: string }>();
 
-export async function syncHerdr() {
+export async function syncHerdr(opts: { readAll?: boolean } = {}) {
   const errors: string[] = [];
   const seen = new Map<string, { machine: string; agent: any }>();
   // Every named agent's pane, so the server knows who calls hud (floors.ts).
@@ -106,19 +125,39 @@ export async function syncHerdr() {
   const asking = new Set((db.query("SELECT DISTINCT lane FROM asks WHERE status = 'open' AND lane IS NOT NULL").all() as { lane: string }[]).map((r) => r.lane));
   // A lane herdr reports blocked (at an approval or question UI) is read whatever its phase or asks: the read gives
   // the excerpt of what it asks. A working agent's pane is never read.
-  const pane = new Map<string, { bg: string | null; prompt: string | null }>();
+  const pane = new Map<string, Reading>();
   await Promise.all(
     lanes.map(async (lane) => {
       const hit = seen.get(lane.name);
-      if (!hit || hit.agent.agent_status === "working") return;
-      const blocked = hit.agent.agent_status === "blocked";
-      if (!blocked && (["done", "parked", "waiting"].includes(lane.phase) || asking.has(lane.name))) return;
-      pane.set(lane.name, await readPane(hit.machine, hit.agent.pane_id, blocked));
+      const blocked = hit?.agent.agent_status === "blocked";
+      // A lane whose pane is not read now is read at once when it is to be read again.
+      if (!hit || hit.agent.agent_status === "working" || (!blocked && (["done", "parked", "waiting"].includes(lane.phase) || asking.has(lane.name)))) return void readings.delete(lane.name);
+      // herdr counts an agent's changes of status: the same count is the same stretch of the same status.
+      const key = `${hit.machine} ${hit.agent.pane_id} ${hit.agent.agent_status} ${hit.agent.state_change_seq ?? ""}`;
+      const had = readings.get(lane.name);
+      // Only a resting lane is read once a minute: one that is not blocked and whose last reading showed no prompt.
+      // A blocked lane, or one with a prompt on its screen (even one the reading could not make out, UNREAD), is read
+      // at every sync, as before: that is the question panel, and its excerpt may not lag. A quarter of a sync short
+      // of the minute: the sync a minute after a read comes a moment under a minute after it ended, and would
+      // otherwise leave the read to the sync after.
+      const resting = !blocked && !!had && had.value.prompt === null;
+      if (!opts.readAll && resting && had.key === key && Date.now() - had.at < PANE_EVERY_MS - SYNC_MS / 4) return void pane.set(lane.name, had.value);
+      // Two syncs can overlap (the timer and `hud sync`): the second takes the read the first one started.
+      const going = reading.get(lane.name);
+      const read = going?.key === key ? going.read : readPane(hit.machine, hit.agent.pane_id, blocked);
+      if (going?.key !== key) reading.set(lane.name, { key, read });
+      const { ok, ...value } = await read;
+      if (reading.get(lane.name)?.read === read) {
+        reading.delete(lane.name);
+        if (ok) readings.set(lane.name, { key, at: Date.now(), value });
+        else readings.delete(lane.name);
+      }
+      pane.set(lane.name, value);
     }),
   );
   const nowBlocked: Lane[] = [];
   let changed = false;
-  // One transaction for the whole sync: one write to disk instead of one per lane, three times a minute.
+  // One transaction for the whole sync, and nothing written when nothing changed.
   db.transaction(() => {
     for (const lane of lanes) {
       const hit = seen.get(lane.name);
@@ -134,8 +173,8 @@ export async function syncHerdr() {
       const status = hit.agent.agent_status as string;
       if (status !== lane.herdr || hit.agent.pane_id !== lane.pane || hit.machine !== lane.machine) {
         db.query(
-          "UPDATE lanes SET herdr = ?, herdr_since = CASE WHEN herdr = ? THEN herdr_since ELSE ? END, pane = ?, machine = ?, agent = ? WHERE name = ?",
-        ).run(status, status, now, hit.agent.pane_id, hit.machine, hit.agent.agent, lane.name);
+          "UPDATE lanes SET herdr = ?, herdr_since = CASE WHEN herdr = ? THEN herdr_since ELSE ? END, pane = ?, machine = ?, agent = ?, herdr_seen = ? WHERE name = ?",
+        ).run(status, status, now, hit.agent.pane_id, hit.machine, hit.agent.agent, now, lane.name);
         changed = true;
       }
       const work = pane.get(lane.name)?.bg ?? null;
@@ -153,7 +192,8 @@ export async function syncHerdr() {
         if (prompt && !was) nowBlocked.push({ ...lane, machine: hit.machine, pane: hit.agent.pane_id, prompt });
         changed = true;
       }
-      db.query("UPDATE lanes SET herdr_seen = ? WHERE name = ?").run(now, lane.name);
+      // When herdr last saw it: memory, not a write per lane per sync. The row gets it when it changes otherwise.
+      herdrSeen.set(lane.name, now);
     }
   })();
   untracked = [...seen.entries()]
@@ -168,7 +208,9 @@ export async function syncHerdr() {
   // A floor's HQ runs on this machine: its agents are offered even when its lanes are not tracked.
   if (!MACHINES.includes(LOCAL) && local) for (const a of local as any[]) if (a.name && !seen.has(a.name)) live.push({ name: a.name, machine: LOCAL, status: a.agent_status, kind: a.agent ?? null, lane: known.has(a.name) });
   // A machine that did not answer keeps the panes it had.
-  setPanes(named, (machine) => errors.some((e) => e.startsWith(`${machine}:`)), await localPaneIds());
+  const panes = await localPanes();
+  if (panes && local) lists = { at: Date.now(), panes, agents: local };
+  setPanes(named, (machine) => errors.some((e) => e.startsWith(`${machine}:`)), panes && new Set(panes.map((p: any) => String(p.pane_id))));
   await checkHq(local, errors.find((e) => e.startsWith(`${LOCAL}:`))?.slice(LOCAL.length + 2));
   await sweep();
   await kickQueue();

@@ -148,7 +148,9 @@ async function checkFloor(floor: string, agent: string, agents: any[] | null, er
   if (hq) {
     l.candidate = null;
     l.tracked = { pane: hq.pane_id, agent: hq.agent };
-    db.query("UPDATE floors SET hq_pane = ?, hq_seen_at = ? WHERE id = ?").run(hq.pane_id, Date.now(), floor);
+    // Written when the pane changes or the HQ is seen for the first time, not at every sync: only whether it was
+    // ever seen, and in which pane last, is read.
+    db.query("UPDATE floors SET hq_pane = ?, hq_seen_at = ? WHERE id = ? AND (hq_pane IS NOT ? OR hq_seen_at IS NULL)").run(hq.pane_id, Date.now(), floor, hq.pane_id);
     if (hq.agent && hq.agent !== hqKindOf(floor)) rememberKind(floor, hq.agent);
     if (hq.agent_status === "blocked") setReason(floor, { seen: "HQ is stopped at a prompt (a permission or a question) in its pane" });
     else if (hq.interactive_ready === false) setReason(floor, { seen: "HQ's agent is starting and cannot take input yet" });
@@ -260,13 +262,21 @@ const ackHint = (ref: string | null) => {
 // (typed in while HQ was mid-turn), delivered (HQ started working on it) or acked (HQ acked it). The last day's, by ref.
 function deliveries(floor: string) {
   const out: Record<string, string> = {};
-  const rows = db.query("SELECT ref, sent_at, confirmed_at FROM hq_outbox WHERE ref IS NOT NULL AND at > ? AND floor = ? ORDER BY id").all(Date.now() - 86_400_000, floor) as { ref: string; sent_at: number | null; confirmed_at: number | null }[];
-  for (const r of rows) out[r.ref] = alreadyRead(r.ref) ? "acked" : !r.sent_at ? "held" : r.confirmed_at ? "delivered" : "unconfirmed";
+  const since = Date.now() - 86_400_000;
+  // Whether HQ acked each one comes with the row (alreadyRead, for a whole day's rows in one statement): asked one
+  // row at a time, this was most of the statements of a state build.
+  const rows = db.query(`SELECT o.ref, o.sent_at, o.confirmed_at, ${ACKED("o.ref")} AS acked FROM hq_outbox o WHERE o.ref IS NOT NULL AND o.at > ? AND o.floor = ? ORDER BY o.id`).all(since, floor) as { ref: string; sent_at: number | null; confirmed_at: number | null; acked: number | null }[];
+  for (const r of rows) out[r.ref] = r.acked ? "acked" : !r.sent_at ? "held" : r.confirmed_at ? "delivered" : "unconfirmed";
   // Notes in the HQ QUEUE: waiting there (queued), or read by HQ (delivered).
-  const queued = db.query("SELECT ref, read_at FROM hq_queue WHERE ref IS NOT NULL AND at > ? AND floor = ?").all(Date.now() - 86_400_000, floor) as { ref: string; read_at: number | null }[];
-  for (const q of queued) out[q.ref] = alreadyRead(q.ref) ? "acked" : q.read_at ? "delivered" : "queued";
+  const queued = db.query(`SELECT q.ref, q.read_at, ${ACKED("q.ref")} AS acked FROM hq_queue q WHERE q.ref IS NOT NULL AND q.at > ? AND q.floor = ?`).all(since, floor) as { ref: string; read_at: number | null; acked: number | null }[];
+  for (const q of queued) out[q.ref] = q.acked ? "acked" : q.read_at ? "delivered" : "queued";
   return out;
 }
+
+// When HQ acked what a ref names ("note:12", "ask:7"), as SQL over a column that holds the ref; NULL for any other.
+const ACKED = (ref: string) =>
+  `CASE WHEN substr(${ref}, 1, 5) = 'note:' THEN (SELECT acked_at FROM notes WHERE id = CAST(substr(${ref}, 6) AS INTEGER))
+        WHEN substr(${ref}, 1, 4) = 'ask:' THEN (SELECT acked_at FROM asks WHERE id = CAST(substr(${ref}, 5) AS INTEGER)) END`;
 
 function alreadyRead(ref: string | null) {
   const [kind, id] = (ref ?? "").split(":");

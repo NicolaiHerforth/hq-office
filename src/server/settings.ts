@@ -47,7 +47,10 @@ export function changeSettings(changes: unknown, opts: { ifEmpty?: boolean } = {
     }
   })();
   cache = null;
+  for (const fn of settingsChanged) fn();
   return getSettings();
 }
+// Hears every change of the settings (the HQ QUEUE's marker file follows its switch: hq-queue.ts).
+export const settingsChanged = new Set<() => void>();
 
 addStatePart("settings", getSettings);

@@ -7,7 +7,7 @@
 // reply); an answer shows in the thread, marks the brief's row in BRIEFS (S.comments) and puts one line in MESSAGES.
 import { OWNER } from "./config.ts";
 import { db } from "./db.ts";
-import { bump, listeners } from "./push.ts";
+import { bump, watchers } from "./push.ts";
 import { addStatePart } from "./state.ts";
 import { promptAgent } from "./herdr.ts";
 import { notifyHq } from "./hq-link.ts";
@@ -182,7 +182,9 @@ function settleHq() {
 // A lane that was away is back when herdr sees it again: its kept comments go to it then, once each. Checked after
 // every change of the state (as rooms.ts does), never on a timer of its own.
 let checkQueued = false;
-listeners.add(() => {
+// On every look (a write, or a POST that may have changed what time decides, such as hud sync): watchers, not
+// listeners, which hear writes only (push.ts).
+watchers.add(() => {
   if (checkQueued) return;
   checkQueued = true;
   queueMicrotask(() => {

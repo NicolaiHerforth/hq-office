@@ -1,7 +1,7 @@
 // SUBS: the reader (src/server/sub-usage.sh) on a made-up home (test/fake-subs.ts), the merge (sub-usage-merge.ts),
 // and a throwaway server reading that home. Account names are made up; nothing here reads the owner's real accounts.
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
-import { mkdtempSync, rmSync } from "node:fs";
+import { chmodSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { spawnServer } from "../../scripts/room-hash.ts";
@@ -50,7 +50,7 @@ describe("the reader", () => {
     const none = await read(home({ grazr: false, codex: false }));
     expect(none.code).toBe(0);
     expect(none.err).toBe("");
-    expect(none.said).toEqual({ v: 1, python: true, claude: null, codex: null });
+    expect(none.said).toEqual({ v: 1, python: true, claude: null, codex: null, sig: expect.stringMatching(/^\d+$/) });
     expect((await read(home({ codex: false }))).said.codex).toBeNull();
     expect((await read(home({ grazr: false }))).said.claude).toBeNull();
   });
@@ -60,6 +60,80 @@ describe("the reader", () => {
     expect(code).toBe(0);
     expect(err).toBe("");
     expect(said).toEqual({ v: 1, python: false, claude: null, codex: null });
+  });
+});
+
+// The reader starts python only when a file it reads changed: it says what its answer was made of (a word, "sig"),
+// and given that word back with nothing changed it answers {"same":true} without starting python at all.
+describe("the reader, asked again", () => {
+  // A python3 that notes each start and then is the real one.
+  function countingPython() {
+    const dir = mkdtempSync(join(tmpdir(), "hq-subs-py-"));
+    homes.push(dir);
+    const real = Bun.spawnSync(["/bin/sh", "-c", "command -v python3"]).stdout.toString().trim();
+    writeFileSync(join(dir, "python3"), `#!/bin/sh\necho run >> "${dir}/starts"\nexec "${real}" "$@"\n`);
+    chmodSync(join(dir, "python3"), 0o755);
+    const starts = () => (existsSync(join(dir, "starts")) ? readFileSync(join(dir, "starts"), "utf8").trim().split("\n").length : 0);
+    return { path: `${dir}:${process.env.PATH}`, starts };
+  }
+  const ask = async (h: string, path: string, word?: string) => {
+    const proc = Bun.spawn(["/bin/sh", SCRIPT, ...(word ? [word] : [])], { env: { HOME: h, PATH: path }, stdout: "pipe", stderr: "pipe" });
+    const [out, code] = await Promise.all([new Response(proc.stdout).text(), proc.exited]);
+    expect(code).toBe(0);
+    return JSON.parse(out);
+  };
+  const accounts = (h: string) => join(h, ".local", "state", "herdr", "plugins", "wazum.grazr", "accounts");
+
+  test("the same word and nothing changed: 'same', and python is not started", async () => {
+    const h = home(), py = countingPython();
+    const first = await ask(h, py.path);
+    expect(first.sig).toMatch(/^\d+$/);
+    expect(first.claude.length).toBe(3);
+    expect(py.starts()).toBe(1);
+    expect(await ask(h, py.path, first.sig)).toEqual({ v: 1, same: true, sig: first.sig });
+    expect(await ask(h, py.path, first.sig)).toEqual({ v: 1, same: true, sig: first.sig });
+    expect(py.starts()).toBe(1);
+    // Without a word, or with another, the whole answer.
+    expect((await ask(h, py.path)).claude.length).toBe(3);
+    expect((await ask(h, py.path, "12345")).claude.length).toBe(3);
+    expect(py.starts()).toBe(3);
+  });
+
+  test("a changed account file, a new session log or another login gives a new word and a whole answer", async () => {
+    const h = home(), py = countingPython();
+    let word = (await ask(h, py.path)).sig as string;
+    const whole = async (what: string) => {
+      const said = await ask(h, py.path, word);
+      expect([what, said.same]).toEqual([what, undefined]);
+      expect(said.sig).not.toBe(word);
+      word = said.sig;
+      expect([what, (await ask(h, py.path, word)).same]).toEqual([what, true]);
+      return said;
+    };
+    // grazr rewrites an account after a message.
+    const file = join(accounts(h), `${IDS.alpha}.json`);
+    const stored = JSON.parse(readFileSync(file, "utf8"));
+    stored.snapshot[0].remaining = 41;
+    writeFileSync(file, JSON.stringify(stored));
+    expect((await whole("an account file")).claude.find((a: any) => a.name === "team-alpha").windows[0].left).toBe(41);
+    // Codex starts a new log.
+    writeFileSync(join(h, ".codex", "sessions", "2026", "11", "02", "rollout-another.jsonl"), "{}\n");
+    await whole("a new session log");
+    // Claude's own file is rewritten all day: the same login is no change, another one is.
+    const own = JSON.parse(readFileSync(join(h, ".claude.json"), "utf8"));
+    writeFileSync(join(h, ".claude.json"), JSON.stringify({ ...own, numStartups: 99, tipsHistory: { a: 1 } }));
+    expect((await ask(h, py.path, word)).same).toBe(true);
+    writeFileSync(join(h, ".claude.json"), JSON.stringify({ ...own, oauthAccount: { ...own.oauthAccount, accountUuid: IDS.bravo } }));
+    expect((await whole("another login")).claude.find((a: any) => a.name === "side-bravo").active).toBe(true);
+  });
+
+  test("the word gives nothing away: digits only, on the 'same' line too", async () => {
+    const h = home(), py = countingPython();
+    const first = await ask(h, py.path);
+    const proc = Bun.spawn(["/bin/sh", SCRIPT, first.sig], { env: { HOME: h, PATH: py.path }, stdout: "pipe", stderr: "pipe" });
+    const out = await new Response(proc.stdout).text();
+    for (const leak of LEAKS) expect(out).not.toContain(leak);
+    expect(out.trim()).toBe(`{"v":1,"same":true,"sig":"${first.sig}"}`);
   });
 });
 

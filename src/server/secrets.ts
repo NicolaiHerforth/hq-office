@@ -71,12 +71,15 @@ export function createSecretStore(opts: { clock?: Clock; onChange?: () => void; 
     ledger?.put(meta(e));
     return meta(e);
   }
-  // The deadline is checked on every access, so a late or lost timer never lets a value outlive it.
+  // The deadline is checked on every access, so a late or lost timer never lets a value outlive it. A secret dropped
+  // here is a change like any other: drop() clears its timer, whose onChange would otherwise never come, and what was
+  // masked with it (a brief's first lines, push.ts secretsGen) must be made again. Said a moment later: an access
+  // can come in the middle of building the state, and the change is the next look's.
   function live(name: string): Entry | null {
     const e = items.get(name);
     if (!e) return null;
     if (clock.now() >= e.expiresAt) {
-      drop(name);
+      if (drop(name)) queueMicrotask(onChange);
       return null;
     }
     return e;

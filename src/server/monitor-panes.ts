@@ -1,6 +1,7 @@
 // THE MONITOR's panes: every herdr pane on this machine with the shell it runs and its agent's name, so a process
-// can be traced to the lane that started it. Read-only: `herdr pane list`, `herdr agent list`, and one
-// `herdr pane process-info` per pane, asked once and kept until the shell is gone.
+// can be traced to the lane that started it. Read-only: `herdr pane list`, `herdr agent list` (or the lists the
+// server's herdr sync already has), and one `herdr pane process-info` per pane, asked once and kept until the shell
+// is gone.
 import type { Pane, Proc } from "./monitor-types.ts";
 
 const LIST_MS = 60_000;
@@ -27,7 +28,11 @@ async function ask(herdr: string, args: string[]): Promise<{ result: any; cpuMs:
 // list is waited for, FIRST_WAIT_MS at most, because with no list every lane's processes are nobody's. A pane whose
 // shell is gone is asked for its shell again. A herdr that fails or is not there leaves the last list standing, so
 // one bad minute does not move every lane's processes to "other".
-export function createPanes(herdr: string, now: () => number = Date.now) {
+// lists: the pane list and the agent list someone else already has (the server's own herdr sync asks for both every
+// 20 s). The minute's look takes those when they are no older than a minute, and starts no herdr at all; without
+// them, or for a new pane, which they may not have yet, herdr is asked here as before.
+export type Lists = { at: number; panes: any[]; agents: any[] };
+export function createPanes(herdr: string, now: () => number = Date.now, lists?: () => Lists | null) {
   const shells = new Map<string, number>();
   // Children of herdr's server that are not a pane's shell, already seen: each asks for one early refresh, not one
   // a tick.
@@ -38,8 +43,11 @@ export function createPanes(herdr: string, now: () => number = Date.now) {
   let asking: Promise<void> | null = null;
   let first = true;
 
-  async function refresh(alive: Set<number>) {
-    const [panes, agents] = await Promise.all([ask(herdr, ["pane", "list"]), ask(herdr, ["agent", "list"])]);
+  async function refresh(alive: Set<number>, newPane: boolean) {
+    const given = newPane ? null : (lists?.() ?? null);
+    const [panes, agents] = given && now() - given.at <= LIST_MS
+      ? [{ result: { panes: given.panes }, cpuMs: 0 }, { result: { agents: given.agents }, cpuMs: 0 }]
+      : await Promise.all([ask(herdr, ["pane", "list"]), ask(herdr, ["agent", "list"])]);
     cpuMs += panes.cpuMs + agents.cpuMs;
     const lanes = new Map<string, string>();
     for (const a of agents.result?.agents ?? []) if (a.name && a.pane_id) lanes.set(String(a.pane_id), String(a.name));
@@ -85,9 +93,10 @@ export function createPanes(herdr: string, now: () => number = Date.now) {
       const alive = new Set(procs.map((p) => p.pid));
       for (const pid of strays) if (!alive.has(pid)) strays.delete(pid);
       // A stray that shows up during an asking is looked at by the tick after it, so it still gets its own.
-      if (!asking && (now() >= due || newStray(procs))) {
+      const newPane = !asking && newStray(procs);
+      if (!asking && (now() >= due || newPane)) {
         due = now() + LIST_MS;
-        asking = refresh(alive)
+        asking = refresh(alive, newPane)
           .catch(() => void (due = Math.min(due, now() + RETRY_MS)))
           .finally(() => (asking = null));
       }

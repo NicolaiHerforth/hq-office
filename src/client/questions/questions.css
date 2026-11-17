@@ -139,8 +139,7 @@ html .toast { pointer-events: none; }
 /* Where the list scrolls itself the row is a row of its own over the box, sized for a mouse. */
 @media (min-width: 1151px) {
   .qwrap:has(> .asknav) { grid-template-rows: auto auto minmax(0, 1fr); }
-  .qwrap:has(> .asknav):has(> .scoperow:not([hidden])), .qwrap:has(> .asknav):has(> .stall:not([hidden])) { grid-template-rows: auto auto auto minmax(0, 1fr); }
-  .qwrap:has(> .asknav):has(> .scoperow:not([hidden])):has(> .stall:not([hidden])) { grid-template-rows: auto auto auto auto minmax(0, 1fr); }
+  .qwrap:has(> .asknav):has(> .scoperow:not([hidden])) { grid-template-rows: auto auto auto minmax(0, 1fr); }
   .asknav { justify-content: flex-end; }
   .asknav .stepb, .asknav .focusb, .asknav .below, .asknav .askback { min-height: 32px; height: 32px; }
   .asknav .askback { top: calc(100% + 12px); right: 10px; }
@@ -161,7 +160,6 @@ html .toast { pointer-events: none; }
   .ask .meta { row-gap: 10px; }
   /* A lane tag is a real 44 px target that looks like a tag: the rest of its height is a clear border, taken back from
      the row by a margin. 16 px tall corners less the 12 px border leave the 4 px of every tag. */
-  .wi .meta .tag.lane { overflow: visible; white-space: normal; overflow-wrap: anywhere; text-overflow: clip; text-align: left; }
   html button.tag.lane, html button.tag.for, html .ask .meta a.tag { display: block; box-sizing: border-box; min-height: 44px; margin-block: -12px; border-block: 12px solid transparent; border-radius: 4px / 16px; background-clip: padding-box; line-height: 1.4; text-decoration: none; }
   .ask .reply .acts { padding: 0 6px 6px; }
   .ask .reply .acts .send, .ask .reply .acts .notyet { flex: 1 1 0; min-height: 44px; margin-left: 0; box-sizing: border-box; }

@@ -11,7 +11,7 @@ import { installHud } from "./hud-command.ts";
 import { GUIDE, guideFor } from "../src/hq-guide.ts";
 import { herdrConfigDir, resolveDirs } from "./dirs.ts";
 import { giveSecrets, takeSecrets, type Held } from "../src/secret-handover.ts";
-import { hookCommand, run as runQueueHook } from "./queue-hook.ts";
+import { hookCommand, queueMarker, run as runQueueHook } from "./queue-hook.ts";
 
 const ROOT = dirname(import.meta.dir);
 const PLUGIN_ID = pluginId(ROOT);
@@ -361,18 +361,23 @@ const greetFile = (key: string) => join(GREETED, `${createHash("sha256").update(
 
 // Every floor's HQ is an HQ (docs/floors.md): agent name -> the floor it runs (null for the first floor, whose HQ gets
 // the guide as it is). Asked of the HUD once per greet; without an answer, only the configured HQ agent counts.
+// hqPanes: the panes the floors' HQs were last seen in, from the same answer.
 let floorHqs: Map<string, { id: string; name: string } | null> | null = null;
+let hqPanes = new Set<string>();
+async function askFloors() {
+  if (floorHqs) return;
+  floorHqs = new Map();
+  try {
+    const res = await fetch(`${URL_BASE}/api/floors`, { signal: AbortSignal.timeout(1500) });
+    const said = res.ok ? await res.json() : {};
+    (said.floors ?? []).forEach((f: any, i: number) => f?.hq && floorHqs!.set(f.hq, i === 0 ? null : { id: f.id, name: f.name }));
+    hqPanes = new Set((said.hqPanes ?? []).filter((p: unknown) => typeof p === "string"));
+  } catch {}
+}
 async function hqFloorOf(name: string): Promise<{ id: string; name: string } | null | undefined> {
   if (name === HQ_NAME) return null;
-  if (!floorHqs) {
-    floorHqs = new Map();
-    try {
-      const res = await fetch(`${URL_BASE}/api/floors`, { signal: AbortSignal.timeout(1500) });
-      const floors = res.ok ? ((await res.json()).floors ?? []) : [];
-      floors.forEach((f: any, i: number) => f?.hq && floorHqs!.set(f.hq, i === 0 ? null : { id: f.id, name: f.name }));
-    } catch {}
-  }
-  return floorHqs.get(name);
+  await askFloors();
+  return floorHqs!.get(name);
 }
 
 async function greet() {
@@ -384,17 +389,26 @@ async function greet() {
   if (ev?.released) return console.log("greet: the agent left its pane; nothing to send");
   const pane = process.env.HERDR_PANE_ID || ev?.pane_id;
   if (!pane) return console.log("greet: no pane in the event; nothing to send");
-  // A starting agent may not have its name, its session or an input box yet: look again for a while.
+  // A starting agent may not have its session or an input box yet: look again for a while. One with no name is
+  // given a sixth of that (5 s): an HQ is started under its name, and most agents herdr detects are nobody's HQ and
+  // never get a name, so each of them held this process for the whole wait and asked herdr once a second
+  // (docs/footprint.md). Except in a pane a floor's HQ was last seen in: there herdr drops HQ's name on a new
+  // session (a compaction too), and the server gives it back at its next sync, up to 20 s later (hq-link.ts), so
+  // that pane keeps the whole wait. The looks start a quarter of a second apart and slow to one a second.
   const waitMs = Number(process.env.HQ_OFFICE_GREET_WAIT_MS ?? 30_000);
-  const deadline = Date.now() + waitMs;
+  await askFloors();
+  const nameMs = hqPanes.has(pane) ? waitMs : Number(process.env.HQ_OFFICE_GREET_NAME_WAIT_MS ?? waitMs / 6);
+  const began = Date.now(), deadline = began + waitMs;
+  let pause = 250;
   for (;;) {
     const late = Date.now() >= deadline;
     const agent = herdrAgents()?.find((a) => a?.pane_id === pane);
     const floor = agent?.name ? await hqFloorOf(agent.name) : undefined;
     if (agent?.name && floor === undefined) return console.log(`greet: ${pane} runs ${agent.name}, not the HQ agent ${HQ_NAME} or a floor's HQ; nothing sent`);
     if (agent?.name && agent.interactive_ready !== false && (agent.agent_session?.value || late)) return sendGuide(agent, guideFor(floor));
-    if (late) return console.log(`greet: no HQ agent ready in ${pane} after ${waitMs / 1000}s; nothing sent`);
-    await Bun.sleep(Math.min(1000, Math.max(10, waitMs / 20)));
+    if (late || (!agent?.name && Date.now() >= began + nameMs)) return console.log(`greet: no HQ agent ready in ${pane} after ${Math.round((Date.now() - began) / 100) / 10}s; nothing sent`);
+    await Bun.sleep(Math.min(pause, Math.max(10, waitMs / 20)));
+    pause = Math.min(pause * 2, 1000);
   }
 }
 
@@ -432,7 +446,7 @@ function guideLine() {
 
 // HQ's hook for the HQ QUEUE (bin/queue-hook.ts): only when the owner runs it.
 function queueHook(add: boolean) {
-  const r = runQueueHook(add, process.env.HOME || "", hookCommand(bunPath(), ROOT, URL_BASE));
+  const r = runQueueHook(add, process.env.HOME || "", hookCommand(bunPath(), ROOT, URL_BASE, queueMarker(DATA_DIR)));
   if (!r.ok) fail(r.lines.join("\n"));
   for (const l of r.lines) console.log(l);
 }

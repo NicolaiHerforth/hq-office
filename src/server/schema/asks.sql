@@ -15,3 +15,5 @@ CREATE TABLE IF NOT EXISTS asks (
   answered_at INTEGER,
   acked_at INTEGER
 );
+-- The open questions, and a day's answers by their time: both are asked for on every state build.
+CREATE INDEX IF NOT EXISTS asks_status_answered ON asks (status, answered_at);

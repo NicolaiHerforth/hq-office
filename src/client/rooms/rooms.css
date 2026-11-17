@@ -66,6 +66,17 @@
 .rwork { display: inline-flex; align-items: center; gap: 4px; }
 .rwork .tag { text-decoration: none; }
 .tag.key { color: var(--ink); }
+/* A linked issue's state on the work board, and a linked PR's. */
+.tag.ws { color: var(--on-fill); }
+.tag.ws.stalled { background: var(--red); }
+.tag.ws.owner { background: var(--owner-fill); }
+.tag.ws.ci { background: var(--blue); }
+.tag.ws.moving { background: var(--green); }
+.tag.ws.paused, .tag.ws.done { background: var(--idle-fill); }
+.tag.ws.blocked { background: var(--blocked-fill); }
+.tag.pr.merged { background: var(--merged-bg); }
+.tag.pr.draft { background: var(--chip-2); color: var(--muted); }
+.tag.muted { background: var(--chip); color: var(--muted); }
 
 /* ---- an open room ---- */
 .stage.inroom > .room, .stage.inroom > .under { display: none; }

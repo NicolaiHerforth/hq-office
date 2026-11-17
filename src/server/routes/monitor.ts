@@ -15,7 +15,10 @@ import { json } from "../json.ts";
 import { homedir, hostname } from "node:os";
 import { join } from "node:path";
 import { createMonitor } from "../monitor.ts";
+import { localLists } from "../herdr.ts";
 import { growers } from "../monitor-disk.ts";
+import { machineReading } from "../monitor-machine.ts";
+import { setLocalReader } from "../machines.ts";
 import { marks } from "../monitor-history.ts";
 import { assignSlots, days, events, incidents, moment, now, patterns, range, type RangeKey } from "../monitor-page.ts";
 import { standing } from "../monitor-standing.ts";
@@ -42,11 +45,36 @@ function opened<T>(what: string, open: () => T): T | null {
 const monitor =
   !REPLAY && process.platform === "darwin" && process.env.HUD_MONITOR === "1"
     ? opened("The monitor's database, monitor.db in the data folder,", () =>
-        createMonitor({ dir: DATA, herdr: process.env.HUD_MONITOR_HERDR ?? HERDR, mask, disk: process.env.HUD_MONITOR_DISK === "0" ? undefined : { home: homedir() }, ticked: () => ticked() }),
+        createMonitor({
+          dir: DATA,
+          herdr: process.env.HUD_MONITOR_HERDR ?? HERDR,
+          mask,
+          disk: process.env.HUD_MONITOR_DISK === "0" ? undefined : { home: homedir() },
+          ticked: () => ticked(),
+          // The panes and agents the server's own sync has, unless the monitor reads another herdr than the server.
+          lists: (process.env.HUD_MONITOR_HERDR ?? HERDR) === HERDR ? localLists : undefined,
+        }),
       )
     : null;
 if (monitor?.setAside) console.error(`monitor: monitor.db could not be read and was set aside as ${monitor.setAside}; recording began anew`);
 monitor?.start();
+
+// MACHINES takes this machine's reading from the monitor while it runs, instead of starting machine-stats.sh every
+// minute for what the newest tick already has, and the temp folders' size from the monitor's daily reading instead
+// of walking them every ten minutes (monitor-machine.ts). A reading of the temp folders counts for two days: after
+// that the walks are failing, and MACHINES walks them itself as on a machine without a monitor.
+const TEMP = "Temp folders", TEMP_FRESH_MS = 2 * 86_400_000;
+if (monitor) {
+  const walks = process.env.HUD_MONITOR_DISK !== "0";
+  setLocalReader(() => {
+    let tempGb: number | undefined;
+    try {
+      const temp = walks ? growers(monitor.store.db, { now: Date.now() }).find((g) => g.name === TEMP) : undefined;
+      if (temp && Date.now() - temp.at <= TEMP_FRESH_MS) tempGb = Math.round((temp.kb / 1048576) * 100) / 100;
+    } catch {}
+    return { stats: machineReading(monitor.last(), Date.now()), tempGb };
+  });
+}
 
 // What the page's routes read: a database, the time that counts as now, and the database's size.
 type Recorded = { db: Database; now: () => number; size: () => { bytes: number; limit: number } };

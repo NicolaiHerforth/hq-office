@@ -3,7 +3,7 @@
 import { OWNER } from "./config.ts";
 import { db } from "./db.ts";
 import type { Ask } from "./types.ts";
-import { bump, listeners } from "./push.ts";
+import { bump, watchers } from "./push.ts";
 import { event } from "./events.ts";
 import { notifyHq } from "./hq-link.ts";
 import { promptAgent } from "./herdr.ts";
@@ -115,7 +115,9 @@ db.query("UPDATE lane_outbox SET delivery = 'away' WHERE delivery = 'sending'").
 // After every change of the state (herdr's sync bumps when a lane's status changes), each lane with something kept
 // gets a pump; nothing runs on a timer of its own, and a pump that changes nothing does not bump.
 let checkQueued = false;
-listeners.add(() => {
+// On every look (a write, or a POST that may have changed what time decides, such as hud sync): watchers, not
+// listeners, which hear writes only (push.ts).
+watchers.add(() => {
   if (checkQueued) return;
   checkQueued = true;
   queueMicrotask(() => {

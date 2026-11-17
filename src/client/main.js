@@ -39,7 +39,6 @@ import "./questions/questions.js";
 import "./secrets/secrets.js";
 import "./card/card.js";
 import "./messages/messages.js";
-import "./work-board/work-board.js";
 import "./images/images.js";
 import "./core/clicks.js";
 import "./questions/answer.js";

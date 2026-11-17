@@ -40,7 +40,9 @@ async function mustRunHere(hq: unknown) {
 const running = (a: { name: string; machine: string; status: string }) => a.machine === LOCAL && a.status !== "gone";
 
 const routes: Route[] = [
-  { method: "GET", path: "/api/floors", handle: ({ caller }) => json({ floors: (state() as any).floors, caller: caller().floor }) },
+  // hqPanes: the pane each floor's HQ was last seen in (floors.hq_pane). The plugin's greet waits longer on such a
+  // pane when its agent has no name: herdr drops an HQ's name on a new session, and the sync gives it back (hq-link.ts).
+  { method: "GET", path: "/api/floors", handle: ({ caller }) => json({ floors: (state() as any).floors, caller: caller().floor, hqPanes: floorList().map((f) => f.hq_pane).filter(Boolean) }) },
   { method: "GET", path: "/api/floors/agents", handle: () => json({ agents: live.filter(running).map((a) => ({ ...a, floor: floorOfHq(a.name) })) }) },
   { method: "GET", path: "/api/floors/kinds", handle: async () => json(await agentKinds()) },
   { method: "POST", path: "/api/floors", handle: async ({ body }) => {

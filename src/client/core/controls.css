@@ -54,7 +54,7 @@
 }
 /* A phone: no pixel label under 8 px. Each of these is smaller on a desktop, so the list names what it overrides. */
 @media (max-width: 1150px) and (pointer: coarse) {
-  html :is(.btn-s, .tab .tag, .aw, .earlier, .lpr, .lat, .lmore, .work .under, .seen, .agopts i, .noimg, .cover b, .fsize, .sk, .splan, .son, .swk, .plus, .rrow .last > b:first-child, .lv, .role, .ak, .or, .rfolder, .to, .tr > span, .fledit, .sall, .tell .lastnote > b:first-child, .tell .lastnote button, .urgentsw, .bfloor, .rvtab .tag, .rvbar .back .tag, .fpanel .fprow .sk, .opts2 .btn-s, .frow .btn-s, .sitem .btn-s, .accshow, .acclink .btn-s, .art .open, .rshelf .addbtn, .radd button[type=submit], .msg .meta .btn-s, .rthread .msg .meta .btn-s:last-child, .cthread .msg .meta .btn-s:last-child) { font-size: 8px; }
+  html :is(.btn-s, .tab .tag, .aw, .earlier, .lpr, .lat, .lmore, .seen, .agopts i, .noimg, .cover b, .fsize, .sk, .splan, .son, .swk, .plus, .rrow .last > b:first-child, .lv, .role, .ak, .or, .rfolder, .to, .tr > span, .fledit, .sall, .tell .lastnote > b:first-child, .tell .lastnote button, .urgentsw, .bfloor, .rvtab .tag, .rvbar .back .tag, .fpanel .fprow .sk, .opts2 .btn-s, .frow .btn-s, .sitem .btn-s, .accshow, .acclink .btn-s, .art .open, .rshelf .addbtn, .radd button[type=submit], .msg .meta .btn-s, .rthread .msg .meta .btn-s:last-child, .cthread .msg .meta .btn-s:last-child) { font-size: 8px; }
 }
 @media (max-width: 799px), (max-width: 1150px) and (pointer: coarse) {
   /* One look per kind of action. Primary: the one filled button that does the thing. */

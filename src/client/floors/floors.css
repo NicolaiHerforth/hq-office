@@ -196,7 +196,6 @@
 .sall .ssep, .sall .sgo { flex: none; }
 .scoperow.hot .sall { background: var(--red); border-color: var(--red); color: var(--on-fill); }
 .qwrap:has(> .scoperow:not([hidden])) { grid-template-rows: auto auto minmax(0, 1fr); }
-.qwrap:has(> .scoperow:not([hidden])):has(> .stall:not([hidden])) { grid-template-rows: auto auto auto minmax(0, 1fr); }
 
 /* a card's floor, in a list that shows every floor: a stripe down its left edge, a swatch in its lane tag */
 :has(> .meta > .fstripe) { position: relative; }

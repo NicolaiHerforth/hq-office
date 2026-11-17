@@ -29,5 +29,6 @@ export const OWNER = CONFIG.owner.trim() || "the owner";
 // Version 0.1.0 logged the owner's events under this fixed word. Such rows read as the owner's.
 export const LEGACY_OWNER_WHO = "nico";
 export const whoOf = (who: string) => (who === LEGACY_OWNER_WHO ? OWNER : who);
-export const SYNC_MS = 20_000;
+// How often herdr is asked which agents run. HUD_SYNC_MS is for tests, which cannot wait 20 s.
+export const SYNC_MS = Number(process.env.HUD_SYNC_MS) || 20_000;
 export const STALE_MS = 15 * 60_000;

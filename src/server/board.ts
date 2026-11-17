@@ -324,14 +324,64 @@ export function createBoard(opts: {
     const lanes = new Map((db.query("SELECT * FROM lanes").all() as any[]).map((l) => [l.name, l]));
     const asks = db.query("SELECT id, lane, title, body, status, created_at, answered_at FROM asks WHERE status != 'withdrawn'").all() as any[];
     const all = rows();
-    // An ask names an item by its issue key or one of its PR numbers, in the title or the body.
+    // An ask names an item by its issue key or one of its PR numbers, in the title or the body. Every ask ever made
+    // is held against every item ever tracked, and both lists only grow, so nothing here is done once per pair:
+    // an ask's text is put in capitals once, an issue key is looked for only where its first four characters
+    // stand in the text (a key is in the text exactly when it starts at one of those places: what stands there, in
+    // each length a key has, is looked up), and its numbers are read once.
     const prNums = (it: any) => it.prs.map((k: string) => parsePr(k, repo)?.number).filter(Boolean) as number[];
-    const namesItem = (a: any, it: any) => {
-      const text = `${a.title ?? ""}\n${a.body ?? ""}`;
-      if (text.toUpperCase().includes(it.issue)) return true;
-      return prNums(it).some((n) => new RegExp(`(^|[^\\w])#?${n}(?![\\w])`).test(text));
+    // The keys by their first four characters, and for each such start the lengths its keys have.
+    const keys = new Set<string>(all.map((it) => it.issue as string));
+    const byStart = new Map<string, Set<number>>();
+    for (const key of keys) (byStart.get(key.slice(0, 4)) ?? byStart.set(key.slice(0, 4), new Set()).get(key.slice(0, 4))!).add(key.length);
+    // A PR number names its item where it stands by itself: no letter, digit or underscore before or after it
+    // (a # before it is neither). So an ask's numbers are read once, and each is looked up.
+    const byPr = new Map<string, string[]>();
+    for (const it of all) for (const n of prNums(it)) (byPr.get(String(n)) ?? byPr.set(String(n), []).get(String(n))!).push(it.issue);
+    // Every run of digits, and whether a letter or an underscore touches it (a look behind in the pattern itself
+    // costs twenty times the scan).
+    const DIGITS = /\d+/g, WORD = /[A-Za-z_]/;
+    const named = new Map<number, Set<string>>();
+    for (const a of asks) {
+      const text = `${a.title ?? ""}\n${a.body ?? ""}`, upper = text.toUpperCase();
+      const names = new Set<string>();
+      for (const [start, lengths] of byStart) {
+        // An empty key is in every text, as it always was.
+        if (!start) { names.add(""); continue; }
+        for (let at = upper.indexOf(start); at >= 0; at = upper.indexOf(start, at + 1)) {
+          for (const length of lengths) {
+            const here = upper.substr(at, length);
+            if (here.length === length && keys.has(here)) names.add(here);
+          }
+        }
+      }
+      if (byPr.size) {
+        DIGITS.lastIndex = 0;
+        for (let m = DIGITS.exec(text); m; m = DIGITS.exec(text)) {
+          const issues = byPr.get(m[0]);
+          if (!issues) continue;
+          const end = m.index + m[0].length;
+          if ((m.index > 0 && WORD.test(text[m.index - 1])) || (end < text.length && WORD.test(text[end]))) continue;
+          for (const issue of issues) names.add(issue);
+        }
+      }
+      named.set(a.id, names);
+    }
+    // Each item's asks, in the order of the asks: those that name it, and those on its lane that name no item.
+    const naming = new Map<string, number[]>(), onLane = new Map<string, number[]>();
+    asks.forEach((a, i) => {
+      const names = named.get(a.id)!;
+      for (const issue of names) (naming.get(issue) ?? naming.set(issue, []).get(issue)!).push(i);
+      if (!names.size && a.lane) (onLane.get(a.lane) ?? onLane.set(a.lane, []).get(a.lane)!).push(i);
+    });
+    // The last thing said on a lane that is not the board's own: asked once per lane, however many items it has,
+    // and found through the index on (lane, at). Of two events in one millisecond it is the one written first, as
+    // it was when the whole log was sorted for it; said here, because the index alone would give the other.
+    const lastNote = new Map<string, { at: number; text: string } | null>();
+    const noteOn = (lane: string) => {
+      if (!lastNote.has(lane)) lastNote.set(lane, db.query("SELECT at, text FROM events WHERE lane = ? AND who != 'board' ORDER BY at DESC, id ASC LIMIT 1").get(lane) as any);
+      return lastNote.get(lane);
     };
-    const named = new Map(asks.map((a) => [a.id, new Set(all.filter((it) => namesItem(a, it)).map((it) => it.issue))]));
     const items = all.map((it) => {
       const prs = it.prs.map((k: string) => {
         const c = cache.get(k);
@@ -351,8 +401,8 @@ export function createBoard(opts: {
       const working = lane?.herdr === "working" || !!lane?.bg;
       // An ask is this item's when it names the item, or when it sits on the item's lane and names no tracked item
       // at all (a question about the lane). One that names another item belongs to that item, even on this lane.
-      const laneAsk = (a: any) => !!it.lane && a.lane === it.lane && !named.get(a.id)!.size;
-      const myAsks = asks.filter((a) => named.get(a.id)!.has(it.issue) || laneAsk(a));
+      const mine = [...(naming.get(it.issue) ?? []), ...((it.lane && onLane.get(it.lane)) || [])].sort((a, b) => a - b);
+      const myAsks = mine.map((i) => asks[i]);
       // A lane's question holds its work only while the lane is not working: a lane can have both at once.
       const openAsks = myAsks.filter((a) => a.status === "open" && (named.get(a.id)!.has(it.issue) || !working));
 
@@ -371,7 +421,7 @@ export function createBoard(opts: {
         if (a.answered_at) happened.push({ at: a.answered_at, what: `answered: ${a.title}` });
       }
       if (it.lane) {
-        const e = db.query("SELECT at, text FROM events WHERE lane = ? AND who != 'board' ORDER BY at DESC LIMIT 1").get(it.lane) as any;
+        const e = noteOn(it.lane);
         if (e) happened.push({ at: e.at, what: `note: ${e.text}` });
       }
       const last = happened.sort((a, b) => b.at - a.at)[0] ?? null;
