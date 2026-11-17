@@ -41,7 +41,7 @@ for (const phone of PHONES) {
       expect(m.scrollW).toBeLessThanOrEqual(m.vw);
       const { taps } = await tab.ev(AUDIT);
       expect(taps).toEqual([]);
-      const looks = await tab.ev(LOOKS);
+      const looks = surface.ownLook ? {} : await tab.ev(LOOKS);
       for (const [kind, seen] of Object.entries(looks) as [string, Record<string, string[]>][]) {
         const all = (lookOf[kind] ??= {});
         for (const [look, labels] of Object.entries(seen)) all[look] = [...new Set([...(all[look] ?? []), ...labels])];

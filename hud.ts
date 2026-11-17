@@ -42,6 +42,7 @@
 //   hud wait             block until the owner answers or writes (exits with the inbox)
 //   hud state            the board as JSON
 //   hud sync             refresh herdr status now
+//   hud monitor mark TEXT [--kind K]   a mark on the monitor's timeline ("full suite started"); never fails, never waits
 //   hud secret set NAME --minutes N [--by WHO]   the value comes from stdin, never from an argument
 //   hud secret get NAME [--once] | <command>     the raw value to a pipe; refuses a terminal; says if it was lost
 //   hud secret rm NAME
@@ -184,6 +185,15 @@ async function fileArg(cmd: string) {
 }
 
 switch (cmd) {
+  // hud monitor mark TEXT [--kind K]: a mark on the monitor's timeline. A script that wraps a test run or a release
+  // calls it, so it never fails and never waits long: a HUD that is down or slow costs the caller a second and a
+  // half at most, and the exit code is 0 whatever happened.
+  case "monitor": {
+    const text = rest[0] === "mark" ? rest.slice(1).join(" ").trim() : "";
+    if (!text) console.error("hud monitor mark TEXT [--kind K]");
+    else await fetch(`${BASE}/api/monitor/marks`, { method: "POST", headers: { "content-type": "application/json", "x-hud": "1" }, body: JSON.stringify({ text, kind: one("kind") }), signal: AbortSignal.timeout(1500) }).catch(() => {});
+    process.exit(0);
+  }
   case "ask": {
     const out = await call("POST", flags.item ? "/api/ledger/asks" : "/api/asks", {
       lane: one("lane"),

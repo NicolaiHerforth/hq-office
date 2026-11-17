@@ -11,20 +11,28 @@ import "./fit.js";
 // All machines in one small box: one square per machine, and a word. It only speaks up when one is past 90% CPU or
 // memory, or offline. The per-machine numbers are in the tooltip. The word's machine has the square marked w, and its
 // name is the long part: a full top bar keeps only that square, then only the number (fit.js).
+// The machine the monitor runs on is the exception: its word is the monitor's (S.monitor, there only while the
+// monitor has a fresh sample), so this box and the monitor's page never disagree about it. A machine that swaps by
+// design reads past 90% of memory for days and is not capped.
+const MONITOR = [{ state: "", word: "OK" }, { state: "close", word: "CLOSE" }, { state: "bad", word: "CAPPED" }];
 export function renderMachines() {
   const ms = S.machines ?? [];
   const rows = ms.map(({ machine, sample, ok }) => {
     const name = machine.toUpperCase();
-    if (!sample || !ok) return { name, state: "off", tip: `${name}: offline${sample?.error ? ` (${sample.error})` : ""}` };
+    const monitor = S.monitor?.machine === machine ? S.monitor : null;
+    if (!monitor && (!sample || !ok)) return { name, state: "off", word: "OFF", tip: `${name}: offline${sample?.error ? ` (${sample.error})` : ""}` };
+    const read = sample && ok ? `CPU ${Math.round(sample.cpu_busy)}% · MEM ${Math.round(sample.mem_used)}% · load ${sample.load1.toFixed(1)} on ${sample.cores} cores, ${dur(Date.now() - sample.at)} ago` : "";
+    if (monitor) return { name, here: true, ...MONITOR[monitor.state], tip: `${name}: ${monitor.said}${read && ` · ${read}`}` };
     const bad = sample.cpu_busy > 90 || sample.mem_used > 90;
-    return { name, state: bad ? "bad" : "", cpu: Math.round(sample.cpu_busy), mem: Math.round(sample.mem_used), tip: `${name}: CPU ${Math.round(sample.cpu_busy)}% · MEM ${Math.round(sample.mem_used)}% · load ${sample.load1.toFixed(1)} on ${sample.cores} cores, ${dur(Date.now() - sample.at)} ago` };
+    return { name, state: bad ? "bad" : "", word: bad ? `${Math.round(Math.max(sample.cpu_busy, sample.mem_used))}%` : "OK", tip: `${name}: ${read}` };
   });
-  const bad = rows.find((r) => r.state === "bad"), off = rows.find((r) => r.state === "off");
-  const named = bad ?? off ?? rows[0];
-  const word = bad ? `${Math.max(bad.cpu, bad.mem)}%` : off ? "OFF" : rows.length ? "OK" : "-";
-  const name = bad || off ? `<span class="long">${esc(named.name)} </span>` : "";
+  const named = ["bad", "off", "close"].map((state) => rows.find((r) => r.state === state)).find(Boolean) ?? rows[0];
+  const word = named?.word ?? "-";
+  // On a phone an alarmed box shares its row with the floor switch. The monitor's words are longer than a percentage,
+  // and the machine it speaks of is this one: there the name goes (topbar.css), so the switch keeps its room.
+  const name = named?.state ? `<span class="long${named.here ? " here" : ""}">${esc(named.name)} </span>` : "";
   const box = $("machines");
-  setClass(box, "box health " + (bad ? "bad" : off ? "off" : ""));
+  setClass(box, "box health " + (named?.state ?? ""));
   const tip = rows.map((r) => r.tip).join("\n");
   if (box.title !== tip) box.title = tip;
   setHTML(box, `<span class="k">MACHINES</span><span class="v">${rows.map((r) => `<i class="${r.state}${r === named ? " w" : ""}"></i>`).join("")}<span>${name}${word}</span></span>`);

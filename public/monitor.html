@@ -1,0 +1,2642 @@
+<!-- THE MONITOR's page: memory as one picture of tiles that you scrub through time, drawn from /api/monitor/page/*. -->
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Resource map</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script>
+/* The theme is the one the HUD is set to (MENU, THEME: its key, which this page only reads), and the screen's own
+   when that says SYSTEM. A change made in the HUD shows here at once. */
+(() => {
+  const follow = () => {
+    let t = null;
+    try { t = localStorage.getItem("hq-theme"); } catch (e) { /* no storage here: the screen's own */ }
+    if (t === "light" || t === "dark") document.documentElement.dataset.theme = t; else delete document.documentElement.dataset.theme;
+  };
+  follow();
+  addEventListener("storage", (e) => { if (e.key === "hq-theme" || e.key === null) follow(); });
+})();
+</script>
+<style>
+:root{
+  color-scheme:light;
+  --sans:"Instrument Sans",ui-sans-serif,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --page:#f9f9f7;--surface:#fcfcfb;--sunken:#f1f0ec;--sel:#eae9e4;
+  --ink:#0b0b0b;--ink-2:#52514e;--ink-3:#898781;--hair:#e1e0d9;--axis:#c3c2b7;
+  --good:#0ca30c;--warn:#fab219;--serious:#ec835a;--crit:#d03b3b;
+  --warn-wash:#fdf1cf;--crit-wash:#fbe6e6;--on-crit:#ffffff;--on-warn:#0b0b0b;--on-good:#ffffff;
+  --vessel:#7d7b76;--tip:#0b0b0b;--tip-ink:#f0efec;--tip-ink-2:#b5b4ab;--tip-hair:#383835;
+  --s1:#2b7ad6;--s2:#059488;--s3:#7447c8;--s4:#20a04e;--s5:#1795bb;--s6:#7f9120;--s7:#ae4090;
+  --on-s1:#ffffff;--on-s2:#0b0b0b;--on-s3:#ffffff;--on-s4:#0b0b0b;--on-s5:#0b0b0b;--on-s6:#0b0b0b;--on-s7:#ffffff;
+  --n-lanes-0:#aaa49f;--n-lanes-1:#959089;--n-apps-0:#d3cfc8;--n-apps-1:#c2bdb5;--n-system-0:#6b7482;--n-system-1:#8b9099;
+  --on-n-lanes-0:#0b0b0b;--on-n-lanes-1:#0b0b0b;--on-n-apps-0:#0b0b0b;--on-n-apps-1:#0b0b0b;--on-n-system-0:#ffffff;--on-n-system-1:#0b0b0b;
+  --tile-mix:100%;
+}
+@media (prefers-color-scheme:dark){:root:where(:not([data-theme="light"])){
+  color-scheme:dark;
+  --page:#0d0d0d;--surface:#1a1a19;--sunken:#121211;--sel:#2c2c2a;
+  --ink:#f0efec;--ink-2:#c3c2b7;--ink-3:#898781;--hair:#2c2c2a;--axis:#3d3d3a;
+  --warn-wash:#3b2f0c;--crit-wash:#3a1717;
+  --vessel:#a09e97;--tip:#2a2a28;--tip-ink:#f0efec;--tip-ink-2:#b5b4ab;--tip-hair:#45453f;
+  --s1:#3986e4;--s2:#179a8e;--s3:#8a66d9;--s4:#2aa654;--s5:#1aa1c9;--s6:#8b9d26;--s7:#bf50a0;
+  --on-s1:#ffffff;--on-s2:#0b0b0b;--on-s3:#ffffff;--on-s4:#0b0b0b;--on-s5:#0b0b0b;--on-s6:#0b0b0b;--on-s7:#ffffff;
+  --n-lanes-0:#7d7873;--n-lanes-1:#68635e;--n-apps-0:#57534d;--n-apps-1:#46433e;--n-system-0:#56606e;--n-system-1:#3f444c;
+  --on-n-lanes-0:#ffffff;--on-n-lanes-1:#ffffff;--on-n-apps-0:#ffffff;--on-n-apps-1:#ffffff;--on-n-system-0:#ffffff;--on-n-system-1:#ffffff;
+  --tile-mix:88%;
+}}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --page:#0d0d0d;--surface:#1a1a19;--sunken:#121211;--sel:#2c2c2a;
+  --ink:#f0efec;--ink-2:#c3c2b7;--ink-3:#898781;--hair:#2c2c2a;--axis:#3d3d3a;
+  --warn-wash:#3b2f0c;--crit-wash:#3a1717;
+  --vessel:#a09e97;--tip:#2a2a28;--tip-ink:#f0efec;--tip-ink-2:#b5b4ab;--tip-hair:#45453f;
+  --s1:#3986e4;--s2:#179a8e;--s3:#8a66d9;--s4:#2aa654;--s5:#1aa1c9;--s6:#8b9d26;--s7:#bf50a0;
+  --on-s1:#ffffff;--on-s2:#0b0b0b;--on-s3:#ffffff;--on-s4:#0b0b0b;--on-s5:#0b0b0b;--on-s6:#0b0b0b;--on-s7:#ffffff;
+  --n-lanes-0:#7d7873;--n-lanes-1:#68635e;--n-apps-0:#57534d;--n-apps-1:#46433e;--n-system-0:#56606e;--n-system-1:#3f444c;
+  --on-n-lanes-0:#ffffff;--on-n-lanes-1:#ffffff;--on-n-apps-0:#ffffff;--on-n-apps-1:#ffffff;--on-n-system-0:#ffffff;--on-n-system-1:#ffffff;
+  --tile-mix:88%;
+}
+
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--page);color:var(--ink);font:14px/1.45 var(--sans);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;margin:0;cursor:pointer;text-align:inherit}
+:focus-visible{outline:2px solid var(--ink);outline-offset:2px;border-radius:4px}
+.num{font-family:var(--mono);letter-spacing:-.02em;word-spacing:-.3em;font-feature-settings:"zero" 0}
+.sw{display:inline-block;width:9px;height:9px;border-radius:2px;background:var(--c);flex:none}
+.app{max-width:1440px;margin:0 auto;padding:8px 24px 48px}
+
+.top{display:flex;align-items:center;gap:20px;height:24px;font-size:12px;color:var(--ink-3)}
+.brand{display:flex;align-items:center;gap:7px;color:var(--ink-2);font-size:13px;white-space:nowrap}
+.brand b{color:var(--ink);font-weight:600;letter-spacing:-.01em}
+.brand svg{display:block}
+.meta{flex:1;display:flex;gap:18px;justify-content:flex-end;min-width:0}
+.meta span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.meta span:last-child{flex:none}
+.live{display:inline-flex;align-items:center;gap:5px;padding:1px 10px 1px 5px;border-radius:999px;font-size:12px;font-weight:600;color:var(--ink);border:1px solid var(--axis);background:var(--surface);white-space:nowrap}
+.live svg{display:block}
+.live[data-s="1"]{background:var(--warn-wash);border-color:transparent}
+.live[data-s="2"]{background:var(--crit);color:var(--on-crit);border-color:transparent;--ico-bg:var(--on-crit);--ico-fg:var(--crit)}
+.tl-head .live{display:none}
+.seg{display:inline-flex;border:1px solid var(--hair);border-radius:8px;padding:2px;gap:2px;background:var(--surface)}
+.seg button{padding:3px 10px;border-radius:5px;font-size:12px;font-weight:500;color:var(--ink-2);white-space:nowrap}
+.seg button:hover{color:var(--ink)}
+.seg button[aria-pressed="true"]{background:var(--sel);color:var(--ink);font-weight:600}
+
+.stale{display:flex;align-items:flex-start;gap:8px;margin:6px 0 2px;padding:7px 12px;border-radius:8px;background:var(--warn-wash);color:var(--ink);font-size:13px;line-height:1.4}
+.stale span:first-child{flex:none;margin-top:2px}
+.gate{max-width:760px;padding:28px 0 80px}
+.app.ready>.gate,.app:not(.ready)>:is(.verdict,.model,.time,.lower,.foot){display:none}
+.verdict{display:grid;grid-template-columns:minmax(0,1fr) 348px;gap:24px;min-height:118px;margin:4px 0 8px}
+.viewing{font-weight:600;color:var(--ink)}
+.pillrow{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--ink-2);height:26px;white-space:nowrap}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:2px 11px 2px 6px;border-radius:999px;font-weight:600;font-size:13px;color:var(--ink);border:1px solid var(--hair);white-space:nowrap}
+.pill svg{display:block}
+.pill[data-s="1"]{background:var(--warn-wash);border-color:transparent}
+.pill[data-s="2"]{background:var(--crit);color:var(--on-crit);border-color:transparent;--ico-bg:var(--on-crit);--ico-fg:var(--crit)}
+.pill[data-s="gap"]{background:var(--sunken);color:var(--ink-2)}
+#pillmeta{display:inline-flex;align-items:center;gap:6px;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.by{display:inline-flex;align-items:center;gap:4px;color:var(--ink);font-weight:500}
+.by svg{display:block}
+.headline{font-size:27px;line-height:1.16;font-weight:600;letter-spacing:-.022em;margin:7px 0 5px;text-wrap:balance}
+.sentence{font-size:14.5px;line-height:1.42;color:var(--ink-2);max-width:940px;margin:0}
+.hn{white-space:nowrap;color:var(--ink);font-weight:500}
+.hn .sw{margin-right:5px;transform:translateY(-.5px)}
+.context{font-size:12.5px;line-height:1.38;color:var(--ink-3);margin:3px 0 0}
+.moment{align-self:start;border-left:1px solid var(--hair);padding:2px 0 2px 18px;margin-top:2px}
+.moment .lab{font-size:11.5px;color:var(--ink-3)}
+.moment .when{font-size:20px;font-weight:600;letter-spacing:-.015em;line-height:1.25;margin-top:1px}
+.moment .sub{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--ink-2);margin-top:1px}
+.moment .fresh{font-size:11.5px;color:var(--ink-3);margin-top:5px}
+.btn{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--hair);background:var(--surface);border-radius:7px;padding:3px 10px;font-size:12px;font-weight:600;color:var(--ink);white-space:nowrap}
+.btn:hover{background:var(--sel)}
+.btn[disabled]{color:var(--ink-3);cursor:default;background:none;font-weight:500}
+.btn svg{display:block}
+
+.panel{background:var(--surface);border:1px solid var(--hair);border-radius:12px}
+.model{display:grid;grid-template-columns:minmax(0,1fr) 428px}
+.mapcol{position:relative;padding:8px 14px 10px 16px;min-width:0}
+.maphead{display:flex;align-items:center;justify-content:flex-end;gap:16px;height:36px;margin-bottom:2px}
+.toggles{display:flex;gap:8px;flex:none}
+.info{font-family:var(--mono);font-size:12px;font-weight:600;font-style:italic;color:var(--ink-2)}
+.info[aria-expanded="true"]{background:var(--sel);color:var(--ink)}
+.pop{position:absolute;z-index:20;background:var(--surface);border:1px solid var(--axis);border-radius:10px;padding:12px 14px;font-size:12.5px;line-height:1.45;color:var(--ink-2)}
+.pop h4{margin:0 0 2px;font-size:13px;font-weight:600;color:var(--ink)}
+.pop p{margin:0 0 8px}
+#info{right:14px;top:46px;width:440px;max-width:calc(100% - 28px)}
+#info h4:not(:first-child){margin-top:10px}
+#info .states div{margin-top:6px}
+#info .states b{display:flex;align-items:center;gap:6px;color:var(--ink);font-weight:600}
+.mapwrap{position:relative;display:grid;grid-template-columns:108px minmax(0,1fr) 54px;align-items:start;min-height:var(--map-h,360px)}
+.gutter,.ruler{position:relative}
+.gutter,.stage,.ruler{grid-row:1;height:var(--map-h,360px)}
+.gutter{grid-column:1}.stage{grid-column:2}.ruler{grid-column:3}
+.tabled>.gutter,.tabled>.stage,.tabled>.ruler{visibility:hidden}
+.rg{position:absolute;left:0;right:12px;font-size:12px;line-height:1.25;transition:top .24s cubic-bezier(.2,.7,.2,1)}
+.rg .rgn{font-weight:600;display:flex;gap:6px;align-items:flex-start}
+.rg .rgn svg{flex:none;margin-top:2px}
+.rg .rgv{color:var(--ink-2);font-size:11.5px;margin-left:16px;font-family:var(--sans);letter-spacing:0;word-spacing:0;font-variant-numeric:tabular-nums}
+.rgb{position:absolute;right:4px;width:2px;border-radius:1px;background:var(--axis);transition:top .24s cubic-bezier(.2,.7,.2,1),height .24s cubic-bezier(.2,.7,.2,1)}
+.stage{position:relative}
+.ram{position:absolute;left:0;right:0;bottom:0;border:1px solid var(--ink-3);border-top:0;border-radius:0 0 5px 5px;pointer-events:none;z-index:1}
+.brim{position:absolute;left:-6px;right:-6px;height:2px;background:var(--ink);z-index:4;pointer-events:none;border-radius:1px}
+.capped:not(.bycpu) .brim{background:var(--crit)}
+.capped.bycpu #cap2{background:var(--crit);height:2px;margin-top:-1px}
+.capline{position:absolute;left:0;right:0;height:1px;background:var(--ink-2);z-index:4;pointer-events:none}
+.spill{position:absolute;left:1px;right:1px;z-index:3;pointer-events:none;background-color:color-mix(in srgb,var(--crit) 14%,transparent);background-image:repeating-linear-gradient(135deg,color-mix(in srgb,var(--crit) 75%,transparent) 0 2px,transparent 2px 7px);border-top:2px solid var(--crit);opacity:0;transition:opacity .2s}
+.capped.over .spill{opacity:1}
+.zonecap{position:absolute;left:0;right:0;top:0;min-height:20px;display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink-2);z-index:5;pointer-events:none;white-space:nowrap}
+.zonecap b{font-weight:600;color:var(--ink);white-space:nowrap}
+.zonecap .more{margin-left:-4px}
+.spillmsg{display:inline-flex;align-items:center;gap:6px;background:var(--crit);color:var(--on-crit);font-weight:600;border-radius:5px;padding:1px 9px 1px 6px;font-size:12px;--ico-bg:var(--on-crit);--ico-fg:var(--crit)}
+.headroom{position:absolute;left:0;right:0;text-align:center;font-size:11.5px;color:var(--ink-3);z-index:1;pointer-events:none;transform:translateY(-50%);transition:top .24s cubic-bezier(.2,.7,.2,1);white-space:nowrap}
+.tile{position:absolute;left:0;top:0;border-radius:3px;background:color-mix(in srgb,var(--c) var(--tile-mix),var(--surface));color:var(--on);overflow:hidden;cursor:pointer;
+  transition:left .24s cubic-bezier(.2,.7,.2,1),top .24s cubic-bezier(.2,.7,.2,1),width .24s cubic-bezier(.2,.7,.2,1),height .24s cubic-bezier(.2,.7,.2,1),opacity .2s,filter .12s}
+.scrub .tile,.scrub .rg,.scrub .rgb,.scrub .headroom,.scrub .lvl{transition-duration:.1s}
+.playing .tile,.playing .rg,.playing .rgb,.playing .headroom,.playing .lvl,.playing .cseg{transition:none}
+.tile.nil{opacity:0;pointer-events:none}
+.tile:hover{filter:brightness(1.07) saturate(1.05)}
+.tile:focus-visible{outline:2px solid var(--ink);outline-offset:1px;z-index:5;border-radius:3px}
+.gapped .tile:not(.nil){opacity:.22}
+.inst.gapped .vessel,.inst.gapped .cpu,.inst.gapped .disk{opacity:.3}
+.tl{position:relative;z-index:5;padding:7px 9px;white-space:nowrap;pointer-events:none}
+.tn{font-size:13px;line-height:16px;font-weight:600;letter-spacing:-.005em}
+.tv{font-family:var(--mono);font-size:12px;line-height:16px;letter-spacing:-.02em;word-spacing:-.3em;display:flex;gap:8px;align-items:baseline}
+.td{font-size:11px;line-height:15px;margin-top:3px;opacity:.82;font-weight:500}
+.tvs{font-size:11px;opacity:.72}
+.tk{display:none;position:absolute;inset:0;z-index:5;align-items:center;justify-content:center;font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:-.04em;pointer-events:none}
+[data-fit="s"]>.tl{padding:4px 6px}
+[data-fit="s"] .tn{font-size:11px;line-height:13px}
+[data-fit="s"] .tv{font-size:11px;line-height:14px}
+[data-fit="s"] .tvs,[data-fit="i"] .tvs,[data-fit="n"] .tvs{display:none}
+[data-fit="i"]>.tl{padding:0 8px;display:flex;gap:8px;align-items:center;height:100%;max-height:26px}
+[data-fit="i"] .tn{font-size:12px;line-height:14px}
+[data-fit="i"] .tv{line-height:14px}
+[data-fit="n"]>.tl{padding:2px 3px}
+[data-fit="n"] .tn{font-size:10.5px;line-height:12px}
+[data-fit="j"]>.tl{padding:0 6px;display:flex;gap:6px;align-items:center;height:100%}
+[data-fit="j"] .tn{font-size:10.5px;line-height:11px}
+[data-fit="j"] .tv{font-size:10.5px;line-height:11px}
+[data-fit="j"] .tvs{display:none}
+[data-fit="c"]>.tl{padding:2px 4px}
+[data-fit="c"] .tn{font-size:10.5px;line-height:12px;overflow:hidden;text-overflow:ellipsis}
+[data-fit="n"] .tv,[data-fit="c"] .tv,[data-fit="k"]>.tl{display:none}
+[data-fit="k"]>.tk{display:flex}
+.rtick{position:absolute;left:0;right:0;font-size:11px;color:var(--ink-3);padding-left:12px;transform:translateY(-50%);white-space:nowrap;line-height:1.15}
+.rtick::before{content:"";position:absolute;left:0;top:50%;width:7px;height:1px;background:var(--axis)}
+.rtick.strong{color:var(--ink);font-weight:600}
+.rtick.strong::before{background:var(--ink);height:2px;margin-top:-1px}
+.rtick small{display:block;font-size:10.5px;font-weight:500;color:var(--ink-3)}
+.mapkey{display:flex;flex-wrap:wrap;align-items:center;gap:2px 14px;min-height:20px;margin:8px 0 0 108px;font-size:12px;color:var(--ink-2)}
+.mapkey .kh{color:var(--ink-3);font-size:11.5px}
+.kg{display:none}
+.mk{display:inline-flex;align-items:center;gap:6px;white-space:nowrap;border-radius:4px;padding:0 2px}
+.mk:hover{color:var(--ink);background:var(--sel)}
+.mk .kn{font-family:var(--mono);font-size:10.5px;font-weight:600;letter-spacing:-.04em;min-width:17px;height:15px;line-height:13px;text-align:center;border:1px solid var(--axis);border-radius:3px;color:var(--ink)}
+.mk .kv{font-family:var(--mono);font-size:11.5px;letter-spacing:-.02em;word-spacing:-.3em;color:var(--ink-3)}
+.tablev{grid-row:1;grid-column:1/-1;position:relative;min-height:var(--map-h,360px);background:var(--surface);z-index:7;overflow-x:auto}
+table.t tr:focus-visible{outline-offset:-2px}
+table.t{border-collapse:collapse;width:100%;font-size:12px}
+table.t th{font-weight:500;color:var(--ink-3);text-align:right;padding:3px 10px;border-bottom:1px solid var(--hair);font-size:11.5px;white-space:nowrap;position:sticky;top:0;background:var(--surface)}
+table.t th:first-child,table.t td:first-child{text-align:left}
+table.t td{padding:2px 10px;text-align:right;border-bottom:1px solid var(--hair);font-family:var(--mono);font-variant-numeric:tabular-nums;letter-spacing:-.02em;word-spacing:-.3em;white-space:nowrap}
+table.t td:first-child{font-family:var(--sans);letter-spacing:0;word-spacing:0;font-weight:500}
+table.t td:first-child .sw{margin-right:8px}
+table.t tr.grp td{font-family:var(--sans);font-weight:600;color:var(--ink-2);font-size:11.5px;padding-top:6px;letter-spacing:0;word-spacing:0}
+table.t tr.tot td{font-weight:600;border-bottom:0}
+
+.dive{position:absolute;inset:0;z-index:8;background:var(--surface);transform-origin:0 0;transition:transform .28s cubic-bezier(.2,.8,.2,1),background-color .28s;display:flex;flex-direction:column;border-radius:4px;overflow:hidden}
+.dive.opening{background:var(--dc)}
+.dived .ruler,.dived .gutter,.dived .zonecap,.dived .brim{visibility:hidden}
+.dhead,.dnote,.dhist{transition:opacity .18s .12s}
+.dive.opening .dhead,.dive.opening .dnote,.dive.opening .dhist{opacity:0;transition:none}
+.dhead{display:flex;align-items:center;gap:14px;height:34px;flex:none;white-space:nowrap}
+.crumb{display:flex;align-items:center;gap:7px;font-size:14px;font-weight:600;min-width:0}
+.crumb button{color:var(--ink-2);font-weight:500;text-decoration:underline;text-decoration-color:var(--axis);text-underline-offset:3px}
+.crumb button:hover{color:var(--ink)}
+.crumb .slash{color:var(--ink-3);font-weight:400}
+.crumb .here{display:inline-flex;align-items:center;gap:7px;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.dstat{font-size:12.5px;color:var(--ink-2);overflow:hidden;text-overflow:ellipsis;min-width:0}
+.dstat b{color:var(--ink);font-weight:600}
+.dhead .btn{margin-left:auto;margin-right:3px}
+kbd{font-family:var(--mono);font-size:10.5px;border:1px solid var(--hair);border-radius:4px;padding:0 4px;color:var(--ink-3);font-weight:500}
+.dnote{font-size:12px;color:var(--ink-3);margin:0 0 6px;flex:none}
+.dtiles{position:relative;flex:1;min-height:0}
+.dtiles .tile{cursor:default;transition:none}
+.dtiles .tile:hover{filter:none}
+.dhist{flex:none;height:92px;padding-top:8px;position:relative}
+.dhist .cap{font-size:11.5px;color:var(--ink-3);display:flex;justify-content:space-between;gap:10px;white-space:nowrap}
+.dhist .cap span:first-child{flex:none}
+.dhist .cap span:last-child{overflow:hidden;text-overflow:ellipsis;min-width:0}
+.dhist svg{display:block;width:100%;height:66px;margin-top:2px;cursor:crosshair;touch-action:pan-y;overflow:visible}
+.dhist text{font-family:var(--sans);font-size:10.5px;fill:var(--ink-3)}
+
+.inst{border-left:1px solid var(--hair);padding:10px 16px 12px;display:flex;flex-direction:column;justify-content:space-between;min-width:0}
+#g-disk{position:relative}
+.tanks{display:grid;grid-template-columns:78px 90px minmax(0,1fr) 68px;gap:8px}
+.gauge{min-width:0;border-radius:4px}
+.g-t{font-size:12px;font-weight:600;white-space:nowrap;display:flex;align-items:center;gap:5px}
+.g-t svg{display:block;flex:none}
+.g-v{font-family:var(--mono);word-spacing:-.3em;font-size:17px;font-weight:500;letter-spacing:-.04em;line-height:1.3;margin-top:1px;white-space:nowrap}
+.g-v.word{font-family:var(--sans);word-spacing:0;font-weight:600;letter-spacing:-.015em;font-size:16px;line-height:22px}
+.g-v small{font-family:var(--mono);font-size:11.5px;font-weight:400;color:var(--ink-2);letter-spacing:-.02em;margin-left:5px}
+.g-s{font-size:11.5px;color:var(--ink-2);line-height:15px;height:30px}
+.g-s .amt,#heat-s{white-space:nowrap}
+.g-s .tr{display:inline-flex;align-items:center;gap:4px;color:var(--ink);font-weight:500}
+.g-s .tr svg{display:block}
+.vessel{position:relative;height:92px;margin-top:6px}
+.vbox{position:absolute;left:0;bottom:0;width:34px;height:100%;border:1px solid var(--ink-3);border-top:0;border-radius:0 0 4px 4px}
+.vtop{position:absolute;left:-3px;width:40px;top:0;height:2px;background:var(--ink);border-radius:1px}
+.lvl{position:absolute;left:2px;bottom:2px;width:28px;border-radius:2px;background:var(--vessel);transition:height .24s cubic-bezier(.2,.7,.2,1),background-color .2s}
+.lvl[data-s="1"]{background:var(--warn)}
+.lvl[data-s="2"]{background:var(--crit)}
+.vline{position:absolute;left:0;width:40px;height:1px;background:var(--ink-2);box-sizing:content-box;padding:4px 0;margin-top:-4px;background-clip:content-box}
+.vlab{position:absolute;left:45px;font-size:10.5px;color:var(--ink-3);transform:translateY(-50%);white-space:nowrap;line-height:1}
+#g-heat .vbox{width:22px;border:0;display:flex;flex-direction:column-reverse;gap:2px}
+#g-heat .vtop{width:28px}
+#g-heat .vline{width:28px}
+#g-heat .vlab{left:32px}
+.steps{position:absolute;left:45px;top:0;bottom:0;display:flex;flex-direction:column-reverse;justify-content:space-between;font-size:10.5px;line-height:1;color:var(--ink-3);white-space:nowrap}
+.steps span{display:flex;align-items:center;gap:4px}
+.steps i{width:7px;height:7px;border-radius:50%;border:1px solid var(--axis);flex:none}
+.steps .on{color:var(--ink);font-weight:600}
+.steps .on i{background:var(--vessel);border-color:transparent}
+.steps .on[data-s="1"] i{background:var(--warn)}
+.steps .on[data-s="2"] i{background:var(--crit)}
+.rate{position:relative;height:4px;margin-top:5px;border-radius:2px;background:var(--sunken)}
+.rate i{position:absolute;left:0;top:0;height:100%;border-radius:2px;background:var(--vessel)}
+.rate[data-s="1"] i{background:var(--warn)}
+.rate[data-s="2"] i{background:var(--crit)}
+.rate b{position:absolute;top:-3px;width:1px;height:10px;background:var(--ink-2);box-sizing:content-box;padding:0 4px;margin-left:-4px;background-clip:content-box}
+.hc{flex:1;border-radius:2px;background:var(--sunken);border:1px solid var(--axis)}
+.hc.on{background:var(--vessel);border-color:transparent}
+.hc.on[data-s="1"]{background:var(--warn)}
+.hc.on[data-s="2"]{background:var(--crit)}
+.sq{position:absolute;left:0;bottom:0}
+.sq-out{border:1px solid var(--ink-3);border-radius:3px;transition:width .24s,height .24s}
+.sq-in{left:2px;bottom:2px;background:var(--vessel);border-radius:2px;transition:width .24s,height .24s}
+.rowg{border-top:1px solid var(--hair);margin-top:10px;padding-top:8px}
+.rowg .hd{display:flex;align-items:baseline;gap:8px;white-space:nowrap}
+.rowg .hd .g-t{align-self:center}
+.rowg .hd .g-v{font-family:var(--sans);word-spacing:0;letter-spacing:-.005em;font-size:13px;font-weight:500;color:var(--ink-2);margin:0}
+.rowg .hd .g-v b{font-weight:600;color:var(--ink)}
+.cpu{position:relative;height:18px;margin:19px 0 15px;background:var(--sunken);border-radius:3px}
+.cseg{position:absolute;top:0;height:100%;background:var(--c);transition:left .24s,width .24s}
+.ccell{position:absolute;top:0;width:2px;height:100%;background:var(--surface);z-index:2}
+.cline{position:absolute;top:-4px;width:1px;height:26px;background:var(--ink-2);z-index:3;box-sizing:content-box;padding:0 4px;margin-left:-4px;background-clip:content-box}
+.clab{position:absolute;top:-15px;font-size:10.5px;color:var(--ink-3);transform:translateX(-100%);white-space:nowrap;padding-right:4px;line-height:1}
+.clab.lo{top:auto;bottom:-15px}
+.disk{position:relative;height:10px;margin-top:8px;background:var(--sunken);border-radius:3px}
+.disk .lvl{left:0;bottom:0;height:100%;width:auto;border-radius:3px 0 0 3px;transition:width .24s}
+.disk .cline{top:-3px;height:16px}
+.diskfoot{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-top:7px;font-size:11.5px;color:var(--ink-3)}
+.growers{left:-9px;right:-9px;bottom:34px}
+.growers p{font-size:11.5px;color:var(--ink-3)}
+.gr{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:2px 12px;align-items:center;padding:5px 0;border-top:1px solid var(--hair)}
+.gr .nm{display:flex;align-items:center;gap:7px;min-width:0}
+.gr .bar{grid-column:1/-1;height:4px;border-radius:2px;background:var(--c)}
+.gr .up{color:var(--ink-3);font-size:11.5px}
+
+.time{margin-top:10px;padding:8px 16px 8px}
+.tl-head{display:flex;align-items:center;gap:12px;height:30px}
+.transport{display:flex;align-items:center;gap:4px}
+.ibtn{width:26px;height:26px;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--hair);background:var(--surface)}
+.ibtn:hover{background:var(--sel)}
+.ibtn.play{width:auto;padding:0 10px 0 8px;gap:6px;font-size:12px;font-weight:600}
+.tl-read{font-size:12.5px;color:var(--ink-2);display:flex;align-items:center;gap:8px;white-space:nowrap;min-width:0}
+.tl-read b{color:var(--ink);font-weight:600}
+.tl-read .st{display:inline-flex;align-items:center;gap:4px}
+.hint{margin-left:auto;font-size:11.5px;color:var(--ink-3);white-space:nowrap}
+.legend{display:flex;align-items:center;gap:4px 13px;flex-wrap:wrap;min-height:24px;margin-top:5px;font-size:12px}
+.lg-g{color:var(--ink-3);font-size:11.5px;display:inline-flex;align-items:center;gap:5px;margin-right:-3px}
+.lg-g:not(:first-child){margin-left:8px;padding-left:14px;border-left:1px solid var(--hair)}
+.lg{display:inline-flex;align-items:center;gap:6px;color:var(--ink-2);border-radius:4px;padding:1px 2px;white-space:nowrap}
+.lg.sep{margin-left:8px;padding-left:14px;border-left:1px solid var(--hair);border-radius:0}
+button.lg:hover,.lg[aria-pressed="true"]{color:var(--ink)}
+.lg[aria-pressed="true"]{font-weight:600;background:var(--sel)}
+.lg .v{display:none;font-family:var(--mono);font-size:11.5px;letter-spacing:-.02em;word-spacing:-.3em;color:var(--ink-2);margin-left:auto}
+.began{font-size:11.5px;color:var(--ink-3);margin:6px 0 0}
+.plot{position:relative;height:calc(var(--sh,90px) + 60px);margin-top:4px;touch-action:pan-y;cursor:ew-resize;user-select:none;-webkit-user-select:none;border-radius:4px}
+.plot svg{position:absolute;inset:0;width:100%;height:100%;display:block;overflow:visible}
+.plot text{font-family:var(--sans);font-size:11px;fill:var(--ink-3)}
+.layer{stroke:var(--surface);stroke-width:2;stroke-linejoin:round;transition:opacity .2s}
+.dim .layer{opacity:.16}
+.dim .layer.on{opacity:1}
+.pin{position:absolute;top:0;width:24px;height:20px;margin-left:-12px;z-index:3;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.pin i{width:11px;height:11px;border-radius:50%;background:var(--crit);box-shadow:0 0 0 2px var(--surface);transition:transform .15s}
+.pin:hover i,.pin[aria-pressed="true"] i{transform:scale(1.35)}
+.pin::after{content:"";position:absolute;top:16px;left:11.5px;width:1px;height:calc(var(--sh,90px) + 4px);background:var(--crit);opacity:.35;pointer-events:none}
+.ph{position:absolute;top:14px;left:0;width:0;height:calc(var(--sh,90px) + 24px);z-index:4;pointer-events:none;will-change:transform}
+.ph::before{content:"";position:absolute;left:-1px;top:0;width:2px;height:100%;background:var(--ink);border-radius:1px}
+.ph::after{content:"";position:absolute;left:-4px;top:-3px;width:8px;height:8px;border-radius:50%;background:var(--ink)}
+.phl{position:absolute;top:calc(var(--sh,90px) + 41px);left:0;z-index:5;pointer-events:none;background:var(--ink);color:var(--surface);font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:-.02em;line-height:18px;padding:0 7px 0 6px;border-radius:5px;white-space:nowrap;display:flex;align-items:center;gap:5px;will-change:transform}
+.phl::before{content:"";width:6px;height:8px;border-left:1.5px solid currentColor;border-right:1.5px solid currentColor;opacity:.6}
+.hv{position:absolute;top:14px;left:0;width:1px;height:calc(var(--sh,90px) + 24px);background:var(--ink-3);z-index:2;pointer-events:none}
+.tl-foot{display:flex;flex-wrap:wrap;gap:4px 16px;align-items:center;font-size:11.5px;color:var(--ink-3);margin-top:6px}
+.key{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.key svg{display:block}
+.key i{display:inline-block;width:14px;height:6px;border-radius:1px}
+
+.q{display:grid;grid-template-columns:auto minmax(0,1fr);gap:28px;margin-top:8px;min-height:174px}
+.calwrap h4,.daybox h4{margin:0;font-size:12px;font-weight:600}
+.calgrid{display:grid;grid-auto-flow:column;grid-template-rows:14px repeat(7,18px);grid-auto-columns:18px;gap:2px;margin-top:4px}
+.calgrid .wd,.calgrid .mo{font-size:10.5px;color:var(--ink-3);line-height:18px;white-space:nowrap}
+.calgrid .wd{padding-right:6px;width:30px}
+.calgrid .mo{line-height:12px;overflow:visible;width:18px}
+.cd{position:relative;width:18px;height:18px;border-radius:4px;background:var(--sunken);border:0}
+.cd[data-s="1"]{background:linear-gradient(to top,var(--warn) 0 50%,var(--sunken) 50% 100%)}
+.cd[data-s="2"]{background:var(--crit)}
+.cd[data-s="n"]{background:none;border:1px solid var(--hair);cursor:default}
+.cd:not([data-s="n"]):hover{outline:2px solid var(--ink-3);outline-offset:1px}
+.cd[aria-pressed="true"]{outline:2px solid var(--ink);outline-offset:1px}
+.cd.today::after{content:"";position:absolute;left:6px;top:6px;width:6px;height:6px;border-radius:50%;background:var(--ink)}
+.cd.today[data-s="2"]::after{background:var(--on-crit)}
+.cd .dn{display:none;font-family:var(--mono);letter-spacing:-.04em}
+.cd[data-s="2"]{color:var(--on-crit)}
+i.cd{display:inline-block;width:12px;height:12px;border-radius:3px}
+.daybox{min-width:0;display:grid;grid-template-columns:minmax(0,300px) minmax(0,1.5fr) minmax(0,1fr);gap:8px 32px;align-content:start;border-left:1px solid var(--hair);padding-left:28px}
+.dayhead .d{font-size:17px;font-weight:600;letter-spacing:-.015em;line-height:1.25}
+.dayhead .s{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--ink-2);margin-top:3px;flex-wrap:wrap}
+.dayhead .s b{color:var(--ink);font-weight:600}
+.dayhead p{font-size:12px;color:var(--ink-3);margin:8px 0 0;line-height:1.4}
+.figs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));grid-auto-flow:row dense;gap:0 18px;align-content:start}
+.fig{border-top:1px solid var(--hair);padding:5px 0 7px;min-width:0}
+.fig.wide{grid-column:span 2}
+.fig .l{font-size:11.5px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fig .v{font-size:15px;font-weight:600;letter-spacing:-.01em;white-space:nowrap}
+.fig .v small{font-size:11.5px;font-weight:400;color:var(--ink-2);margin-left:3px}
+.tops h4{color:var(--ink-3);font-weight:500;font-size:11.5px;border-top:1px solid var(--hair);padding-top:5px}
+.tops h4:not(:first-child){margin-top:6px}
+.toprow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:1px 10px;align-items:center;padding:4px 0 3px;font-size:12.5px}
+.toprow .nm{display:flex;align-items:center;gap:7px;min-width:0;font-weight:500}
+.toprow .nm span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.toprow .bar{grid-column:1/-1;height:4px;border-radius:2px;background:var(--c)}
+
+.lower{display:grid;grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:28px;margin-top:26px}
+.lower h2{font-size:17px;font-weight:600;letter-spacing:-.015em;margin:0 0 2px}
+.lower .lede{font-size:12.5px;color:var(--ink-3);margin:0 0 10px}
+.none{border:1px solid var(--hair);border-radius:10px;padding:14px 16px;font-size:13px;color:var(--ink-2);background:var(--surface);max-width:560px}
+.none b{display:block;color:var(--ink);font-weight:600;margin-bottom:2px}
+.wm{display:grid;grid-template-columns:96px minmax(0,1fr) 26px;gap:2px 14px;align-items:center;width:100%;padding:9px 8px 9px 10px;border-top:1px solid var(--hair);border-radius:0}
+.wm:last-of-type{border-bottom:1px solid var(--hair)}
+.wm:hover{background:var(--surface)}
+.wm[aria-pressed="true"]{background:var(--surface);box-shadow:inset 2px 0 0 var(--crit)}
+.wm .d{font-size:12.5px;font-weight:600;white-space:nowrap;align-self:start}
+.wm .d small{display:block;font-family:var(--mono);font-weight:500;font-size:13px;color:var(--ink);letter-spacing:-.02em;margin-top:1px}
+.wm .h{display:block;font-size:13.5px;font-weight:500;line-height:1.3}
+.wm .x{font-size:11.5px;color:var(--ink-3);display:flex;align-items:center;flex-wrap:wrap;gap:3px 12px;margin-top:5px;font-variant-numeric:tabular-nums}
+.wm .x span{white-space:nowrap}
+.go{width:24px;height:24px;border-radius:50%;border:1px solid var(--hair);background:var(--surface);display:inline-flex;align-items:center;justify-content:center;color:var(--ink-2);flex:none;transition:transform .15s,background-color .15s,color .15s}
+.go svg{display:block}
+.wm:hover .go,.patgo:hover .go{background:var(--ink);border-color:var(--ink);color:var(--surface);transform:translateX(2px)}
+.mini{position:relative;width:124px;height:8px;flex:none;background:var(--sunken);border-radius:2px}
+.mini i{position:absolute;top:0;height:100%;background:var(--c)}
+.mini .cap{position:absolute;top:-3px;width:1.5px;height:14px;background:var(--ink)}
+.btn.more{margin-top:10px}
+.pats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 28px}
+.pat{border-top:1px solid var(--hair);padding:11px 0 10px;display:flex;flex-direction:column;min-width:0}
+.pat h3{margin:0;font-size:14px;font-weight:600;line-height:1.3;letter-spacing:-.005em;display:flex;gap:8px;align-items:baseline}
+.pat h3 .sw{transform:translateY(-1px)}
+.pat p{margin:3px 0 8px;font-size:12.5px;color:var(--ink-2);line-height:1.4}
+.pat svg{display:block;overflow:visible;max-width:100%;height:auto}
+.pat svg rect[data-tip]:hover,.pat svg rect[data-tip]:focus-visible{fill:color-mix(in srgb,var(--ink) 9%,transparent);outline:none}
+.pat svg text{font-family:var(--sans);font-size:10.5px;fill:var(--ink-3)}
+.patgo{display:inline-flex;align-items:center;gap:8px;margin-top:auto;padding-top:9px;font-size:12.5px;font-weight:600;align-self:flex-start;border-radius:6px}
+.patgo span:first-child{text-decoration:underline;text-decoration-color:var(--axis);text-underline-offset:3px}
+.patgo:hover span:first-child{text-decoration-color:var(--ink)}
+.segbar{display:flex;gap:2px;height:28px;width:300px;max-width:100%}
+.segbar div{border-radius:4px;display:flex;align-items:center;padding-left:8px;font-family:var(--mono);font-size:12px;font-weight:500;min-width:0}
+.seglab{display:flex;flex-wrap:wrap;gap:2px 14px;font-size:11px;color:var(--ink-3);margin-top:5px}
+.foot{margin-top:34px;border-top:1px solid var(--hair);padding-top:12px;color:var(--ink-3);font-size:12px}
+.foot p{margin:0;max-width:880px}
+
+.tip{position:fixed;left:0;top:0;z-index:50;pointer-events:none;background:var(--tip);color:var(--tip-ink);border-radius:9px;padding:9px 11px;font-size:12px;line-height:1.4;max-width:330px;min-width:150px}
+.tip .th{font-weight:600;display:flex;align-items:center;gap:7px;font-size:12.5px}
+.tip .tm{color:var(--tip-ink-2);margin-top:1px}
+.tip .tg{display:grid;grid-template-columns:auto auto;gap:1px 14px;margin-top:6px;padding-top:6px;border-top:1px solid var(--tip-hair)}
+.tip .tg span:nth-child(odd){color:var(--tip-ink-2);display:flex;align-items:center;gap:6px}
+.tip .tg span:nth-child(even){font-family:var(--mono);letter-spacing:-.02em;word-spacing:-.3em;text-align:right;font-weight:500}
+.tip .lk{width:10px;height:3px;border-radius:1px;background:var(--c);flex:none}
+.tip .ta{color:var(--tip-ink-2);margin-top:6px;padding-top:6px;border-top:1px solid var(--tip-hair)}
+.tip pre{margin:0;font:inherit;white-space:pre-wrap}
+
+@media (max-width:1180px){
+  .model{grid-template-columns:minmax(0,1fr)}
+  .inst{border-left:0;border-top:1px solid var(--hair)}
+  .tanks{grid-template-columns:110px 120px 150px 80px;gap:28px}
+  .hint{display:none}
+  .meta span:first-child{display:none}
+  .daybox{grid-template-columns:minmax(0,1fr) minmax(0,1.4fr)}
+  .tops{grid-column:1/-1}
+}
+@media (max-width:760px){
+  html{overflow-anchor:none}
+  .app{padding:8px 16px 40px;display:flex;flex-direction:column}
+  .top{gap:10px}
+  .top .live,.meta{display:none}
+  .verdict{grid-template-columns:minmax(0,1fr);gap:8px;min-height:0;margin:8px 0 12px;align-content:start}
+  .pillrow{flex-wrap:wrap;height:auto;gap:4px 10px;white-space:normal}
+  .headline{font-size:21px;line-height:1.2;margin:8px 0 6px}
+  .sentence{font-size:14px}
+  .context{font-size:12px;margin-top:6px}
+  /* The moment and the way back to now are in the bar with the strip. */
+  .moment{display:none}
+  .model,.inst,.maphead,.time{display:contents}
+  .mapcol{order:2;padding:10px 10px 12px 12px;background:var(--surface);border:1px solid var(--hair);border-radius:12px;display:flex;flex-direction:column}
+  .toggles{order:1;display:flex;gap:8px;margin-bottom:8px}
+  .toggles .info{margin-left:auto}
+  #info{left:10px;right:10px;top:64px;width:auto;max-width:none}
+  .mapwrap{order:2;grid-template-columns:minmax(0,1fr) 40px;--map-h:470px;margin-top:8px}
+  .gutter{display:none}
+  .stage{grid-column:1}.ruler{grid-column:2}
+  .mapkey{order:3;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px 12px;margin:12px 0 0;align-items:start}
+  .mapkey .kh{display:none}
+  .kg{display:flex;grid-column:1/-1;align-items:center;gap:6px;font-size:12px;color:var(--ink-2);margin-top:6px;padding-top:6px;border-top:1px solid var(--hair)}
+  .kg:first-of-type{margin-top:0}
+  .kg b{font-weight:600;color:var(--ink)}
+  .kg .num{margin-left:auto}
+  /* A row of the key is a name with its amount under it. Beside the name, the amount took the name's room and the
+     name broke inside a word. */
+  .mk{display:grid;grid-template-columns:19px 9px minmax(64px,1fr);gap:0 5px;align-content:center;align-items:start;white-space:normal;line-height:1.25;padding:2px 0;min-width:0}
+  .mk .sw{margin-top:3.5px}
+  .mk .kname{overflow-wrap:break-word}
+  .mk .kv{grid-column:3}
+  table.t th:nth-child(n+4),table.t td:nth-child(n+4){display:none}
+  table.t td{padding:13px 6px}
+  table.t td:first-child{white-space:normal;overflow-wrap:anywhere}
+  .rtick{padding-left:9px;font-size:10.5px}
+  .rtick small{display:none}
+  .zonecap{font-size:11.5px;gap:6px}
+  .zonecap .more{display:none}
+  .spillmsg{font-size:11px;padding:1px 6px 1px 4px;gap:4px;line-height:1.25;white-space:nowrap}
+  /* The strip follows the map down the screen, so a finger on it always moves a picture that is in view. */
+  .scrub{order:3;position:sticky;bottom:0;z-index:30;margin:10px -16px 0;padding:8px 16px calc(8px + env(safe-area-inset-bottom));background:var(--surface);border-top:1px solid var(--axis)}
+  .tl-head{flex-wrap:wrap;height:auto;gap:6px 8px}
+  .tl-head .seg{flex:1}
+  .tl-head .seg button{flex:1;text-align:center;padding:5px 4px}
+  #prev,#next,#nowbtn{display:none}
+  .tl-read{flex:1 1 50%;min-height:44px}
+  .tl-head .live{display:inline-flex;flex:none;min-height:44px}
+  .plot{--sh:44px}
+  .pin{width:44px;height:44px;margin-left:-22px;top:-12px}
+  .pin::after{top:28px;left:21.5px}
+  .began,#stream,#quarter{order:4}
+  .legend{display:grid;grid-template-columns:minmax(0,1fr);gap:1px 16px;margin-top:12px}
+  .lg-g{grid-column:1/-1;margin:4px 0 0!important;padding:0!important;border:0!important}
+  .lg.sep{margin:4px 0 0;padding:1px 2px;border:0}
+  .lg .v{display:inline}
+  .q{grid-template-columns:minmax(0,1fr);gap:14px;min-height:0;margin-top:12px}
+  /* A week is a row here, so a day is wide enough for a finger and carries its date. */
+  .calgrid{grid-auto-flow:row;grid-template-columns:repeat(7,minmax(0,1fr));grid-template-rows:18px;grid-auto-rows:44px;grid-auto-columns:auto;gap:2px}
+  .calgrid .wd{width:auto;padding:0;text-align:center}
+  .calgrid .wd:first-child,.calgrid .mo{display:none}
+  .cd{width:auto;height:44px;font-size:11px;color:var(--ink-2);text-align:center}
+  .cd .dn{display:block}
+  .cd.today::after{left:calc(50% - 3px);top:auto;bottom:5px}
+  .daybox{grid-template-columns:minmax(0,1fr);border-left:0;padding-left:0;border-top:1px solid var(--hair);padding-top:12px;gap:12px}
+  .tops{grid-column:auto}
+  .figs{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .tanks{order:5;margin-top:10px;padding:12px;background:var(--surface);border:1px solid var(--hair);border-radius:12px;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px 12px}
+  .tanks .gauge{display:grid;grid-template-columns:44px minmax(0,1fr);grid-template-rows:auto auto 1fr;column-gap:10px;align-items:start}
+  .tanks .vessel{grid-column:1;grid-row:1/4;height:58px;margin:2px 0 0}
+  .tanks .g-t,.tanks .g-v,.tanks .g-s,.tanks .rate{grid-column:2}
+  .tanks .g-t{white-space:normal}
+  .tanks .g-s{height:auto}
+  .tanks .vlab,.tanks .steps{display:none}
+  .tanks .vline{width:34px}
+  .tanks #g-heat .vline{width:22px}
+  .rowg{margin-top:10px;padding:10px 12px 12px;background:var(--surface);border:1px solid var(--hair);border-radius:12px}
+  #g-cpu{order:6}
+  #g-disk{order:7}
+  .rowg .hd{flex-wrap:wrap}
+  .lower{order:8;grid-template-columns:minmax(0,1fr);gap:26px}
+  .foot{order:9}
+  .pats{grid-template-columns:minmax(0,1fr)}
+  .wm{grid-template-columns:78px minmax(0,1fr) 24px;padding:9px 0 9px 2px;gap:2px 10px}
+  .mini{width:96px}
+  .dhead{flex-wrap:wrap;height:auto;gap:4px 10px;padding-bottom:4px}
+  .dstat{flex-basis:100%;order:3;white-space:normal}
+  .dnote{font-size:11.5px}
+  .dhead kbd{display:none}
+  .seg button,.ibtn,.btn,.mk{min-height:44px}
+  .seg button,.ibtn{min-width:44px}
+  .seg button{display:inline-flex;align-items:center;justify-content:center}
+  .tile{pointer-events:none}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{transition:none!important;animation:none!important}
+}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="top">
+    <div class="brand">
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><rect x="1" y="1" width="14" height="14" rx="3" fill="none" stroke="currentColor" stroke-width="1.5"/><rect x="3.5" y="8" width="5" height="4.5" rx="1" fill="currentColor"/><rect x="9.5" y="5.5" width="3" height="7" rx="1" fill="currentColor"/></svg>
+      <b id="hostname"></b><span>resource map</span>
+    </div>
+    <button type="button" class="live" id="live" hidden></button>
+    <div class="meta"><span id="meta-live"></span><span id="meta-self"></span></div>
+  </header>
+
+  <div class="stale" id="stale" role="status" hidden><span id="stale-i"></span><span id="stale-t"></span></div>
+
+  <section class="gate" id="gate" aria-live="polite">
+    <div class="pillrow"><span class="pill" id="gate-pill" data-s="gap"></span></div>
+    <h1 class="headline" id="gate-h"></h1>
+    <p class="sentence" id="gate-p"></p>
+  </section>
+
+  <section class="verdict" aria-label="The answer">
+    <div aria-live="polite">
+      <div class="pillrow"><span class="viewing" id="viewing" hidden></span><span class="pill" id="pill"></span><span id="pillmeta"></span></div>
+      <h1 class="headline" id="headline"></h1>
+      <p class="sentence" id="sentence"></p>
+      <p class="context" id="context"></p>
+    </div>
+    <div class="moment">
+      <div class="lab">The moment shown</div>
+      <div class="when" id="when"></div>
+      <div class="sub"><span id="whenago"></span><button type="button" class="btn" id="backnow" hidden>Back to now</button></div>
+      <div class="fresh" id="fresh"></div>
+    </div>
+  </section>
+
+  <section class="panel model" aria-label="The machine">
+    <div class="mapcol">
+      <div class="maphead">
+        <div class="toggles">
+          <div class="seg" role="group" aria-label="What the tiles measure">
+            <button type="button" data-metric="mem" aria-pressed="true">Memory</button>
+            <button type="button" data-metric="cpu" aria-pressed="false">CPU</button>
+          </div>
+          <div class="seg" role="group" aria-label="Map or table">
+            <button type="button" data-view="map" aria-pressed="true">Map</button>
+            <button type="button" data-view="table" aria-pressed="false">Table</button>
+          </div>
+          <button type="button" class="ibtn info" id="infobtn" aria-expanded="false" aria-controls="info" aria-label="How to read this page">i</button>
+        </div>
+      </div>
+      <div class="pop" id="info" hidden></div>
+      <div class="mapwrap" id="mapwrap">
+        <div class="gutter" id="gutter"></div>
+        <div class="stage" id="stage">
+          <div class="zonecap" id="zonecap"></div>
+          <div class="ram" id="ram"></div>
+          <div class="headroom" id="headroom"></div>
+          <div class="spill" id="spill"></div>
+          <div class="brim" id="brim"></div>
+          <div class="capline" id="cap1" hidden></div>
+          <div class="capline" id="cap2" hidden></div>
+        </div>
+        <div class="ruler" id="ruler"></div>
+        <div class="tablev" id="tablev" hidden></div>
+        <div class="dive" id="dive" hidden></div>
+      </div>
+      <div class="mapkey" id="mapkey" aria-label="Key to the numbered tiles"></div>
+    </div>
+
+    <aside class="inst" id="inst" aria-label="Beyond the map">
+      <div class="tanks">
+        <div class="gauge" id="g-comp" tabindex="0">
+          <div class="g-t">Compressor</div>
+          <div class="g-v" id="comp-v"></div>
+          <div class="g-s" id="comp-s"></div>
+          <div class="vessel"><div class="sq sq-out" id="sq-out"></div><div class="sq sq-in" id="sq-in"></div></div>
+        </div>
+        <div class="gauge" id="g-swap" tabindex="0">
+          <div class="g-t" id="swap-t">Swap</div>
+          <div class="g-v" id="swap-v"></div>
+          <div class="g-s" id="swap-s"></div>
+          <div class="rate" id="swap-rate"><i></i><b></b></div>
+          <div class="vessel"><div class="vbox"><div class="lvl" id="swap-l"></div></div><div class="vtop"></div>
+            <div class="vlab" id="swap-top" style="top:1px;margin-top:4px"></div>
+            <div class="vlab" style="top:100%;margin-top:-5px">0</div></div>
+        </div>
+        <div class="gauge" id="g-pres" tabindex="0">
+          <div class="g-t" id="pres-t">Memory pressure</div>
+          <div class="g-v word"><span id="pres-w"></span><small id="pres-v"></small></div>
+          <div class="g-s" id="pres-s"></div>
+          <div class="vessel" id="pres-vessel"><div class="vbox"><div class="lvl" id="pres-l"></div></div><div class="vtop"></div>
+            <div class="steps" id="pres-steps"></div></div>
+        </div>
+        <div class="gauge" id="g-heat" tabindex="0">
+          <div class="g-t" id="heat-t">Heat</div>
+          <div class="g-v word" id="heat-w"></div>
+          <div class="g-s" id="heat-s"></div>
+          <div class="vessel" id="heat-vessel"><div class="vbox" id="heat-cells"></div></div>
+        </div>
+      </div>
+      <div class="rowg" id="g-cpu" tabindex="0">
+        <div class="hd"><span class="g-t" id="cpu-t">CPU</span><span class="g-v" id="cpu-v"></span></div>
+        <div class="cpu" id="cpu"></div>
+      </div>
+      <div class="rowg" id="g-disk">
+        <div class="hd"><span class="g-t" id="disk-t">Disk</span><span class="g-v" id="disk-v"></span></div>
+        <div class="disk" id="disk"><div class="lvl" id="disk-l"></div></div>
+        <div class="diskfoot"><span id="disk-lines"></span><button type="button" class="btn" id="growbtn" aria-expanded="false">Caches on disk</button></div>
+        <div class="pop growers" id="growers" hidden></div>
+      </div>
+    </aside>
+  </section>
+
+  <section class="panel time" id="time" data-range="day" aria-label="Time">
+    <div class="scrub" id="scrub">
+      <div class="tl-head">
+        <div class="seg" role="group" aria-label="Range" id="ranges"></div>
+        <div class="transport">
+          <button type="button" class="ibtn" id="prev"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M7.5 2.5L4 6l3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <button type="button" class="ibtn play" id="play" aria-pressed="false"></button>
+          <button type="button" class="ibtn" id="next"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 2.5L8 6 4.5 9.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+          <button type="button" class="btn" id="nowbtn" hidden>Back to now</button>
+        </div>
+        <div class="tl-read" id="tlread"></div>
+        <button type="button" class="live" id="live2" hidden></button>
+        <div class="hint" id="hint"></div>
+      </div>
+      <div class="plot" id="plot" tabindex="0" role="slider" aria-label="Playhead"></div>
+    </div>
+    <p class="began" id="began" hidden></p>
+    <div id="stream">
+      <div class="legend" id="legend"></div>
+      <div class="tl-foot" id="tlfoot"></div>
+    </div>
+    <div id="quarter" hidden>
+      <div class="q">
+        <div class="calwrap">
+          <h4 id="calhead"></h4>
+          <div class="calgrid" id="calgrid"></div>
+        </div>
+        <div class="daybox" id="daybox" aria-live="polite"></div>
+      </div>
+      <div class="tl-foot" id="calfoot"></div>
+    </div>
+  </section>
+
+  <section class="lower" id="lower">
+    <div>
+      <h2>Worst moments</h2>
+      <p class="lede" id="worst-lede"></p>
+      <div id="worst"></div>
+    </div>
+    <div>
+      <h2>Recurring offenders</h2>
+      <p class="lede" id="pats-lede"></p>
+      <div class="pats" id="pats"></div>
+    </div>
+  </section>
+
+  <footer class="foot"><p id="prov"></p></footer>
+</div>
+<div class="tip" id="tip" role="tooltip" hidden></div>
+
+<script>
+(() => {
+const $ = (s, r = document) => r.querySelector(s);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+const NS = "http://www.w3.org/2000/svg";
+const sv = (tag, attrs) => { const e = document.createElementNS(NS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); return e; };
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const sum = (a) => a.reduce((x, y) => x + y, 0);
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const phone = matchMedia("(max-width:760px)");
+
+/* What the server said last, part by part, in the shapes of src/server/monitor-page.ts. The names under it are
+   read all over the page and change with an answer, so they are set in one place: derive(). */
+const DATA = { ranges: {}, days: [], incidents: [], patterns: [], events: [], growers: [], nowHolders: [], incidentHolders: [], patternHolders: [] };
+const R = DATA.ranges;
+/* Where the page stands with the server: see "Live" at the end. */
+const LIVE = { ready: false, mounted: false, lost: false, stale: false, answered: 0, offset: 0, asked: {}, raw: {}, parsed: {}, waiting: null, busy: false, timer: 0, ager: 0, dragging: () => false };
+let HOST, LIM, NOW, WORDS, STATE, LIMWORD, LEVEL, THERMAL, FOLD_AT;
+const RANGE_KEYS = ["hour", "day", "week", "quarter"];
+const LIMITER = [null, "memory", "cpu", "disk", "heat"];
+const LEVEL_OF = { normal: 0, warn: 1, critical: 2 };
+const SANS = getComputedStyle(document.documentElement).getPropertyValue("--sans").trim();
+const MONO = getComputedStyle(document.documentElement).getPropertyValue("--mono").trim();
+const F = { n13: `600 13px ${SANS}`, n12: `600 12px ${SANS}`, n11: `600 11px ${SANS}`, n10: `600 10.5px ${SANS}`, m12: `400 12px ${MONO}`, m11: `400 11px ${MONO}`, d11: `500 11px ${SANS}` };
+
+const f1 = (v) => v.toFixed(1);
+const gb = (v) => `${f1(v)} GB`;
+const coresN = (v) => (v > 0 && v < 0.05 ? "under 0.1" : f1(v));
+const coresU = (v) => `${coresN(v)} ${Math.abs(v - 1) < 0.05 ? "core" : "cores"}`;
+const pct = (v) => `${Math.round(v)}%`;
+/* Nothing is drawn for what prints as nothing: a holder at 0.0 GB has no tile, no key and no row. */
+const nil = (v, metric) => (metric === "mem" ? f1(v) === "0.0" : v.toFixed(2) === "0.00");
+const signed = (v, unit) => `${v >= 0.05 ? "+" : v <= -0.05 ? "−" : "±"}${Math.abs(v) >= 9.95 ? Math.round(Math.abs(v)) : f1(Math.abs(v))} ${unit}`;
+const DOW = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"], MON = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const p2 = (n) => String(n).padStart(2, "0");
+const tHM = (t) => { const d = new Date(t); return `${p2(d.getHours())}:${p2(d.getMinutes())}`; };
+const tHMS = (t) => { const d = new Date(t); return `${tHM(t)}:${p2(d.getSeconds())}`; };
+const tDM = (t) => { const d = new Date(t); return `${d.getDate()} ${MON[d.getMonth()]}`; };
+const tDay = (t) => `${DOW[new Date(t).getDay()]} ${tDM(t)}`;
+const tFull = (t) => `${tDay(t)}, ${tHM(t)}`;
+const sameDay = (a, b) => new Date(a).toDateString() === new Date(b).toDateString();
+const span = (ms) => { const m = Math.round(ms / 60000); if (m < 1 && ms > 0) return `${Math.round(ms / 1000)} s`; if (m < 60) return `${m} min`; const h = Math.floor(m / 60); if (h < 48) return m % 60 ? `${h} h ${m % 60} min` : `${h} h`; return `${Math.round(h / 24)} days`; };
+const mins = (m) => span(m * 60000);
+/* As the server's sentences do it: only a lane or a pane gets a capital, an app keeps its own spelling. */
+const opening = (s) => (/^(lane|pane) /.test(s) ? s[0].toUpperCase() + s.slice(1) : s);
+const sizeMB = (mb) => (mb >= 1000 ? `${(mb / 1024).toFixed(1)} GB` : `${Math.round(mb)} MB`);
+const upperFirst = (s) => s[0].toUpperCase() + s.slice(1);
+const dot = (s) => (/[.!?]$/.test(s) ? s : s + ".");
+const listWords = (a) => (a.length < 2 ? a.join("") : a.slice(0, -1).join(", ") + " and " + a[a.length - 1]);
+const fillWords = (tpl, o) => tpl.replace(/\{(\w+)\}/g, (_, k) => o[k]);
+/* A refresh must not take the focus from the thing that has it. What is drawn again stays the element it was:
+   arrange() sets a box's children in order and moves only what is out of place, and gives the focus back to a
+   child it had to move. A list that is built anew goes through refocus(), which finds the thing again by its name
+   in the data (data-NAME), never by its place. */
+function arrange(box, nodes) {
+  const keep = new Set(nodes), had = document.activeElement;
+  for (const n of [...box.childNodes]) if (!keep.has(n)) n.remove();
+  let at = box.firstChild;
+  for (const n of nodes) { if (n === at) at = at.nextSibling; else box.insertBefore(n, at); }
+  if (had !== document.activeElement && had && had.isConnected) had.focus({ preventScroll: true });
+}
+function refocus(box, name, build) {
+  const had = box.contains(document.activeElement) ? document.activeElement.dataset[name] : null;
+  build();
+  if (had == null) return;
+  const again = [...box.querySelectorAll("[tabindex], button")].find((n) => n.dataset[name] === had);
+  if (again) again.focus({ preventScroll: true });
+}
+
+const ICO = {
+  0: '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="7" fill="var(--ico-bg,var(--good))"/><path d="M4.7 8.3l2.2 2.2 4.5-4.8" fill="none" stroke="var(--ico-fg,var(--on-good))" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  1: '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M8 2l6.3 11.2H1.7z" fill="var(--ico-bg,var(--warn))" stroke="var(--ico-bg,var(--warn))" stroke-width="1.6" stroke-linejoin="round"/><path d="M8 6.2v3.4" stroke="var(--ico-fg,var(--on-warn))" stroke-width="1.7" stroke-linecap="round"/><circle cx="8" cy="11.7" r="1" fill="var(--ico-fg,var(--on-warn))"/></svg>',
+  2: '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M5.1 1h5.8L15 5.1v5.8L10.9 15H5.1L1 10.9V5.1z" fill="var(--ico-bg,var(--crit))"/><path d="M8 4.4v4.4" stroke="var(--ico-fg,var(--on-crit))" stroke-width="1.8" stroke-linecap="round"/><circle cx="8" cy="11.3" r="1.1" fill="var(--ico-fg,var(--on-crit))"/></svg>',
+  gap: '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M3.8 12.2l8.4-8.4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+  memory: '<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><rect x="1.5" y="3" width="9" height="6" rx="1.2" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M4 9v1.6M6 9v1.6M8 9v1.6M4 5.2v1.6M6 5.2v1.6M8 5.2v1.6" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>',
+  cpu: '<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><rect x="3" y="3" width="6" height="6" rx="1" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M4.6 1v2M7.4 1v2M4.6 9v2M7.4 9v2M1 4.6h2M1 7.4h2M9 4.6h2M9 7.4h2" stroke="currentColor" stroke-width="1.1" stroke-linecap="round"/></svg>',
+  disk: '<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><ellipse cx="6" cy="3.4" rx="4" ry="1.8" fill="none" stroke="currentColor" stroke-width="1.3"/><path d="M2 3.4v5.2c0 1 1.8 1.8 4 1.8s4-.8 4-1.8V3.4" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>',
+  heat: '<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M4.7 6.9V2.3a1.3 1.3 0 012.6 0v4.6a2.4 2.4 0 11-2.6 0z" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><circle cx="6" cy="8.7" r="1" fill="currentColor"/><path d="M6 8V4.4" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/></svg>',
+  up: '<svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true"><path d="M2.5 9.5l7-7M4.5 2.5h5v5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  down: '<svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true"><path d="M2.5 2.5l7 7M4.5 9.5h5v-5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  flat: '<svg viewBox="0 0 12 12" width="11" height="11" aria-hidden="true"><path d="M1.5 6h9M7.5 3l3 3-3 3" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  go: '<svg viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M2 6h8M6.5 2.5L10 6l-3.5 3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  play: '<svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 1.8v8.4L10.2 6z" fill="currentColor"/></svg>',
+  pause: '<svg width="11" height="11" viewBox="0 0 12 12" aria-hidden="true"><path d="M3 2h2.2v8H3zM6.8 2H9v8H6.8z" fill="currentColor"/></svg>',
+  lanes: '<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M1 2.5h8M1 5h8M1 7.5h5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+  apps: '<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><rect x="1.2" y="1.2" width="7.6" height="7.6" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>',
+  system: '<svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="3.8" fill="none" stroke="currentColor" stroke-width="1.5"/><circle cx="5" cy="5" r="1.2" fill="currentColor"/></svg>',
+};
+const ico = (s, size) => { const w = el("span"); w.style.display = "inline-flex"; w.innerHTML = Object.hasOwn(ICO, s) ? ICO[s] : ""; if (size && w.firstChild) { w.firstChild.setAttribute("width", size); w.firstChild.setAttribute("height", size); } return w; };
+/* Holders come from the data, a list with every part of it, each sorted by size anew. The page keeps every holder
+   it has seen in the order it first saw it, so a tile never trades places with a neighbour while the page is open. */
+const HOLD = {}, ORDER = [];
+const REGION_OF = { lane: "lanes", app: "apps", hq: "system", system: "system" };
+let REGIONS = [], REGION = {}, BANDS_UP = [], holdersSig = "";
+const FOLD = { lanes: "fold:lanes", apps: "fold:apps" };
+function learn(list) {
+  for (const h of list) {
+    if (HOLD[h.id]) Object.assign(HOLD[h.id], { full: undefined }, h);
+    else { ORDER.push(h.id); HOLD[h.id] = { ...h, region: REGION_OF[h.kind] || "apps", tone: 0 }; }
+  }
+}
+/* A tile is a holder, or the fold of a region's small holders at one moment. Says whether anything changed. */
+function deriveHolders() {
+  const by = { lanes: [], apps: [], system: [] };
+  for (const id of ORDER) by[HOLD[id].region].push(id);
+  for (const region in by) { let n = 0; for (const id of by[region]) if (!HOLD[id].slot) HOLD[id].tone = n++ % 2; }
+  REGIONS = Object.keys(by).map((id) => ({ id, ids: by[id], label: id === "lanes" ? "Lanes" : id === "apps" ? "Apps" : listWords(by[id].map((hid) => HOLD[hid].name)) }));
+  REGION = Object.fromEntries(REGIONS.map((r) => [r.id, r]));
+  BANDS_UP = [...REGIONS].reverse();
+  for (const region in FOLD) {
+    const g = by[region].map((id) => HOLD[id]).find((h) => h.group);
+    HOLD[FOLD[region]] = { id: FOLD[region], name: g ? g.name : region, kind: "fold", region, slot: null, tone: g ? g.tone : 0, group: true, note: g ? g.note : "" };
+  }
+  const names = new Map();
+  for (const id of ORDER) { names.set(disp(id), id); names.set(opening(disp(id)), id); }
+  aliasMap = names;
+  aliasRe = new RegExp("(" + [...names.keys()].sort((a, b) => b.length - a.length).map((n) => n.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|") + ")(?= \\()", "g");
+  const sig = ORDER.map((id) => `${id}:${HOLD[id].slot}:${HOLD[id].name}`).join("|");
+  if (sig === holdersSig) return false;
+  holdersSig = sig;
+  return true;
+}
+const isFold = (id) => HOLD[id].kind === "fold";
+/* A lane or an app has a tile of its own at a moment by the server's rule (DATA.tiles), the one it also names
+   holders by, so the newest sample and the one before it fold the same holders. By CPU, one that uses next to
+   nothing folds as well. */
+const ownTile = (h, mem, cpu, metric) => h.region === "system" || (!h.group && (metric === "mem" ? mem >= FOLD_AT.mem : cpu >= FOLD_AT.cpu / 4 && (mem >= FOLD_AT.mem || cpu >= FOLD_AT.cpu)));
+/* A holder has one name, and the server gives it. A pane's is the short of its folder: all of it is in whole(),
+   for the readout and the title. */
+const disp = (id) => HOLD[id].name;
+const whole = (id) => HOLD[id].full || HOLD[id].name;
+const titled = (node, id) => { const full = HOLD[id] && HOLD[id].full; if (full) node.title = full; else node.removeAttribute("title"); return node; };
+/* The last folder of a path, for a tile too small for all of it. */
+const short = (id) => disp(id).replace(/\S*\/(?=[^/\s]+$)/, "");
+const noteOf = (id) => HOLD[id].note;
+const paint = (id) => { const h = id && HOLD[id]; if (!h) return ["var(--ink-3)", "var(--surface)"]; const k = h.slot ? `s${h.slot}` : `n-${h.region}-${h.tone ? 1 : 0}`; return [`var(--${k})`, `var(--on-${k})`]; };
+const tint = (node, id) => { const [c, on] = paint(id); node.style.setProperty("--c", c); node.style.setProperty("--on", on); return node; };
+const swatch = (id) => tint(el("i", "sw"), id);
+const lineKey = (id) => tint(el("i", "lk"), id);
+
+const closers = [];
+let first = {}, peakAt = {}, INC = {};
+/* A step is named by the time it ends, as a tick is: the minute up to 10:59 is 10:59, and the newest step is now.
+   So a time belongs to the step that ends at it or next after it, on the strip and everywhere else. */
+const endOf = (r, i) => r.t0 + (i + 1) * r.step;
+const stepAt = (r, t) => Math.ceil((t - r.t0) / r.step) - 1;
+const hasData = (k) => R[k].host.held.filter((v) => v != null).length;
+/* The moment shown is an incident (pin), or a sample of the range at pos. In the 90 days pos is a day, and the
+   moment is now until a day is picked (picked: its worst moment) or a time comes with a jump (at). */
+const S = { range: "hour", pos: 0, metric: "mem", view: "map", dive: null, pin: null, at: null, picked: false, playing: false };
+
+const seriesMemo = new Map();
+function seriesOf(id, metric, k) {
+  const key = `${id}|${metric}|${k}`;
+  let s = seriesMemo.get(key);
+  if (s) return s;
+  const r = R[k], src = r[metric], ok = r.host.held;
+  if (isFold(id)) {
+    const reg = REGION[HOLD[id].region];
+    s = ok.map((v, i) => { if (v == null) return null; let t = 0; for (const hid of reg.ids) { const x = src[hid] ? src[hid][i] || 0 : 0; if (x > 0 && !ownTile(HOLD[hid], r.mem[hid] ? r.mem[hid][i] || 0 : 0, r.cpu[hid] ? r.cpu[hid][i] || 0 : 0, metric)) t += x; } return t; });
+  } else s = src[id] ? src[id].map((v, i) => (ok[i] == null ? null : v || 0)) : ok.map((v) => (v == null ? null : 0));
+  seriesMemo.set(key, s);
+  return s;
+}
+function valueNear(id, metric, t) {
+  for (const k of RANGE_KEYS) {
+    const r = R[k];
+    if (t > r.t0) { const v = seriesOf(id, metric, k)[clamp(stepAt(r, t), 0, r.n - 1)]; return v == null ? null : { v, step: r.step }; }
+  }
+  return null;
+}
+
+/* What swap grew by between a sample and the one before it, in MB a minute, which is the unit of the limit. */
+const swapRate = (r, i) => (i > 0 && r.host.swap[i] != null && r.host.swap[i - 1] != null ? (r.host.swap[i] - r.host.swap[i - 1]) * 1024 / (r.step / 6e4) : null);
+function hostAt(r, i) {
+  const h = r.host;
+  return { pressure: h.pressure[i], pressureMax: h.pressureMax[i], level: h.level[i], swap: h.swap[i], swapRate: swapRate(r, i), stored: h.stored[i], compressed: h.compressed[i],
+    held: h.held[i], heldMax: h.heldMax[i], busy: h.busy[i], busyMax: h.busyMax[i], diskFree: h.diskFree[i], thermal: h.thermal[i] };
+}
+function hostNear(t) {
+  for (const k of RANGE_KEYS) { const r = R[k], j = stepAt(r, t); if (j >= 0 && j < r.n && r.host.held[j] != null) return hostAt(r, j); }
+  return { level: null, thermal: null, swapRate: null, compressed: null };
+}
+let nowMoment = null;
+function momentOfNow() {
+  const mem = {}, cpu = {};
+  for (const h of NOW.holders) { if (h.mem > 0) mem[h.id] = h.mem; if (h.cpu > 0) cpu[h.id] = h.cpu; }
+  return { kind: "now", t: NOW.t, state: NOW.state, limiter: NOW.limiter, mem, cpu, headline: NOW.headline, sentence: NOW.sentence, sentenceCpu: NOW.sentenceCpu, detail: NOW.detail,
+    host: { pressure: NOW.pressure, level: NOW.kernelLevel == null ? null : LEVEL_OF[NOW.kernelLevel], swap: NOW.swapUsed, swapRate: NOW.swapGrowth, stored: NOW.stored,
+      compressed: NOW.compressed, held: NOW.held, busy: NOW.busy, diskFree: NOW.diskFree, thermal: NOW.thermal } };
+}
+/* An incident gives its own readings at the peak. What it does not give is read from the sample that holds the peak. */
+function fromIncident(inc) {
+  const mem = {}, cpu = {};
+  for (const h of inc.holders) { if (h.mem > 0) mem[h.id] = h.mem; if (h.cpu > 0) cpu[h.id] = h.cpu; }
+  const host = { ...hostNear(inc.peak), ...inc.host };
+  const m = { kind: "incident", inc, t: inc.peak, state: inc.severity, limiter: inc.resource, mem, cpu, host, headline: inc.headline, sentence: inc.summary, detail: detailOf(host) };
+  m.sentenceCpu = byCpu(inc.resource) ? inc.summary : whoAt(m, "cpu");
+  return m;
+}
+/* The line of numbers under the blame, for a moment of the past, in the server's phrases (WORDS.detail). */
+const swapWords = (rate) => { const r = rate == null ? 0 : Math.round(rate), D = WORDS.detail; return r ? fillWords(r > 0 ? D.growing : D.shrinking, { rate: sizeMB(Math.abs(r)) }) : D.steady; };
+function detailOf(h) {
+  const D = WORDS.detail, lines = [];
+  if (h.level != null) lines.push(fillWords(h.pressure == null ? D.level : D.pressure, { level: LEVEL[h.level], available: pct(100 - h.pressure) }));
+  if (h.stored > 0 && h.compressed != null) lines.push(fillWords(D.compressed, { stored: gb(h.stored), compressed: gb(h.compressed) }));
+  lines.push(HOST.swapTotalGB > 0 && h.swap != null ? fillWords(D.swap, { used: f1(h.swap), total: gb(HOST.swapTotalGB), trend: swapWords(h.swapRate) }) : D.noSwap);
+  if (h.busy != null) lines.push(fillWords(D.busy, { busy: f1(h.busy), cores: HOST.cores }));
+  if (h.diskFree != null) lines.push(fillWords(D.disk, { free: `${Math.round(h.diskFree)} GB` }));
+  return lines.join(" ");
+}
+/* Why a past sample was limited, in the server's phrases (WORDS.reason) and by its limits. */
+function reasonsOf(m) {
+  const W = WORDS.reason, h = m.host, cap = m.state === 2;
+  if (m.limiter === "memory") {
+    const percent = h.pressureMax ?? h.pressure;
+    return [...(h.level ? [fillWords(percent == null ? W.level : W.pressure, { level: LEVEL[h.level], percent: pct(percent) })] : []),
+      ...(h.swapRate != null && h.swapRate >= LIM.swapGrowthMBPerMin ? [fillWords(W.swap, { rate: sizeMB(h.swapRate) })] : [])];
+  }
+  if (m.limiter === "cpu") { const busy = h.busy >= (cap ? LIM.cpuCapped : LIM.cpuTight) ? h.busy : h.busyMax ?? h.busy; return busy == null ? [] : [fillWords(W.cpu, { busy: f1(busy), cores: HOST.cores })]; }
+  if (m.limiter === "heat") return h.thermal ? [fillWords(W.heat, { level: THERMAL[h.thermal] })] : [];
+  return h.diskFree == null ? [] : [fillWords(W.disk, { free: `${Math.round(h.diskFree)} GB` })];
+}
+function reason(m) {
+  if (!m.state || !m.limiter) return "calm";
+  const cap = m.state === 2;
+  if (m.limiter === "memory") return m.host.level === 2 ? "memoryCritical" : m.host.level === 1 ? "memoryWarn" : "swapGrowth";
+  if (m.limiter === "cpu") return cap ? "cpuCapped" : "cpuClose";
+  if (m.limiter === "disk") return cap ? "diskCapped" : "diskClose";
+  return cap ? "heatCapped" : "heatClose";
+}
+/* Who held the most memory, or used the most CPU, at a moment of the past, in the server's words (WORDS.past) and
+   by its rule for who is named: the three largest that are one lane or one app, each large enough for a tile. */
+function whoAt(m, by) {
+  const P = WORDS.past, amount = by === "cpu" ? coresU : gb, total = by === "cpu" ? m.host.busy : m.host.held;
+  const top = Object.keys(m[by]).filter((id) => !HOLD[id].group && m[by][id] >= FOLD_AT[by]).sort((a, b) => m[by][b] - m[by][a]).slice(0, 3);
+  if (!top.length || !(total > 0)) return "";
+  const list = listWords(top.map((id, i) => `${i ? disp(id) : opening(disp(id))} (${amount(m[by][id])})`));
+  return fillWords(by === "cpu" ? P.used : P.held, { list, share: pct(sum(top.map((id) => m[by][id])) / total * 100), total: amount(total) });
+}
+const byCpu = (limiter) => limiter === "cpu" || limiter === "heat";
+/* A scrubbed sample's sentences. sentence is about what ran short, and sentenceCpu about the CPU whatever did. */
+function templated(m) {
+  const P = WORDS.past, time = sameDay(m.t, NOW.t) ? tHM(m.t) : tFull(m.t), reasons = m.state && m.limiter ? reasonsOf(m) : [];
+  const headline = m.state && m.limiter ? fillWords(P[m.state === 2 ? "capped" : "close"][m.limiter], { time, why: reasons.length ? fillWords(P.why, { reasons: reasons.join(WORDS.reason.join) }) : "" }) : fillWords(P.calm, { time });
+  return { headline, sentence: m.limiter === "disk" ? P.nobody : whoAt(m, byCpu(m.limiter) ? "cpu" : "mem"), sentenceCpu: whoAt(m, "cpu"), detail: detailOf(m.host) };
+}
+const cache = new Map();
+function momentAt(k, i) {
+  const key = `${k}:${i}`;
+  let m = cache.get(key);
+  if (!m) { m = makeMoment(k, i); cache.set(key, m); }
+  return m;
+}
+function makeMoment(k, i) {
+  const r = R[k], t = endOf(r, i);
+  if (i === r.n - 1) return nowMoment;
+  if (r.host.held[i] == null) {
+    if (i < first[k]) return { kind: "gap", t, state: "gap", why: "Not recorded yet." };
+    const g = DATA.events.filter((e) => e.kind === "gap" || e.kind === "reboot").sort((a, b) => Math.abs(a.t - t) - Math.abs(b.t - t))[0];
+    return { kind: "gap", t, state: "gap", why: g && Math.abs(g.t - t) < Math.max(r.step * 2, 36e5 * 3) ? dot(g.label) : "" };
+  }
+  if (peakAt[k][i]) return fromIncident(peakAt[k][i]);
+  const mem = {}, cpu = {};
+  for (const id in r.mem) { const v = r.mem[id][i]; if (v > 0) mem[id] = v; }
+  for (const id in r.cpu) { const v = r.cpu[id][i]; if (v > 0) cpu[id] = v; }
+  const m = { kind: "series", src: k, t, state: r.host.state[i], limiter: LIMITER[r.host.limiter[i]], mem, cpu, host: hostAt(r, i) };
+  return Object.assign(m, templated(m));
+}
+
+/* The 90-day range is a calendar. Its unit is the day, and a day shows its worst moment. */
+let CAL = [];
+function calendar() {
+  const byKey = new Map(DATA.days.map((d) => [new Date(d.t).toDateString(), d]));
+  const end = new Date(NOW.t); end.setHours(0, 0, 0, 0);
+  const cells = [];
+  for (let i = 89; i >= 0; i--) { const d = new Date(end); d.setDate(d.getDate() - i); cells.push({ t: d.getTime(), day: byKey.get(d.toDateString()) || null }); }
+  return cells;
+}
+const dayKnown = (i) => !!(CAL[i] && CAL[i].day && CAL[i].day.state != null);
+const dayIndex = (t) => { let j = 0; for (let i = 0; i < CAL.length; i++) if (CAL[i].t <= t) j = i; return j; };
+const dayCache = new Map();
+/* The sample that holds a time, from the finest range that has one there. */
+function sampleNear(t) {
+  for (const k of RANGE_KEYS) {
+    const r = R[k], j = stepAt(r, t);
+    if (j >= 0 && j < r.n && r.host.held[j] != null) return momentAt(k, j);
+  }
+  return null;
+}
+function momentNear(t) {
+  const inc = DATA.incidents.filter((x) => t >= Math.min(x.t0, x.closeT0) && t <= Math.max(x.t1, x.closeT1)).sort((a, b) => b.score - a.score)[0];
+  return inc ? fromIncident(inc) : sampleNear(t) || { kind: "gap", t, state: "gap", why: "", day: true };
+}
+/* A day's worst moment is the server's to name (a day's worst), so the day panel, the dot on the strip and the list
+   of worst moments give one time: now when the newest sample is the worst, else the sample that holds it, under
+   the time the server gives. */
+function dayMoment(i) {
+  if (dayCache.has(i)) return dayCache.get(i);
+  const c = CAL[i], w = dayKnown(i) ? c.day.worst : null;
+  let m = w && (w.t >= NOW.t ? nowMoment : sampleNear(w.t));
+  if (!m) m = { kind: "gap", t: c.t, state: "gap", why: dayKnown(i) ? "" : "Not recorded yet.", day: true };
+  else if (m.kind === "series") { m = { ...m, t: w.t }; Object.assign(m, templated(m)); }
+  dayCache.set(i, m);
+  return m;
+}
+
+let lastVals = null;
+function frame() {
+  const quarter = S.range === "quarter";
+  const text = S.pin ? fromIncident(INC[S.pin]) : quarter ? (S.at != null ? momentNear(S.at) : S.picked ? dayMoment(Math.round(S.pos)) : nowMoment) : momentAt(S.range, Math.round(S.pos));
+  const i0 = Math.floor(S.pos), f = S.pos - i0;
+  if (quarter || f === 0 || S.pin) { if (text.kind !== "gap") lastVals = text; return { text, v: lastVals, gap: text.kind === "gap" }; }
+  const a = momentAt(S.range, i0), b = momentAt(S.range, Math.min(R[S.range].n - 1, i0 + 1));
+  if (a.kind === "gap" || b.kind === "gap") return { text, v: lastVals, gap: true };
+  const lerp = (x, y) => (x == null || y == null ? y ?? x : x + (y - x) * f), v = { mem: {}, cpu: {}, host: { ...text.host } };
+  for (const key of ["mem", "cpu"]) for (const id of new Set([...Object.keys(a[key]), ...Object.keys(b[key])])) v[key][id] = lerp(a[key][id] || 0, b[key][id] || 0);
+  for (const key of ["pressure", "swap", "stored", "held", "busy", "diskFree"]) v.host[key] = lerp(a.host[key], b.host[key]);
+  v.host.compressed = a.host.compressed != null && b.host.compressed != null ? lerp(a.host.compressed, b.host.compressed) : null;
+  lastVals = v;
+  return { text, v, gap: false };
+}
+function tilesFor(m, metric) {
+  const out = {}, vals = m[metric];
+  for (const reg of REGIONS) {
+    const own = [], fold = { id: FOLD[reg.id], v: 0, members: [] };
+    for (const id of reg.ids) {
+      const v = vals[id] || 0;
+      if (v <= 0) continue;
+      if (ownTile(HOLD[id], m.mem[id] || 0, m.cpu[id] || 0, metric)) { if (!nil(v, metric)) own.push({ id, v }); } else if (fold.id) { fold.v += v; fold.members.push({ id, v }); }
+    }
+    if (!nil(fold.v, metric)) own.push(fold);
+    out[reg.id] = own;
+  }
+  return out;
+}
+const tileValue = (id, m, metric) => { if (!isFold(id)) return m[metric][id] || 0; const f = tilesFor(m, metric)[HOLD[id].region].find((t) => t.id === id); return f ? f.v : 0; };
+function change(id, m) {
+  if (m.kind === "gap") return null;
+  if (m.kind === "incident" && S.metric === "mem" && !isFold(id)) {
+    const h = m.inc.holders.find((x) => x.id === id);
+    if (h && h.grew != null) return { d: h.grew, label: "in 30 min" };
+  }
+  let p = valueNear(id, S.metric, m.t - 18e5), label = "in 30 min";
+  if (p && p.step > 18e5) { p = valueNear(id, S.metric, m.t - p.step); label = "in 6 h"; }
+  return p ? { d: tileValue(id, m, S.metric) - p.v, label } : null;
+}
+
+const meas = (() => {
+  const c = document.createElement("canvas").getContext("2d"), memo = new Map();
+  const fn = (text, font) => { const k = font + "|" + text; let w = memo.get(k); if (w == null) { c.font = font; w = c.measureText(text).width * 1.03 + 1; memo.set(k, w); } return w; };
+  fn.reset = () => memo.clear();
+  return fn;
+})();
+function wrap(name, width, font) {
+  const tokens = name.split(/(?<=[ \-/])/), lines = [];
+  let cur = "";
+  for (const tk of tokens) {
+    if (meas((cur + tk).trimEnd(), font) <= width) cur += tk;
+    else { if (!cur || meas(tk.trimEnd(), font) > width) return null; lines.push(cur.trimEnd()); cur = tk; }
+  }
+  if (cur) lines.push(cur.trimEnd());
+  return lines;
+}
+const fitLines = (name, width, font) => (width >= meas(name, font) ? [name] : wrap(name, width, font));
+/* A large tile carries its name. A small one carries the short of it, and one too small for that carries a number
+   from the key. A holder with a colour is never only a number: its tile keeps as much of its name as fits (must). */
+function fitLabel(w, h, names, v, s, d, must) {
+  const iw = w - 18, ih = h - 14, vw = meas(v, F.m12), shw = meas(s, F.m11), v11 = meas(v, F.m11), short = names[names.length - 1];
+  if (ih >= 32 && iw >= vw) for (const name of names) {
+    const lines = fitLines(name, iw, F.n13);
+    if (lines && lines.length <= 2 && ih >= lines.length * 16 + 16) return { mode: "a", lines, share: iw >= vw + 8 + shw, delta: !!d && ih >= lines.length * 16 + 36 && iw >= meas(d, F.d11) };
+  }
+  if (h >= 14 && h < 32) for (const name of names) if (w - 16 >= meas(name, F.n12) + 8 + vw) return { mode: "i", lines: [name] };
+  if (h >= 11 && h < 14) for (const name of names) if (w - 12 >= meas(name, F.n10) + 6 + v11) return { mode: "j", lines: [name] };
+  if (h >= 32 && w - 12 >= v11) {
+    const lines = fitLines(short, w - 12, F.n11);
+    if (lines && lines.length <= 2 && h >= lines.length * 13 + 19) return { mode: "s", lines };
+  }
+  const lines = fitLines(short, w - 6, F.n10);
+  if (lines && lines.length <= 3 && h >= lines.length * 12 + 4) return { mode: "n", lines };
+  return must && w >= 30 && h >= 16 ? { mode: "c", lines: [names[0]] } : { mode: "k", lines: [] };
+}
+function makeTile(id, parent) {
+  const t = { id, el: tint(el("div", "tile"), id), sig: "" };
+  const tl = el("div", "tl"); t.tn = el("div", "tn"); const tv = el("div", "tv"); t.tvv = el("span"); t.tvs = el("span", "tvs");
+  t.td = el("div", "td"); t.td.hidden = true; t.tk = el("div", "tk"); tv.append(t.tvv, t.tvs); tl.append(t.tn, tv, t.td); t.el.append(tl, t.tk); parent.append(t.el);
+  return t;
+}
+function applyLabel(t, w, h, names, v, s, d, must) {
+  const f = fitLabel(w, h, names, v, s, d, must), sig = f.mode + (f.share ? "+" : "") + (f.delta ? "d" : "") + f.lines.join("|");
+  if (sig !== t.sig) {
+    t.sig = sig; t.el.dataset.fit = f.mode; t.tn.textContent = "";
+    f.lines.forEach((ln, i) => { if (i) t.tn.append(document.createElement("br")); t.tn.append(ln); });
+    t.tvs.hidden = !f.share; t.td.hidden = !f.delta;
+  }
+  if (f.delta && t.d !== d) { t.d = d; t.td.textContent = d; }
+  if (t.v !== v) { t.v = v; t.tvv.textContent = v; }
+  if (t.s !== s) { t.s = s; t.tvs.textContent = s; }
+  return f.mode;
+}
+function place(node, x0, y0, x1, y1) {
+  const L = Math.round(x0), T = Math.round(y0), w = Math.round(x1) - 2 - L, h = Math.round(y1) - 2 - T;
+  if (w < 1.5 || h < 1.5) { node.classList.add("nil"); return null; }
+  node.classList.remove("nil");
+  node.style.left = L + "px"; node.style.top = T + "px"; node.style.width = w + "px"; node.style.height = h + "px";
+  return { x: L, y: T, w, h };
+}
+
+/* Tiles keep the order of the data. A run of like-sized tiles is set in rows, like words in a paragraph, and an uneven run is cut in two near half its weight. Either way a tile never trades places with a neighbour. */
+const MINW = 22, MINH = 18, MINB = 26, WIDE = 1.8, SHAPE = 2.4;
+/* Live samples wobble by a tenth of a GB, and a cut that is redone from nothing flips between two that are almost as
+   good, so the tiles would slide about with every sample. kept remembers how each run of tiles was cut last, and
+   that cut stays until another is clearly better: by 6% of the run's weight, or 15% of a shape's threshold. */
+const KEEP = 0.06;
+function strips(items, x, y, w, h, out, was) {
+  const n = items.length, tot = sum(items.map((t) => t.v));
+  const cut = (rows) => {
+    const cuts = [0];
+    let acc = 0;
+    for (let j = 0; j < n - 1 && cuts.length < rows; j++) {
+      acc += items[j].v;
+      const goal = tot * cuts.length / rows;
+      if (acc >= goal || acc + items[j + 1].v - goal > goal - acc) cuts.push(j + 1);
+    }
+    cuts.push(n);
+    return cuts;
+  };
+  const weights = (cuts) => cuts.slice(1).map((c, i) => sum(items.slice(cuts[i], c).map((t) => t.v)));
+  const thin = (cuts) => weights(cuts).some((v) => h * v / tot < MINH);
+  const uneven = (cuts) => Math.max(...weights(cuts).map((v) => Math.abs(v - tot / (cuts.length - 1))));
+  const want = h / Math.sqrt(w * h / n / SHAPE);
+  let rows = clamp(was.rows && Math.abs(want - was.rows) < 0.75 ? was.rows : Math.round(want), 1, n), cuts = cut(rows);
+  while (rows > 1 && thin(cuts)) cuts = cut(--rows);
+  if (was.cuts && was.cuts.length === cuts.length && was.cuts[was.cuts.length - 1] === n && !thin(was.cuts) && uneven(was.cuts) - uneven(cuts) <= tot * KEEP) cuts = was.cuts;
+  was.rows = rows; was.cuts = cuts;
+  let yy = y;
+  for (let c = 0; c < cuts.length - 1; c++) {
+    const row = items.slice(cuts[c], cuts[c + 1]), rt = sum(row.map((t) => t.v)), rh = h * rt / tot;
+    let xx = x;
+    for (const t of row) { const tw = w * t.v / rt; out[t.id] = { x: xx, y: yy, w: tw, h: rh }; xx += tw; }
+    yy += rh;
+  }
+}
+function partition(items, x, y, w, h, out, kept) {
+  if (items.length === 1) { out[items[0].id] = { x, y, w, h }; return; }
+  const key = items.map((t) => t.id).join("|"), was = kept.get(key) || {};
+  kept.set(key, was);
+  const vs = items.map((t) => t.v), spread = Math.max(...vs) / Math.min(...vs);
+  was.even = spread <= (was.even ? 3 * (1 + 3 * KEEP) : 3) && w / items.length >= MINW;
+  if (was.even) { strips(items, x, y, w, h, out, was); return; }
+  const tot = sum(vs), off = (j) => Math.abs(sum(vs.slice(0, j)) - tot / 2);
+  let k = 1;
+  for (let j = 2; j < items.length; j++) if (off(j) < off(k)) k = j;
+  if (was.k && was.k < items.length && off(was.k) - off(k) <= tot * KEEP) k = was.k;
+  was.k = k;
+  was.row = w >= h * WIDE * (was.row == null ? 1 : was.row ? 0.85 : 1.15);
+  const a = items.slice(0, k), b = items.slice(k), row = was.row, len = row ? w : h, across = Math.max(1, row ? h : w);
+  const need = (g) => Math.max(row ? MINW : MINH, g.length * MINW * MINH / across);
+  let la = len * sum(a.map((t) => t.v)) / tot;
+  if (need(a) + need(b) <= len) la = clamp(la, need(a), len - need(b));
+  if (row) { partition(a, x, y, la, h, out, kept); partition(b, x + la, y, w - la, h, out, kept); }
+  else { partition(a, x, y, w, la, out, kept); partition(b, x, y + la, w, h - la, out, kept); }
+}
+
+const stage = $("#stage"), mapwrap = $("#mapwrap"), gutter = $("#gutter"), ruler = $("#ruler"), mapkey = $("#mapkey");
+const tiles = {}, shown = {}, kept = new Map();
+/* Under a finger the map is one target. A tile is often smaller than a fingertip, so on a phone it takes no tap of
+   its own (the stylesheet says so): the tap goes through to the map, which opens the tile it landed on. The same
+   holds for the tiles of an opened holder. boxes are in the box's own coordinates.
+   A tile smaller than a fingertip is given a fingertip's room: on a phone it takes every tap within FINGER px
+   around its middle, kept inside the map, before the larger tile the tap is on. A tap right on a small tile is
+   that tile's, and of two small ones in reach the nearer. */
+const FINGER = 44;
+function tapThrough(box, boxes, open) {
+  box.addEventListener("click", (e) => {
+    if (e.target !== box && e.target.closest(".tile, .cd")) return;
+    const r = box.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top, all = boxes();
+    const on = (b) => x >= b.x && x <= b.x + b.w && y >= b.y && y <= b.y + b.h;
+    const reach = (b) => { const w = Math.max(b.w, FINGER), h = Math.max(b.h, FINGER); return { x: clamp(b.x - (w - b.w) / 2, 0, Math.max(0, r.width - w)), y: clamp(b.y - (h - b.h) / 2, 0, Math.max(0, r.height - h)), w, h }; };
+    const far = (b) => Math.hypot(b.x + b.w / 2 - x, b.y + b.h / 2 - y);
+    const small = phone.matches ? all.filter((b) => b.w < FINGER || b.h < FINGER) : [];
+    const hit = small.find(on) || small.filter((b) => on(reach(b))).sort((a, b) => far(a) - far(b))[0] || all.find(on);
+    if (hit) open(hit.id);
+  });
+}
+tapThrough(stage, () => Object.keys(shown).filter((id) => shown[id]).map((id) => ({ id, ...shown[id] })), (id) => openDive(id));
+let G = null, keyed = [], current = {};
+let ZONE = 6, regEls = {};
+function buildGutter() {
+  regEls = Object.fromEntries(REGIONS.map((reg) => {
+    const box = el("div", "rg"), n = el("div", "rgn"), name = el("span"), v = el("div", "rgv num"), bar = el("div", "rgb");
+    n.append(ico(reg.id), name); box.append(n, v); gutter.append(box, bar);
+    return [reg.id, { box, name, v, bar, h: 46 }];
+  }));
+}
+function tileOf(id) {
+  if (tiles[id]) return tiles[id];
+  const t = (tiles[id] = makeTile(id, stage)), n = t.el;
+  n.tabIndex = 0; n.setAttribute("role", "button"); n.classList.add("nil");
+  n.addEventListener("click", () => openDive(id));
+  n.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openDive(id); } });
+  /* The readout stays inside the map's panel, so it never lies over the strip's buttons. */
+  const floor = () => mapwrap.getBoundingClientRect().bottom;
+  n.addEventListener("pointermove", (e) => { if (e.pointerType === "mouse") tipShow((b) => tileTip(b, id), e.clientX, e.clientY, floor()); });
+  n.addEventListener("pointerleave", tipHide);
+  n.addEventListener("focus", () => { if (n.matches(":focus-visible")) { const b = n.getBoundingClientRect(); tipShow((x) => tileTip(x, id), b.left + Math.min(b.width, 60), b.bottom - 8, floor()); } });
+  n.addEventListener("blur", tipHide);
+  return t;
+}
+/* On a phone the band above the RAM line is there only while the moment shown holds more than RAM. Without it the
+   map is as tall as the RAM and its caption, and it grows by the band when something spills, so the RAM keeps its
+   height either way. */
+let spill = false;
+const CAPTION = 26;
+function measureStage() {
+  mapwrap.style.removeProperty("--map-h");
+  const compact = phone.matches && !spill;
+  if (phone.matches && spill) mapwrap.style.setProperty("--map-h", Math.round((stage.clientHeight - 1 - CAPTION) * (HOST.ramGB + ZONE) / HOST.ramGB) + 1 + "px");
+  const w = stage.clientWidth, h = stage.clientHeight;
+  if (!w || !h) return;
+  const bottom = h - 1, brimY = compact ? CAPTION : Math.round(bottom * ZONE / (HOST.ramGB + ZONE));
+  G = { w, h, bottom, brimY };
+  $("#ram").style.top = brimY + "px"; $("#brim").style.top = brimY - 1 + "px";
+  mapkey.style.minHeight = "";
+  buildRuler();
+}
+function buildRuler() {
+  ruler.textContent = "";
+  const mem = S.metric === "mem", cap = mem ? HOST.ramGB : HOST.cores, unit = (G.bottom - G.brimY) / cap;
+  const tick = (v, label, strong, small) => { const d = el("div", "rtick" + (strong ? " strong" : ""), label); d.style.top = G.bottom - v * unit + "px"; if (small) d.append(el("small", "", small)); ruler.append(d); };
+  if (mem) { [0, 0.25, 0.5, 0.75].forEach((f) => tick(cap * f, f ? `${cap * f} GB` : "0")); tick(cap, `${cap} GB`, true, "of RAM"); }
+  else { [0, 0.25, 0.5].forEach((f) => tick(cap * f, f ? `${cap * f} cores` : "0")); tick(LIM.cpuTight, `${LIM.cpuTight} close`); tick(LIM.cpuCapped, `${LIM.cpuCapped} capped`); tick(cap, `${cap} cores`, true); }
+  for (const [node, v] of [[$("#cap1"), LIM.cpuTight], [$("#cap2"), LIM.cpuCapped]]) { node.hidden = mem; node.style.top = G.bottom - v * unit + "px"; }
+}
+function renderMap(fr) {
+  if (!G) return;
+  if (phone.matches && (S.metric === "mem" && fr.v.host.held - HOST.ramGB > 0.05) !== spill) {
+    spill = !spill;
+    const was = mapwrap.offsetHeight, above = mapwrap.getBoundingClientRect().top < 0;
+    measureStage();
+    if (above) scrollBy({ top: mapwrap.offsetHeight - was, behavior: "instant" });
+  }
+  const mem = S.metric === "mem", val = mem ? fr.v.mem : fr.v.cpu, cap = mem ? HOST.ramGB : HOST.cores, m = fr.text;
+  const unit = (G.bottom - G.brimY) / cap, held = mem ? fr.v.host.held : fr.v.host.busy;
+  const byRegion = tilesFor(fr.v, S.metric), rects = {}, regs = {}, live = {};
+  let y = G.bottom;
+  for (const reg of BANDS_UP) {
+    const items = byRegion[reg.id], tot = sum(items.map((t) => t.v)), lift = reg.id === "system" ? 0 : 3;
+    /* A band never gets thinner than a name with its amount needs, so no tile is left without a name or a key. */
+    const bh = items.length ? Math.max(tot * unit, MINB + lift) : 0, top = y - bh;
+    if (items.length) partition(items, 3, top, G.w - 4, bh - lift, rects, kept);
+    regs[reg.id] = { top, bh, tot }; y = top;
+  }
+  const fillTop = y, capLine = mem ? G.brimY : G.bottom - LIM.cpuCapped * unit;
+  const capped = !fr.gap && m.state === 2 && m.limiter === (mem ? "memory" : "cpu"), over = mem ? held - cap : 0, isOver = over > 0.05;
+  const dodge = mem ? [G.brimY] : [capLine, G.bottom - LIM.cpuTight * unit];
+  keyed = []; current = {};
+  if (kept.size > 400) kept.clear();
+  for (const reg of REGIONS) for (const item of byRegion[reg.id]) {
+    const id = item.id, r = rects[id], t = tileOf(id), b = place(t.el, r.x, r.y, r.x + r.w, r.y + r.h);
+    live[id] = 1; shown[id] = b; current[id] = item;
+    if (!b) continue;
+    let under = 0;
+    for (const L of dodge) if (b.y + under < L && b.y + under + 54 > L && b.y + b.h > L + 24) under = L + 2 - b.y;
+    if (t.under !== under) { t.under = under; t.el.firstChild.style.marginTop = under + "px"; }
+    if (t.full !== HOLD[id].full) { t.full = HOLD[id].full; titled(t.el, id); }
+    const names = [...new Set([disp(id), short(id)])];
+    const mode = applyLabel(t, b.w, b.h - under, names, mem ? gb(item.v) : coresU(item.v), `${pct(item.v / cap * 100)} of ${mem ? "RAM" : "all cores"}`, deltas[id], !!HOLD[id].slot);
+    if (mode === "k") { keyed.push({ n: keyed.length + 1, id, v: item.v, region: reg.id }); const n = String(keyed.length); if (t.n !== n) { t.n = n; t.tk.textContent = n; } }
+  }
+  for (const id in tiles) if (!live[id]) { tiles[id].el.classList.add("nil"); shown[id] = null; }
+  stage.classList.toggle("capped", capped); stage.classList.toggle("over", isOver); stage.classList.toggle("bycpu", !mem);
+  stage.classList.toggle("gapped", fr.gap);
+  const sp = $("#spill");
+  if (capped && isOver) { sp.style.top = Math.round(fillTop) - 2 + "px"; sp.style.height = Math.max(0, Math.round(capLine) - Math.round(fillTop)) + 2 + "px"; }
+  const zc = $("#zonecap"), sig = fr.gap ? "gap" + (m.why || "") : `${capped ? "c" : ""}${S.metric}${held == null ? "" : f1(held)}`;
+  if (zc.dataset.sig !== sig) {
+    zc.dataset.sig = sig; zc.textContent = "";
+    const chip = () => { const c = el("span", "spillmsg"); c.append(ico(2, 13), STATE[2]); return c; };
+    if (fr.gap) zc.append(m.why === "Not recorded yet." ? "Not recorded yet." : `${WORDS.noSamples} The tiles show the last sample before it.`);
+    else if (mem) {
+      if (capped) zc.append(chip());
+      zc.append(el("b", "", `${gb(held)} held`));
+      if (isOver) zc.append(el("span", "", `${gb(over)} more than RAM.`), el("span", "more", "The compressor and swap hold the rest.")); else zc.append(`of ${HOST.ramGB} GB of RAM`);
+    } else { if (capped) zc.append(chip()); zc.append(el("b", "", held == null ? "busy cores not read" : `${f1(held)} cores busy`), `of ${HOST.cores}`); }
+  }
+  zc.style.top = (isOver ? Math.min(0, Math.round(fillTop) - (zc.offsetHeight || 20) - 5) : G.brimY - (zc.offsetHeight || 20) - 5) + "px";
+  const hr = $("#headroom"), room = fillTop - (mem ? G.brimY : capLine);
+  if (room >= 22 && !fr.gap && held != null) { hr.hidden = false; hr.style.top = (mem ? G.brimY : capLine) + room / 2 + "px"; const txt = mem ? `${gb(cap - held)} under the RAM line` : `${f1(LIM.cpuCapped - held)} cores under the capped line`; if (hr.textContent !== txt) hr.textContent = txt; }
+  else hr.hidden = true;
+  /* The rail's labels keep clear of each other: each is as tall as its words, read after they are written, and one
+     that would sit on the label under it moves up. A region that holds nothing has none. */
+  for (const reg of REGIONS) {
+    const e = regEls[reg.id], g = regs[reg.id], none = nil(g.tot, S.metric);
+    e.box.hidden = e.bar.hidden = none;
+    txt(e.v, mem ? `${gb(g.tot)} · ${pct(g.tot / cap * 100)} of RAM` : coresU(g.tot));
+    txt(e.name, reg.label);
+  }
+  let floor = G.h + 4;
+  for (const reg of BANDS_UP) {
+    const e = regEls[reg.id], g = regs[reg.id];
+    if (e.box.hidden) continue;
+    const top = Math.max(0, Math.min(g.top, floor - e.box.offsetHeight - 4));
+    e.box.style.top = top + "px"; floor = top;
+    e.bar.style.top = g.top + "px"; e.bar.style.height = Math.max(2, g.bh - (reg.id === "system" ? 2 : 5)) + "px";
+  }
+  renderKey(regs, mem, fr.gap);
+}
+let keySig = "", deltas = {};
+/* The key's rows stay the elements they are. A row is found again by what it stands for, and only its number and
+   its amount are written anew, so a row that has the focus keeps it through every sample. */
+const KEY = { head: el("span", "kh"), groups: {}, rows: new Map() };
+function keyRow(key, opens) {
+  let k = KEY.rows.get(key);
+  if (k) return k;
+  k = { b: el(opens ? "button" : "span", "mk"), n: el("span", "kn"), sw: el("i", "sw"), name: el("span", "kname"), v: el("span", "kv") };
+  k.b.append(k.n, k.sw, k.name, k.v);
+  if (opens) { k.b.type = "button"; k.b.dataset.holder = opens; k.b.addEventListener("click", () => openDive(opens)); }
+  KEY.rows.set(key, k);
+  return k;
+}
+/* rows: { key, opens, n, paint, name, full, val, region }. heads: what each region holds, for the phone's key. */
+function drawKey(rows, heads) {
+  txt(KEY.head, rows.length === 1 ? "The numbered tile:" : "The numbered tiles:");
+  const nodes = rows.length ? [KEY.head] : [], live = new Set();
+  const put = (x) => {
+    const k = keyRow(x.key, x.opens);
+    live.add(x.key); txt(k.n, String(x.n)); tint(k.sw, x.paint); txt(k.name, x.name); txt(k.v, x.val);
+    if (x.full) k.b.title = x.full; else k.b.removeAttribute("title");
+    if (x.opens) k.b.setAttribute("aria-label", `Tile ${x.n}: ${x.name}, ${x.val}. Open it.`);
+    nodes.push(k.b);
+  };
+  if (!heads) rows.forEach(put);
+  else for (const reg of REGIONS) {
+    if (!(reg.id in heads)) continue;
+    let g = KEY.groups[reg.id];
+    if (!g) { g = KEY.groups[reg.id] = { head: el("div", "kg"), name: el("b"), num: el("span", "num") }; g.head.append(ico(reg.id), g.name, g.num); }
+    txt(g.name, reg.label); txt(g.num, heads[reg.id]); nodes.push(g.head);
+    for (const x of rows) if (x.region === reg.id) put(x);
+  }
+  for (const key of [...KEY.rows.keys()]) if (!live.has(key)) KEY.rows.delete(key);
+  /* A row leaves the key when its tile has room for its name again. The focus it had goes to that tile: the same holder. */
+  const had = mapkey.contains(document.activeElement) ? document.activeElement : null;
+  arrange(mapkey, nodes);
+  if (had && !had.isConnected && tiles[had.dataset.holder] && shown[had.dataset.holder]) tiles[had.dataset.holder].el.focus({ preventScroll: true });
+}
+function renderKey(regs, mem, gap) {
+  if (S.dive) return;
+  const amount = mem ? gb : coresU;
+  const sig = (gap ? "g" : "") + S.metric + holdersSig + keyed.map((k) => `${k.n}${k.id}${amount(k.v)}`).join("|") + REGIONS.map((r) => amount(regs[r.id].tot)).join();
+  if (sig === keySig) return;
+  keySig = sig;
+  drawKey(keyed.map((k) => ({ key: k.id, opens: k.id, n: k.n, paint: k.id, name: disp(k.id), full: HOLD[k.id].full, val: amount(k.v), region: k.region })),
+    Object.fromEntries(REGIONS.filter((r) => !nil(regs[r.id].tot, S.metric)).map((r) => [r.id, amount(regs[r.id].tot)])));
+  /* On a phone the strip sits under the key, so the key only grows while the playhead moves. */
+  if (phone.matches) { const h = mapkey.offsetHeight; if (h > (parseFloat(mapkey.style.minHeight) || 0)) mapkey.style.minHeight = h + "px"; }
+}
+function computeDeltas(m) {
+  deltas = {};
+  if (m.kind === "gap") return;
+  for (const reg of REGIONS) for (const item of tilesFor(m, S.metric)[reg.id]) {
+    const c = change(item.id, m);
+    if (c && Math.abs(c.d) >= 0.5) deltas[item.id] = `${signed(c.d, S.metric === "mem" ? "GB" : "cores")} ${c.label}`;
+  }
+}
+function tileTip(n, id) {
+  const m = cur.text.kind === "gap" ? null : cur.text, item = current[id];
+  const th = el("div", "th"); th.append(swatch(id), whole(id)); n.append(th, el("div", "tm", noteOf(id)));
+  if (!m || !item) { n.append(el("div", "ta", WORDS.noSamples)); return; }
+  const g = el("div", "tg"), row = (a, b) => g.append(el("span", "", a), el("span", "", b));
+  const mv = tileValue(id, m, "mem"), cv = tileValue(id, m, "cpu");
+  row("Memory", `${gb(mv)}, ${pct(mv / HOST.ramGB * 100)} of RAM`);
+  row("CPU", `${coresN(cv)} of ${HOST.cores} cores`);
+  const c = change(id, m); if (c) row(`Change ${c.label}`, signed(c.d, S.metric === "mem" ? "GB" : "cores"));
+  n.append(g);
+  if (item.members) {
+    const g2 = el("div", "tg"), list = partsFor(id, m).parts;
+    for (const x of list.slice(0, 6)) { const a = el("span"); a.append(lineKey(x.holder || id), x.name); g2.append(a, el("span", "", S.metric === "mem" ? gb(x.value) : `${x.value.toFixed(2)} cores`)); }
+    n.append(g2);
+    n.append(el("div", "ta", list.length > 6 ? `And ${list.length - 6} more. Click to see every one.` : "Click to see what is in it."));
+  } else n.append(el("div", "ta", "Click to see its processes."));
+}
+
+/* The table is the map as rows, by the same measure: memory, or CPU. A holder is in it when it has a tile by either.
+   Its rows stay the elements they are, so a row that has the focus keeps it while the numbers change under it. */
+const TABLE = { el: el("table", "t"), head: el("tr"), groups: {}, rows: new Map(), tot: el("tr", "tot"), none: el("p", "dnote") };
+for (let i = 0; i < 5; i++) { TABLE.head.append(el("th")); TABLE.tot.append(el("td")); }
+function tableRow(id) {
+  let row = TABLE.rows.get(id);
+  if (row) return row;
+  const tr = el("tr"), name = el("td"), text = el("span");
+  row = { tr, sw: el("i", "sw"), text, cells: [1, 2, 3, 4].map(() => el("td")) };
+  name.append(row.sw, text); tr.append(name, ...row.cells); tr.tabIndex = 0; tr.dataset.holder = id;
+  TABLE.rows.set(id, row);
+  return row;
+}
+function renderTable(m) {
+  const box = $("#tablev"), on = S.view === "table";
+  mapwrap.classList.toggle("tabled", on && !S.dive); box.hidden = !on;
+  if (!on) return;
+  if (m.kind === "gap") { txt(TABLE.none, m.why || WORDS.noSamples); arrange(box, [TABLE.none]); return; }
+  const cpu = S.metric === "cpu", by = cpu ? "cpu" : "mem", other = cpu ? "mem" : "cpu", cap = cpu ? HOST.cores : HOST.ramGB;
+  const amount = { mem: gb, cpu: (v) => `${coresN(v)} cores` }, all = { mem: m.host.held, cpu: m.host.busy };
+  const said = (of, v) => (v == null ? "not read" : amount[of](v));
+  [...TABLE.head.children].forEach((th, i) => txt(th, ["Holder", cpu ? "CPU" : "Memory", cpu ? `Of ${HOST.cores} cores` : "Of RAM", "Change in 30 min", cpu ? "Memory" : "CPU"][i]));
+  const nodes = [TABLE.head], live = new Set();
+  /* By memory the rows keep the map's three regions. By CPU they are one list, the busiest first: under a region's
+     name the largest user of all would stand below smaller ones. */
+  for (const reg of cpu ? [{ ids: ORDER }] : REGIONS) {
+    const ids = reg.ids.filter((id) => !nil(m.mem[id] || 0, "mem") || !nil(m.cpu[id] || 0, "cpu")).sort((a, b) => (m[by][b] || 0) - (m[by][a] || 0));
+    if (!ids.length) continue;
+    if (reg.id) {
+      let g = TABLE.groups[reg.id];
+      if (!g) { g = TABLE.groups[reg.id] = el("tr", "grp"); const td = el("td"); td.colSpan = 5; g.append(td); }
+      txt(g.firstChild, reg.label); nodes.push(g);
+    }
+    for (const id of ids) {
+      const row = tableRow(id), c = change(id, m), v = m[by][id] || 0;
+      live.add(id); tint(row.sw, id); txt(row.text, disp(id)); titled(row.tr, id);
+      row.tr.dataset.tip = `${whole(id)}\n${noteOf(id)}`;
+      [amount[by](v), pct(v / cap * 100), c ? signed(c.d, cpu ? "cores" : "GB") : "not recorded", amount[other](m[other][id] || 0)].forEach((s, i) => txt(row.cells[i], s));
+      nodes.push(row.tr);
+    }
+  }
+  for (const id of [...TABLE.rows.keys()]) if (!live.has(id)) TABLE.rows.delete(id);
+  ["Everything", said(by, all[by]), all[by] == null ? "" : pct(all[by] / cap * 100), "", said(other, all[other])].forEach((s, i) => txt(TABLE.tot.children[i], s));
+  arrange(TABLE.el, [...nodes, TABLE.tot]);
+  if (TABLE.el.parentNode !== box || TABLE.none.parentNode) arrange(box, [TABLE.el]);
+}
+
+/* The stream and the CPU cells draw one layer per coloured holder, and one neutral layer for the rest of each region. */
+function layerDefs(dive) {
+  const out = [];
+  for (const reg of BANDS_UP) {
+    const rest = [];
+    for (const id of reg.ids) { if (HOLD[id].slot) out.push({ key: id, ids: [id], paint: id, label: disp(id), holder: id, region: reg.id }); else rest.push(id); }
+    const own = dive && HOLD[dive].region === reg.id && !HOLD[dive].slot ? dive : null;
+    if (own) out.push({ key: own, ids: isFold(own) ? null : [own], fold: isFold(own) ? own : null, paint: own, label: disp(own), holder: own, region: reg.id, split: true });
+    const ids = own && !isFold(own) ? rest.filter((id) => id !== own) : rest;
+    if (ids.length) out.push({ key: "rest:" + reg.id, ids, minus: own && isFold(own) ? own : null, paint: FOLD[reg.id] || ids[ids.length - 1], label: reg.id === "lanes" ? "All other lanes" : reg.id === "apps" ? "All other apps" : reg.label, region: reg.id, rest: true });
+  }
+  return out;
+}
+let LAYERS = [];
+function layerSeries(L, metric, k) {
+  const r = R[k], n = r.n, out = new Float64Array(n);
+  if (L.fold) { const s = seriesOf(L.fold, metric, k); for (let i = 0; i < n; i++) out[i] = s[i] || 0; return out; }
+  for (const id of L.ids) { const s = r[metric][id]; if (s) for (let i = 0; i < n; i++) out[i] += s[i] || 0; }
+  if (L.minus) { const s = seriesOf(L.minus, metric, k); for (let i = 0; i < n; i++) out[i] = Math.max(0, out[i] - (s[i] || 0)); }
+  return out;
+}
+const layerValue = (L, vals) => sum(L.ids.map((id) => vals[id] || 0));
+
+const cpuBox = $("#cpu"), heatCells = [];
+let cpuSegs = {}, STORED_MAX = 1;
+function buildSegs() {
+  for (const key in cpuSegs) cpuSegs[key].remove();
+  cpuSegs = {};
+  for (const L of LAYERS) { const s = tint(el("i", "cseg"), L.paint); cpuBox.prepend(s); cpuSegs[L.key] = s; }
+}
+/* Every line on a gauge is one of the server's limits, and says which under the pointer. Memory pressure has no
+   number to draw a line at, so its gauge marks the kernel's three levels. Swap's limit is how fast it grows, so its
+   line is on the meter of that, and how full it is carries none. */
+const limitTip = (state, what) => `${STATE[state]}\n${what}`;
+function buildGauges() {
+  for (let i = 1; i < HOST.cores; i++) { const c = el("i", "ccell"); c.style.left = `calc(${i / HOST.cores * 100}% - 1px)`; cpuBox.append(c); }
+  for (const [v, label, s] of [[LIM.cpuTight, `${LIM.cpuTight} close`, 1], [LIM.cpuCapped, `${LIM.cpuCapped} capped`, 2]]) {
+    const l = el("i", "cline"); l.style.left = v / HOST.cores * 100 + "%"; cpuBox.append(l);
+    const t = el("span", "clab", label); t.style.left = v / HOST.cores * 100 + "%"; if (v === LIM.cpuCapped) t.classList.add("lo"); cpuBox.append(t);
+    l.dataset.tip = t.dataset.tip = limitTip(s, `${v} of ${HOST.cores} cores busy`);
+  }
+  if (HOST.diskTotalGB) {
+    for (const [free, s] of [[LIM.diskTight, 1], [LIM.diskCapped, 2]]) { const l = el("i", "cline"); l.style.left = (1 - free / HOST.diskTotalGB) * 100 + "%"; l.dataset.tip = limitTip(s, `Under ${free} GB of disk free`); $("#disk").append(l); }
+    $("#disk-lines").textContent = `Lines at ${LIM.diskTight} and ${LIM.diskCapped} GB free.`;
+  }
+  const line = (box, top, label, tipText) => { const l = el("div", "vline"), t = el("div", "vlab", label); l.style.top = t.style.top = top + "%"; l.dataset.tip = t.dataset.tip = tipText; box.append(l, t); };
+  /* Heat is a ladder with a step for every level, the lowest one too, so a cool machine reads as cool and not as no data. */
+  const steps = THERMAL.length;
+  for (let j = 0; j < steps; j++) { const c = el("i", "hc"); $("#heat-cells").append(c); heatCells.push(c); }
+  line($("#heat-vessel"), (1 - LIM.thermalCapped / steps) * 100, "capped", limitTip(2, `Thermal pressure ${THERMAL[LIM.thermalCapped]} or worse`));
+  line($("#heat-vessel"), (1 - LIM.thermalTight / steps) * 100, "close", limitTip(1, `Thermal pressure ${THERMAL[LIM.thermalTight]}`));
+  LEVEL.forEach((word, level) => { const s = el("span", "", word); s.prepend(el("i")); s.dataset.s = level; s.dataset.tip = level ? limitTip(level, WORDS.states[level].meaning) : `${upperFirst(word)}\nThe kernel's lowest level of memory pressure.`; $("#pres-steps").append(s); });
+  $("#swap-rate").lastChild.style.left = 100 / RATE_SPAN + "%";
+  $("#swap-rate").dataset.tip = limitTip(1, `Swap growing ${sizeMB(LIM.swapGrowthMBPerMin)} a minute`);
+}
+/* The meter of swap's growth reaches this many times the limit. */
+const RATE_SPAN = 3;
+const txt = (node, s) => { if (node.textContent !== s) node.textContent = s; };
+function flagTitle(sel, text, s) {
+  const n = $(sel), sig = String(s || 0);
+  if (n.dataset.sig === sig) return;
+  n.dataset.sig = sig; n.textContent = "";
+  if (s) n.append(ico(s, 13));
+  n.append(text);
+}
+function setVal(node, strong, rest) { const sig = strong + rest; if (node.dataset.sig === sig) return; node.dataset.sig = sig; node.textContent = ""; node.append(el("b", "", strong), rest); }
+function trend(h) {
+  const r = h.swapRate == null ? null : Math.round(h.swapRate);
+  if (r == null) return { dir: "flat", word: "trend not known", amt: "no sample before it" };
+  if (r > 0) return { dir: "up", word: "growing", amt: `+${sizeMB(r)} a minute` };
+  if (r < 0) return { dir: "down", word: "shrinking", amt: `−${sizeMB(-r)} a minute` };
+  return { dir: "flat", word: WORDS.detail.steady, amt: HOST.swapTotalGB ? `${pct(h.swap / HOST.swapTotalGB * 100)} full` : "" };
+}
+function renderInst(fr) {
+  const h = fr.v.host, gap = fr.gap, m = fr.text, mh = gap ? h : m.host, why = gap ? "" : reason(m), st = gap ? 0 : m.state, no = "no data", unread = "not read";
+  $("#inst").classList.toggle("gapped", gap);
+  const sqOut = $("#sq-out"), sqIn = $("#sq-in"), vh = Math.min(sqOut.parentNode.clientHeight || 84, sqOut.parentNode.clientWidth || 84), k = vh / Math.sqrt(STORED_MAX);
+  txt($("#comp-v"), gap ? no : gb(h.stored));
+  txt($("#comp-s"), gap ? "" : h.compressed > 0 ? `ratio ${f1(h.stored / h.compressed)}:1, into ${gb(h.compressed)}` : "squeezed size not recorded");
+  const so = Math.min(vh, Math.sqrt(h.stored) * k), si = h.compressed != null ? Math.max(0, Math.sqrt(h.compressed) * k - 3) : 0;
+  sqOut.style.width = sqOut.style.height = so + "px"; sqIn.style.width = sqIn.style.height = si + "px";
+
+  txt($("#swap-v"), gap ? no : gb(h.swap));
+  txt($("#swap-top"), `${HOST.swapTotalGB} GB`);
+  const tr = gap ? null : trend({ ...mh, swap: h.swap }), ss = $("#swap-s"), tsig = tr ? tr.word + tr.amt : "";
+  if (ss.dataset.sig !== tsig) {
+    ss.dataset.sig = tsig; ss.textContent = "";
+    if (tr) { const w = el("span", "tr"); w.append(ico(tr.dir), tr.word); ss.append(w, document.createElement("br"), el("span", "amt", tr.amt)); }
+  }
+  $("#swap-l").style.height = `calc(${clamp(HOST.swapTotalGB ? h.swap / HOST.swapTotalGB : 0, 0, 1) * 100}% - 3px)`;
+  /* How full swap is never colours it: only how fast it grows does, on the meter that carries the limit. */
+  const rate = $("#swap-rate"), grows = gap || mh.swapRate == null ? 0 : Math.max(0, mh.swapRate);
+  rate.firstChild.style.width = clamp(grows / (LIM.swapGrowthMBPerMin * RATE_SPAN), 0, 1) * 100 + "%";
+  rate.dataset.s = why === "swapGrowth" || (st && m.limiter === "memory" && grows >= LIM.swapGrowthMBPerMin) ? st : 0;
+  flagTitle("#swap-t", "Swap", why === "swapGrowth" ? st : 0);
+
+  txt($("#pres-w"), gap ? no : mh.level == null ? unread : LEVEL[mh.level]);
+  txt($("#pres-v"), "");
+  txt($("#pres-s"), gap || h.pressure == null ? "" : `${pct(100 - h.pressure)} of memory available`);
+  for (const s of $("#pres-steps").children) s.classList.toggle("on", !gap && mh.level != null && Number(s.dataset.s) === mh.level);
+  const pl = $("#pres-l"); pl.style.height = `calc(${clamp((h.pressure || 0) / 100, 0, 1) * 100}% - 3px)`; pl.dataset.s = gap ? 0 : mh.level || 0;
+  flagTitle("#pres-t", "Memory pressure", why === "memoryWarn" || why === "memoryCritical" ? st : 0);
+
+  const th = mh.thermal || 0, hs = th >= LIM.thermalCapped ? 2 : th >= LIM.thermalTight ? 1 : 0;
+  txt($("#heat-w"), gap ? no : mh.thermal == null ? unread : THERMAL[th] || String(th));
+  txt($("#heat-s"), gap || mh.thermal == null ? "" : `level ${th} of ${heatCells.length - 1}`);
+  heatCells.forEach((c, j) => { c.classList.toggle("on", !gap && mh.thermal != null && j <= th); c.dataset.s = hs; });
+  flagTitle("#heat-t", "Heat", why.startsWith("heat") ? st : 0);
+
+  setVal($("#cpu-v"), gap ? no : h.busy == null ? unread : f1(h.busy), gap || h.busy == null ? "" : ` of ${HOST.cores} cores busy`);
+  flagTitle("#cpu-t", "CPU", why.startsWith("cpu") ? st : 0);
+  let acc = 0;
+  const W = cpuBox.clientWidth || 340;
+  for (const L of LAYERS) {
+    const w = layerValue(L, fr.v.cpu) / HOST.cores * W, s = cpuSegs[L.key];
+    s.style.left = acc + "px"; s.style.width = Math.max(0, w - (w > 4 ? 2 : 0)) + "px"; acc += w;
+  }
+  const disk = h.diskFree != null && HOST.diskTotalGB;
+  setVal($("#disk-v"), gap ? no : disk ? `${Math.round(h.diskFree)} GB free` : unread, gap || !disk ? "" : ` of ${Math.round(HOST.diskTotalGB).toLocaleString("en-US")} GB`);
+  flagTitle("#disk-t", "Disk", why.startsWith("disk") ? st : 0);
+  $("#disk-l").style.width = (disk ? 1 - h.diskFree / HOST.diskTotalGB : 0) * 100 + "%";
+}
+function gaugeTip(id, build) {
+  const g = $(id);
+  g.addEventListener("pointermove", (e) => { if (e.pointerType === "mouse") tipShow(build, e.clientX, e.clientY); });
+  g.addEventListener("pointerleave", tipHide);
+  g.addEventListener("focus", () => { if (g.matches(":focus-visible")) { const b = g.getBoundingClientRect(); tipShow(build, b.left, b.bottom); } });
+  g.addEventListener("blur", tipHide);
+}
+const simpleTip = (title, note, rows) => (n) => {
+  n.append(el("div", "th", title), el("div", "tm", note));
+  const m = cur.text; if (m.kind === "gap") return;
+  const g = el("div", "tg"); for (const [a, b] of rows(m)) g.append(el("span", "", a), el("span", "", b)); n.append(g);
+};
+function buildGaugeTips() {
+  gaugeTip("#g-swap", simpleTip("Swap", `Memory that macOS pushed to disk. How full it is says little. Whether it grows says a lot: the state is ${STATE[1].toLowerCase()} when it grows by ${sizeMB(LIM.swapGrowthMBPerMin)} a minute.`, (m) => {
+    const t = trend(m.host);
+    return [["Used", `${gb(m.host.swap)} of ${HOST.swapTotalGB} GB`], [upperFirst(t.word), t.amt]];
+  }));
+  gaugeTip("#g-pres", simpleTip("Memory pressure", "The kernel's own level decides the state. The bar is the share of memory the kernel does not count as available.", (m) => [["Level", m.host.level == null ? "not read" : LEVEL[m.host.level]], ["Not available", m.host.pressure == null ? "not read" : `${pct(m.host.pressure)} of memory`], ...(m.host.pressureMax != null && m.host.pressure != null && m.host.pressureMax - m.host.pressure >= 1 ? [["Highest in this step", `${pct(m.host.pressureMax)} of memory`]] : [])]));
+  gaugeTip("#g-comp", simpleTip("Compressor", "The outer square is the memory handed to the compressor. The filled square is the RAM it takes. Area means gigabytes here too.", (m) => [["Handed over", gb(m.host.stored)], ...(m.host.compressed ? [["Takes", gb(m.host.compressed)], ["Ratio", `${f1(m.host.stored / m.host.compressed)} to 1`]] : [["Takes", "not recorded"]])]));
+  gaugeTip("#g-heat", simpleTip("Heat", "Thermal pressure as macOS reports it. When it rises, macOS slows the machine down.", (m) => [["Thermal pressure", m.host.thermal == null ? "not read" : THERMAL[m.host.thermal]], ...(m.host.thermal == null ? [] : [["Level", `${m.host.thermal} of ${THERMAL.length - 1}`]])]));
+  gaugeTip("#g-cpu", (n) => {
+    n.append(el("div", "th", "CPU"), el("div", "tm", "One cell per core, filled by holder in the map's order from the bottom up."));
+    const m = cur.text; if (m.kind === "gap") return;
+    const g = el("div", "tg"), ids = Object.keys(m.cpu).sort((a, b) => m.cpu[b] - m.cpu[a]);
+    for (const id of ids.slice(0, 10)) { const a = el("span"); a.append(lineKey(id), disp(id)); g.append(a, el("span", "", `${m.cpu[id].toFixed(2)} cores`)); }
+    if (ids.length > 10) g.append(el("span", "", `${ids.length - 10} more`), el("span", "", `${sum(ids.slice(10).map((id) => m.cpu[id])).toFixed(2)} cores`));
+    n.append(g);
+  });
+}
+/* The cache and temp folders the server measures, as it last read them (src/server/monitor-disk.ts). */
+function buildGrowers() {
+  const box = $("#growers"), items = DATA.growers;
+  box.textContent = "";
+  box.append(el("h4", "", "Cache and temp folders"), el("p", "", items.length
+    ? "Each is measured once a day. Growth is over the last 30 days, or since the first reading. Nothing else on the disk is measured."
+    : "Nothing measured yet. The first reading comes ten minutes after the server starts, then once a day."));
+  const max = Math.max(1, ...items.map((g) => g.kb));
+  for (const g of items) {
+    const row = el("div", "gr"), nm = el("span", "nm"); nm.append(swatch(null), el("span", "", g.name));
+    const bar = tint(el("i", "bar"), null); bar.style.width = g.kb / max * 100 + "%";
+    row.append(nm, el("span", "num", gb(g.kb / 1048576)), el("span", "up num", g.grewKb == null ? "" : `${signed(g.grewKb / 1048576, "GB")} in ${span(g.overDays * 864e5)}`), bar); box.append(row);
+  }
+}
+/* A panel that opens on its button and closes on the button, on a click outside it and on Esc. */
+function popover(box, btn, said) {
+  const set = (open) => { box.hidden = !open; btn.setAttribute("aria-expanded", String(open)); if (said) btn.textContent = said[open ? 1 : 0]; };
+  btn.addEventListener("click", (e) => { e.stopPropagation(); set(box.hidden); });
+  document.addEventListener("click", (e) => { if (!box.hidden && !box.contains(e.target)) set(false); });
+  closers.push(() => { if (box.hidden) return false; set(false); btn.focus({ preventScroll: true }); return true; });
+}
+popover($("#growers"), $("#growbtn"), ["Caches on disk", "Hide the list"]);
+popover($("#info"), $("#infobtn"));
+/* How to read the page, by what the tiles measure now, and what the three states mean. */
+function buildInfo() {
+  const box = $("#info"), mem = S.metric === "mem", states = el("div", "states");
+  for (const s of WORDS.states) { const d = el("div"), b = el("b"); b.append(ico(s.state, 14), s.label); d.append(b, s.meaning); states.append(d); }
+  box.textContent = "";
+  box.append(el("h4", "", "How to read the map"),
+    el("p", "", mem
+      ? `The rectangle is ${HOST.name}'s ${HOST.ramGB} GB of RAM. A tile is a holder, and its area is the memory it would free if it quit, so the tiles can add up to more than RAM. What does not fit is squeezed by the compressor, then pushed to swap.`
+      : `The rectangle is ${HOST.name}'s ${HOST.cores} cores. A tile is a holder, and its area is the CPU it used over the step shown. The two lines are where CPU is close to the cap and capped.`),
+    el("p", "", "The strip underneath is time. The map always shows the moment under the playhead, and a line on a gauge is one of the monitor's limits."),
+    el("h4", "", "The three states"), states);
+}
+
+let aliasMap = new Map(), aliasRe = /(?!)/g;
+function fillSentence(node, text) {
+  node.textContent = "";
+  let last = 0;
+  for (const m of text.matchAll(aliasRe)) {
+    if (m.index && /[\w-]/.test(text[m.index - 1])) continue;
+    node.append(text.slice(last, m.index));
+    const s = titled(el("span", "hn"), aliasMap.get(m[0])); s.append(swatch(aliasMap.get(m[0])), m[0]); node.append(s);
+    last = m.index + m[0].length;
+  }
+  node.append(text.slice(last));
+}
+const stateWord = (m) => (m.kind === "gap" ? (m.why === "Not recorded yet." ? "Not recorded" : "No samples") : STATE[m.state]);
+/* "Now" is the newest sample only while it is new. */
+const nowWord = () => (LIVE.stale ? "Last sample" : "Now");
+/* Written again only where the words changed, so a refresh never takes a button from under a click. */
+function sigged(node, sig, build) { if (node.dataset.sig === sig) return; node.dataset.sig = sig; node.textContent = ""; build(node); }
+function renderVerdict(m) {
+  const pill = $("#pill"), meta = $("#pillmeta"), atNow = m.kind === "now", inc = m.kind === "incident" ? m.inc : null;
+  let headline, sentence, context = "", bits = [];
+  if (m.kind === "gap") {
+    const unrec = m.why === "Not recorded yet.";
+    headline = unrec ? "The monitor has not recorded this yet." : WORDS.noSamples;
+    sentence = unrec ? "Nothing is drawn where nothing is known." : `${m.why} A gap is drawn as a gap, never as zero.`.trim();
+    sigged(pill, "gap" + stateWord(m), (n) => n.append(ico("gap"), stateWord(m)));
+    delete pill.dataset.tip;
+  } else {
+    headline = dot(m.headline); sentence = S.metric === "cpu" ? m.sentenceCpu : m.sentence; context = m.detail;
+    sigged(pill, m.state + STATE[m.state], (n) => n.append(ico(m.state), STATE[m.state]));
+    pill.dataset.tip = `${STATE[m.state]}\n${WORDS.states[m.state].meaning}`;
+    if (atNow && NOW.since) bits.push(`since ${sameDay(NOW.since, NOW.t) ? tHM(NOW.since) : tFull(NOW.since)}`);
+    if (inc) bits.push(`${tHM(inc.t0)} to ${tHM(inc.t1)}, ${mins(inc.minutes)}`);
+  }
+  pill.dataset.s = m.state;
+  const by = m.kind !== "gap" && m.state > 0 && m.limiter ? m.limiter : "";
+  sigged(meta, by + bits.join(), (n) => {
+    if (by) { const b = el("span", "by"); b.append(ico(by), `by ${LIMWORD[by]}`); n.append(b); }
+    if (bits.length) n.append((by ? " · " : "") + bits.join(" · "));
+  });
+  txt($("#headline"), headline); txt($("#context"), context);
+  sigged($("#sentence"), holdersSig + sentence, (n) => fillSentence(n, sentence));
+  const when = atNow ? nowWord() : m.day ? tDay(m.t) : tFull(m.t);
+  txt($("#when"), when);
+  $("#backnow").hidden = $("#nowbtn").hidden = atNow;
+  /* What the line under the moment says of it: how it was sampled, or what a step of the range shown covers. */
+  txt($("#fresh"), atNow ? `Sampled at ${tHMS(NOW.t)}, every ${DATA.tickSeconds} s.` : inc ? "The worst of this stretch."
+    : S.range === "quarter" ? (S.picked ? "The worst moment of the day picked." : "") : m.kind === "series" ? `A step of ${R[m.src].label} is ${span(R[m.src].step)}.` : "");
+  sigged($("#tlread"), when + m.state + stateWord(m), (n) => {
+    n.append(el("b", "", when));
+    if (m.kind !== "gap") { const st = el("span", "st"); st.append(ico(m.state, 13), STATE[m.state]); n.append(st); } else n.append(stateWord(m));
+  });
+  /* Away from now, the state of now stays in sight, and leads back there. */
+  for (const live of [$("#live"), $("#live2")]) {
+    live.hidden = atNow; live.dataset.s = NOW.state;
+    sigged(live, String(NOW.state), (n) => n.append(ico(NOW.state, 14), fillWords(WORDS.live, { state: STATE[NOW.state] })));
+  }
+  paintAge();
+}
+for (const id of ["#backnow", "#live", "#live2"]) $(id).addEventListener("click", () => goNow());
+$("#backnow").addEventListener("click", () => goNow());
+
+const plot = $("#plot"), PADX = 14, Y0 = 18, PINS = new Map();
+let TL = null, SH = 90;
+const phEl = el("div", "ph"), phLab = el("div", "phl"), hvEl = el("div", "hv");
+hvEl.hidden = true;
+/* The server's kinds: reboot, gap, lane-start, lane-end, test-run for a full suite, and for any other mark the word
+   it was put down with. */
+const evKind = (e) => (e.kind === "test-run" ? "suite" : ["reboot", "lane-start", "lane-end", "release"].includes(e.kind) ? e.kind : "mark");
+function evShape(g, e, x, y) {
+  const kind = evKind(e);
+  if (kind === "suite") g.append(sv("circle", { cx: x, cy: y, r: 3.2, fill: "var(--ink-2)", stroke: "var(--surface)", "stroke-width": 1 }));
+  else if (kind === "lane-start") g.append(sv("path", { d: `M${x - 2.5} ${y - 3.2}L${x + 3} ${y}L${x - 2.5} ${y + 3.2}Z`, fill: "none", stroke: "var(--ink-3)", "stroke-width": 1.2, "stroke-linejoin": "round" }));
+  else if (kind === "lane-end") g.append(sv("rect", { x: x - 2.6, y: y - 2.6, width: 5.2, height: 5.2, fill: "none", stroke: "var(--ink-3)", "stroke-width": 1.2 }));
+  else if (kind === "release") g.append(sv("path", { d: `M${x} ${y - 4}L${x + 4} ${y}L${x} ${y + 4}L${x - 4} ${y}Z`, fill: "var(--ink)" }));
+  else if (kind === "reboot") g.append(sv("circle", { cx: x, cy: y, r: 3.2, fill: "var(--surface)", stroke: "var(--ink)", "stroke-width": 1.6 }));
+  else g.append(sv("path", { d: `M${x} ${y - 3.5}v7`, stroke: "var(--ink-2)", "stroke-width": 1.6, "stroke-linecap": "round" }));
+}
+const EV_SHOWN = { hour: null, day: null, week: ["suite", "release", "reboot", "mark"] };
+/* The marks of the time axis between two times: eight at most, on round times of the day. */
+const TICK_STEPS = [6e5, 18e5, 36e5, 108e5, 216e5, 432e5, 864e5];
+function ticksFor(from, to) {
+  const step = TICK_STEPS.find((s) => (to - from) / s <= 8) || 864e5, day = new Date(from), out = [];
+  day.setHours(0, 0, 0, 0);
+  for (let t = day.getTime() + Math.ceil((from - day.getTime()) / step) * step; t <= to; t += step) { const d = new Date(t); out.push([t, d.getHours() + d.getMinutes() === 0 && to - from > 432e5 ? tDay(t) : tHM(t)]); }
+  return out;
+}
+function buildTimeline() {
+  const quarter = S.range === "quarter";
+  $("#stream").hidden = plot.hidden = quarter; $("#quarter").hidden = !quarter;
+  if (quarter) { TL = null; $("#began").hidden = true; return; }
+  const r = R[S.range], n = r.n, W = plot.clientWidth;
+  if (!W) return;
+  SH = parseFloat(getComputedStyle(plot).getPropertyValue("--sh")) || 90;
+  /* The strip is time, left to right: from the first step that has a sample, or from where recording began when
+     that is inside it, to now. A range that is mostly not recorded yet would be mostly empty. One rule places
+     everything on it: a step is drawn where it ends, the newest at now, and it stands for the time back to the
+     step before it. Its values, its state's band, the pointer over it and the playhead on it all go by that. */
+  const i0 = first[S.range], began = $("#began"), fromBegan = DATA.began >= r.t0 + i0 * r.step;
+  began.hidden = !fromBegan;
+  if (fromBegan) txt(began, fillWords(WORDS.began, { when: tFull(DATA.began) }));
+  const T0 = fromBegan ? DATA.began : r.t0 + i0 * r.step, T1 = NOW.t > endOf(r, n - 2) && NOW.t < endOf(r, n - 1) ? NOW.t : endOf(r, n - 1);
+  const mem = S.metric === "mem", cap = mem ? HOST.ramGB : HOST.cores, peak = mem ? r.host.heldMax : r.host.busyMax, mean = mem ? r.host.held : r.host.busy;
+  const top = Math.max(cap, ...peak.filter((v) => v != null)) * 1.04;
+  const xT = (t) => PADX + (t - T0) / Math.max(1, T1 - T0) * (W - 2 * PADX), ends = (i) => xT(i >= n - 1 ? T1 : endOf(r, i));
+  /* A whole number is a step. Play moves between two of them. */
+  const x = (i) => { const a = Math.floor(i); return a === i ? ends(a) : ends(a) + (ends(a + 1) - ends(a)) * (i - a); };
+  const from = (i) => (i <= i0 ? PADX : ends(i - 1)), y = (v) => Y0 + SH - v / top * SH;
+  const svg = sv("svg", { "aria-hidden": "true" });
+  if (S.dive) svg.classList.add("dim");
+  const runs = []; let a = -1;
+  for (let i = 0; i <= n; i++) { const ok = i < n && r.host.held[i] != null; if (ok && a < 0) a = i; if (!ok && a >= 0) { runs.push([a, i - 1]); a = -1; } }
+  const lo = new Float64Array(n), hi = new Float64Array(n), layers = layerDefs(S.dive);
+  for (const L of layers) {
+    const s = layerSeries(L, S.metric, S.range);
+    let d = "";
+    for (let i = 0; i < n; i++) hi[i] = lo[i] + s[i];
+    for (const [s0, e] of runs) {
+      d += `M${from(s0).toFixed(1)} ${y(hi[s0]).toFixed(1)}`;
+      for (let i = s0; i <= e; i++) d += `L${x(i).toFixed(1)} ${y(hi[i]).toFixed(1)}`;
+      for (let i = e; i >= s0; i--) d += `L${x(i).toFixed(1)} ${y(lo[i]).toFixed(1)}`;
+      d += `L${from(s0).toFixed(1)} ${y(lo[s0]).toFixed(1)}Z`;
+    }
+    const thick = Math.max(...s) / top * SH, node = sv("path", { d, fill: paint(L.paint)[0], class: "layer" + (S.dive && L.key === S.dive ? " on" : "") });
+    if (thick < 6) node.style.strokeWidth = thick < 3 ? "0" : "1";
+    svg.append(node);
+    lo.set(hi);
+  }
+  let pd = "", any = false;
+  const high = (i) => y(peak[i] != null ? peak[i] : mean[i]).toFixed(1);
+  for (const [s0, e] of runs) {
+    pd += `M${from(s0).toFixed(1)} ${high(s0)}`;
+    for (let i = s0; i <= e; i++) { if (peak[i] != null && peak[i] - mean[i] > top * 0.004) any = true; pd += `L${x(i).toFixed(1)} ${high(i)}`; }
+  }
+  if (any) svg.append(sv("path", { d: pd, fill: "none", stroke: "var(--ink-2)", "stroke-width": 1, "stroke-linejoin": "round" }));
+  /* Two lines that lie close get their words on opposite sides, so one never sits on the other. */
+  const line = (v, label, strong, under) => {
+    svg.append(sv("line", { x1: PADX, x2: W - PADX, y1: y(v), y2: y(v), stroke: strong ? "var(--ink)" : "var(--axis)", "stroke-width": 1 }));
+    const t = sv("text", { x: PADX + 2, y: y(v) + (under ? 11 : -3) }); t.textContent = label; if (strong) t.setAttribute("fill", "var(--ink-2)"); svg.append(t);
+  };
+  if (mem) line(HOST.ramGB, `${HOST.ramGB} GB of RAM`, true); else { line(LIM.cpuCapped, `${LIM.cpuCapped} cores, capped`, true); line(LIM.cpuTight, `${LIM.cpuTight} close`, false, true); }
+  const by = Y0 + SH + 5;
+  for (const [s0, e] of runs) svg.append(sv("rect", { x: from(s0), y: by + 2.5, width: Math.max(1, x(e) - from(s0)), height: 1, fill: "var(--axis)" }));
+  let s0 = 0;
+  for (let i = 1; i <= n; i++) {
+    if (i === n || r.host.state[i] !== r.host.state[s0]) {
+      const st = r.host.state[s0];
+      if (st === 1 || st === 2) { const xa = from(s0), xb = x(i - 1); svg.append(sv("rect", { x: Math.min(xa, xb - 3), y: by, width: Math.max(3, xb - xa), height: 6, rx: 1.5, fill: st === 2 ? "var(--crit)" : "var(--warn)" })); }
+      s0 = i;
+    }
+  }
+  for (let j = 0; j < runs.length - 1; j++) {
+    const g0 = x(runs[j][1]), g1 = from(runs[j + 1][0]);
+    if (g1 - g0 > 64) { const t = sv("text", { x: (g0 + g1) / 2, y: Y0 + SH - 8, "text-anchor": "middle" }); t.textContent = "no samples"; svg.append(t); }
+    svg.append(sv("path", { d: `M${g0 + 3} ${by + 6}v-6M${g1 - 3} ${by + 6}v-6`, stroke: "var(--ink-3)", "stroke-width": 1 }));
+  }
+  const ey = by + 15, allow = EV_SHOWN[S.range], evs = [], kinds = new Set();
+  const eg = sv("g", {});
+  for (const e of DATA.events) {
+    if (e.t < T0 || e.t > T1 || e.kind === "gap" || (allow && !allow.includes(evKind(e)))) continue;
+    evShape(eg, e, xT(e.t), ey); evs.push(e); kinds.add(evKind(e));
+  }
+  svg.append(eg);
+  const ay = by + 35;
+  const ticks = ticksFor(T0, T1), every = W < 560 && ticks.length > 5 ? 2 : 1, tickEls = [];
+  for (const [j, [t, label]] of ticks.entries()) {
+    const tx = xT(t);
+    svg.append(sv("line", { x1: tx, x2: tx, y1: Y0, y2: Y0 + SH, stroke: "var(--hair)", "stroke-width": 1, style: "opacity:.55" }));
+    if (j % every === 0 && tx > 26 && tx < W - 84) { const tt = sv("text", { x: tx, y: ay, "text-anchor": "middle" }); tt.textContent = label; svg.append(tt); tickEls.push({ x: tx, node: tt }); }
+  }
+  /* A worst moment's dot stays the button it is from one sample to the next, so it keeps the focus. Two that would
+     touch show the worse one. */
+  const shown = [];
+  for (const inc of DATA.incidents) {
+    if (inc.severity !== 2 || inc.peak <= T0 || inc.peak > T1 + r.step) continue;
+    const px = clamp(xT(inc.peak), PADX, W - PADX), last = shown[shown.length - 1];
+    if (last && px - last.px < 13) { if (inc.score > last.inc.score) shown[shown.length - 1] = { inc, px }; } else shown.push({ inc, px });
+  }
+  for (const { inc, px } of shown) {
+    let b = PINS.get(inc.id);
+    if (!b) {
+      b = el("button", "pin"); b.type = "button"; b.dataset.inc = inc.id; b.append(el("i")); PINS.set(inc.id, b);
+      b.addEventListener("click", (e) => { e.stopPropagation(); tipHide(); jumpIncident(INC[inc.id], S.range); });
+      b.addEventListener("pointerdown", (e) => e.stopPropagation());
+      b.addEventListener("pointermove", (e) => { e.stopPropagation(); if (e.pointerType === "mouse") tipShow((nn) => incTip(nn, INC[inc.id]), e.clientX, e.clientY); });
+      b.addEventListener("pointerleave", tipHide);
+    }
+    b.style.left = px + "px";
+    b.setAttribute("aria-label", `Worst moment, ${tFull(inc.peak)}: ${inc.headline}`);
+  }
+  for (const id of [...PINS.keys()]) if (!shown.some((s) => s.inc.id === id)) PINS.delete(id);
+  const pins = shown.length;
+  arrange(plot, [svg, ...shown.map((s) => PINS.get(s.inc.id)), hvEl, phEl, phLab]);
+  TL = { r, n, W, i0, x, xT, T0, T1, evs, layers, ticks: tickEls };
+  const foot = $("#tlfoot"); foot.textContent = "";
+  const key = (draw, label, tipText) => { const k = el("span", "key"); k.append(draw, label); if (tipText) k.dataset.tip = tipText; foot.append(k); };
+  const band = (c) => { const i = el("i"); i.style.background = c; return i; };
+  const shape = (e) => { const s = sv("svg", { width: 10, height: 10, viewBox: "0 0 10 10", "aria-hidden": "true" }); evShape(s, e, 5, 5); return s; };
+  if (pins) { const pinKey = el("i"); pinKey.style.cssText = "width:9px;height:9px;border-radius:50%;background:var(--crit)"; key(pinKey, "worst moment, opens it"); }
+  /* A band says what the limit was whenever that is not what the strip draws: a red band over a quiet CPU strip
+     is capped by memory. */
+  for (const [st, colour] of [[1, "var(--warn)"], [2, "var(--crit)"]]) {
+    const by = [...new Set(r.host.state.flatMap((v, i) => (v === st ? [LIMITER[r.host.limiter[i]]] : [])))].filter(Boolean);
+    if (!r.host.state.includes(st)) continue;
+    const other = by.some((l) => l !== (mem ? "memory" : "cpu"));
+    key(band(colour), STATE[st].toLowerCase() + (other ? ` by ${listWords(by.map((l) => LIMWORD[l]))}` : ""), `${STATE[st]}\n${WORDS.states[st].meaning}`);
+  }
+  if (any) { const pk = el("i"); pk.style.cssText = "height:1px;background:var(--ink-2)"; key(pk, "the highest it got inside each step"); }
+  if (kinds.has("suite")) key(shape({ kind: "test-run" }), "full suite started");
+  if (kinds.has("lane-start")) key(shape({ kind: "lane-start" }), "lane started");
+  if (kinds.has("lane-end")) key(shape({ kind: "lane-end" }), "lane ended");
+  if (kinds.has("release")) key(shape({ kind: "release" }), "release");
+  if (kinds.has("reboot")) key(shape({ kind: "reboot" }), "restart");
+  if (kinds.has("mark")) key(shape({ kind: "mark" }), "a mark someone put down");
+  foot.append(el("span", "", `${mem ? "Memory" : "CPU"} by holder, stacked in the map's order.${runs.length > 1 ? " A blank stretch has no samples." : ""}`));
+  buildLegend();
+}
+function incTip(n, inc) {
+  n.append(el("div", "th", tFull(inc.peak)), el("div", "tm", dot(inc.headline)));
+  const g = el("div", "tg");
+  for (const h of [...inc.holders].sort((a, b) => (inc.resource === "cpu" ? b.cpu - a.cpu : b.mem - a.mem)).slice(0, 4)) { const a = el("span"); a.append(lineKey(h.id), disp(h.id)); g.append(a, el("span", "", inc.resource === "cpu" ? coresU(h.cpu) : gb(h.mem))); }
+  n.append(g, el("div", "ta", "Click to open this moment."));
+}
+const phText = (m) => (m.kind === "now" ? (LIVE.stale ? "last" : "now") : S.range === "week" ? `${DOW[new Date(m.t).getDay()]} ${tHM(m.t)}` : tHM(m.t));
+function renderPlayhead(fr) {
+  if (!TL) return;
+  const m = fr.text, px = !S.playing && m.kind === "incident" ? clamp(TL.xT(m.t), PADX, TL.W - PADX) : TL.x(S.pos);
+  phEl.style.transform = `translateX(${px}px)`;
+  const label = phText(m);
+  if (phLab.textContent !== label) { phLab.textContent = label; phLab.dataset.w = ""; }
+  const w = Number(phLab.dataset.w) || (phLab.dataset.w = phLab.offsetWidth), left = clamp(px - w / 2, 0, TL.W - w);
+  phLab.style.transform = `translateX(${left}px)`;
+  /* The chip stands on the axis, so a time of the axis that it would cover is not written. */
+  for (const tick of TL.ticks) tick.node.style.visibility = tick.x > left - 24 && tick.x < left + w + 24 ? "hidden" : "";
+  plot.setAttribute("aria-valuetext", `${m.kind === "now" ? nowWord() : tFull(m.t)}, ${stateWord(m)}`);
+  plot.setAttribute("aria-valuemin", first[S.range]); plot.setAttribute("aria-valuemax", TL.n - 1); plot.setAttribute("aria-valuenow", Math.round(S.pos));
+  for (const b of plot.querySelectorAll(".pin")) b.setAttribute("aria-pressed", String(m.kind === "incident" && m.inc.id === b.dataset.inc));
+}
+function sampleTip(n, i) {
+  const r = TL.r, m = momentAt(S.range, i), h = r.host;
+  /* The time the step really covers: back to the step before it, or to where the strip starts. */
+  const t0 = Math.max(r.t0 + i * r.step, TL.T0), t1 = endOf(r, i);
+  n.append(el("div", "th", i === r.n - 1 ? nowWord() : `${tFull(t0)} to ${sameDay(t0, t1) ? tHM(t1) : tFull(t1)}`));
+  if (m.kind === "gap") { n.append(el("div", "tm", m.why || WORDS.noSamples)); return; }
+  const st = el("div", "tm"); st.style.display = "flex"; st.style.gap = "5px"; st.style.alignItems = "center";
+  const s = h.state[i], lim = LIMITER[h.limiter[i]];
+  st.append(ico(s, 12), STATE[s] + (s && lim ? ` by ${LIMWORD[lim]}` : "")); n.append(st);
+  const g = el("div", "tg"), row = (a, b) => g.append(el("span", "", a), el("span", "", b));
+  const mx = h.heldMax[i], bx = h.busyMax[i];
+  row("Held", gb(h.held[i]) + (mx - h.held[i] >= 0.3 ? `, peak ${f1(mx)}` : ""));
+  if (h.pressure[i] != null) row("Pressure", `${h.level[i] == null ? "" : LEVEL[h.level[i]] + ", "}${pct(h.pressure[i])}`);
+  row("Swap", `${f1(h.swap[i])} of ${HOST.swapTotalGB} GB`);
+  if (h.busy[i] != null) row("CPU", `${f1(h.busy[i])} of ${HOST.cores} cores` + (bx - h.busy[i] >= 0.5 ? `, peak ${f1(bx)}` : ""));
+  if (h.thermal[i] > 0) row("Heat", THERMAL[h.thermal[i]]);
+  n.append(g);
+  const g2 = el("div", "tg"), src = S.metric === "mem" ? r.mem : r.cpu;
+  const ids = Object.keys(src).filter((id) => src[id][i] > 0.005).sort((a, b) => src[b][i] - src[a][i]);
+  for (const id of ids.slice(0, 8)) { const a = el("span"); a.append(lineKey(id), disp(id)); g2.append(a, el("span", "", S.metric === "mem" ? gb(src[id][i]) : `${src[id][i].toFixed(2)} cores`)); }
+  if (ids.length > 8) { const rest = sum(ids.slice(8).map((id) => src[id][i])); g2.append(el("span", "", `${ids.length - 8} smaller holders`), el("span", "", S.metric === "mem" ? gb(rest) : `${rest.toFixed(2)} cores`)); }
+  n.append(g2);
+  const evs = TL.evs.filter((e) => e.t > t0 && e.t <= t1).slice(0, 4);
+  if (evs.length) n.append(el("div", "ta", evs.map((e) => `${tHM(e.t)} ${e.label}`).join("\n")));
+}
+/* The step that holds the time under the pointer. */
+const idxAt = (clientX) => { const b = plot.getBoundingClientRect(), t = TL.T0 + (clientX - b.left - PADX) / (TL.W - 2 * PADX) * (TL.T1 - TL.T0); return clamp(stepAt(TL.r, t), TL.i0, TL.n - 1); };
+(() => {
+  let drag = null, raf = 0, pend = null;
+  LIVE.dragging = () => !!drag;
+  const seek = (cx) => { pend = cx; if (!raf) raf = requestAnimationFrame(() => { raf = 0; if (TL) setPos(idxAt(pend)); }); };
+  plot.addEventListener("pointerdown", (e) => {
+    if (e.button || !TL) return;
+    drag = { id: e.pointerId, x: e.clientX, y: e.clientY, live: e.pointerType !== "touch" };
+    stopPlay(); tipHide(); hvEl.hidden = true;
+    try { plot.setPointerCapture(e.pointerId); } catch (err) { /* the pointer may already be gone */ }
+    if (drag.live) { document.documentElement.classList.add("scrub"); seek(e.clientX); }
+  });
+  plot.addEventListener("pointermove", (e) => {
+    if (!TL) return;
+    if (drag && e.pointerId === drag.id) {
+      if (!drag.live && Math.abs(e.clientX - drag.x) > 4) { drag.live = true; document.documentElement.classList.add("scrub"); }
+      if (drag.live) seek(e.clientX);
+    } else if (e.pointerType === "mouse") {
+      const i = idxAt(e.clientX);
+      hvEl.hidden = false; hvEl.style.transform = `translateX(${TL.x(i)}px)`;
+      tipShow((n) => sampleTip(n, i), e.clientX, e.clientY);
+    }
+  });
+  const end = (e) => {
+    if (!drag || e.pointerId !== drag.id) return;
+    if (e.type === "pointerup" && !drag.live && TL) setPos(idxAt(e.clientX));
+    drag = null; document.documentElement.classList.remove("scrub");
+    if (LIVE.waiting) apply(LIVE.waiting);
+  };
+  plot.addEventListener("pointerup", end);
+  plot.addEventListener("pointercancel", end);
+  plot.addEventListener("pointerleave", () => { hvEl.hidden = true; tipHide(); });
+})();
+
+let legendEls = [], legendSig = "";
+/* Built again only when its layers changed: the strip is drawn anew with every sample, and a button must not go from under the pointer. */
+function buildLegend() {
+  const lg = $("#legend"), sig = holdersSig + "|" + (S.dive || "") + "|" + phone.matches + "|" + TL.layers.map((L) => L.key).join();
+  if (sig === legendSig) { legendEls.forEach((e, i) => (e.L = TL.layers.find((L) => L.key === e.L.key) || e.L)); return; }
+  legendSig = sig;
+  refocus(lg, "layer", () => {
+  lg.textContent = ""; legendEls = [];
+  for (const reg of REGIONS) {
+    const mine = TL.layers.filter((x) => x.region === reg.id), g = el("span", "lg-g");
+    g.append(ico(reg.id)); if (mine.length > 1 || !mine[0].rest) g.append(reg.label); lg.append(g);
+    for (const L of mine) {
+      /* On a phone the legend is a list to read: a row of it is too low for a finger, and the tiles and the key open a holder. */
+      const v = el("span", "v"), press = L.holder && !phone.matches, b = el(press ? "button" : "span", "lg");
+      b.append(swatch(L.paint), el("span", "", L.label), v);
+      if (press) { b.type = "button"; b.dataset.layer = L.key; titled(b, L.holder); b.setAttribute("aria-pressed", String(S.dive === L.holder)); b.addEventListener("click", () => (S.dive === L.holder ? closeDive() : openDive(L.holder))); }
+      lg.append(b); legendEls.push({ L, v });
+    }
+  }
+  });
+}
+function buildRanges() {
+  const rg = $("#ranges");
+  for (const k of RANGE_KEYS) {
+    const b = el("button", "", R[k].label); b.type = "button"; b.dataset.range = k; b.setAttribute("aria-pressed", String(k === S.range));
+    b.addEventListener("click", () => setRange(k)); rg.append(b);
+  }
+}
+const nOf = (k) => (k === "quarter" ? CAL.length : R[k].n);
+function paintTransport() {
+  const b = $("#play"), quarter = S.range === "quarter", minutes = quarter ? 0 : R[S.range].step / 6e4, unit = quarter ? "one day" : minutes === 1 ? "one minute" : `${minutes} minutes`;
+  b.textContent = ""; b.append(ico(S.playing ? "pause" : "play"), el("span", "", S.playing ? "Pause" : "Play")); b.setAttribute("aria-pressed", String(S.playing));
+  b.setAttribute("aria-label", S.playing ? "Pause" : `Play the ${R[S.range].label} range forward`);
+  $("#prev").setAttribute("aria-label", `${upperFirst(unit)} back`); $("#next").setAttribute("aria-label", `${upperFirst(unit)} forward`);
+  const hint = $("#hint"); hint.textContent = "";
+  hint.append(quarter ? "Click a day to see its worst moment. " : "Drag the strip to move through time. ", el("kbd", "", "←"), " ", el("kbd", "", "→"), ` step ${unit}, `);
+  if (!quarter) hint.append(el("kbd", "", "Space"), " on the strip plays, ");
+  hint.append(el("kbd", "", "Esc"), " leaves a holder.");
+}
+/* Play crosses what a range has recorded in about this long, and stops for a moment where the state changes, so a
+   change is seen and not passed over. */
+const PLAY_S = 12, PLAY_HOLD_MS = 600;
+const stateAt = (i) => (S.range === "quarter" ? (dayKnown(i) ? CAL[i].day.state : null) : R[S.range].host.state[i]);
+let playRaf = 0, playLast = 0, playHold = 0;
+function stopPlay() {
+  if (!S.playing) return;
+  S.playing = false; cancelAnimationFrame(playRaf); document.documentElement.classList.remove("playing");
+  S.pos = Math.round(S.pos); paintTransport(); render();
+}
+function startPlay() {
+  const n = nOf(S.range), quarter = S.range === "quarter";
+  S.pin = null; S.at = null; S.picked = quarter; if (Math.round(S.pos) >= n - 1) S.pos = first[S.range];
+  const speed = Math.max(1, n - 1 - first[S.range]) / PLAY_S;
+  S.playing = true; if (!quarter) document.documentElement.classList.add("playing"); paintTransport(); playLast = 0; playHold = 0;
+  const step = (ts) => {
+    if (!S.playing) return;
+    const dt = playLast ? Math.min(0.1, (ts - playLast) / 1000) : 0, was = Math.floor(S.pos); playLast = ts;
+    if (ts >= playHold) {
+      S.pos += speed * dt;
+      for (let i = was + 1; i <= Math.min(n - 1, Math.floor(S.pos)); i++) if (stateAt(i) != null && stateAt(i - 1) != null && stateAt(i) !== stateAt(i - 1)) { S.pos = i; playHold = ts + PLAY_HOLD_MS; break; }
+    }
+    if (S.pos >= n - 1) { S.pos = n - 1; S.picked = false; stopPlay(); return; }
+    if (reduced || quarter) { const keep = S.pos; S.pos = Math.floor(S.pos); render(); S.pos = keep; } else render();
+    playRaf = requestAnimationFrame(step);
+  };
+  playRaf = requestAnimationFrame(step);
+}
+/* A step, a click on the strip or a day of the calendar. In the 90 days that picks a day. */
+function setPos(i, pin) {
+  i = clamp(i, first[S.range], nOf(S.range) - 1);
+  const picks = S.range === "quarter";
+  if (S.pos === i && !S.pin && !pin && S.at == null && S.picked === picks) return;
+  S.pos = i; S.pin = pin || null; S.at = null; S.picked = picks; render(true);
+}
+function stepBy(d) {
+  stopPlay();
+  let i = Math.round(S.pos) + d;
+  if (S.range === "quarter") while (i > first.quarter && i < CAL.length - 1 && !dayKnown(i)) i += Math.sign(d);
+  setPos(i);
+}
+/* Now is the newest sample in every range, the 90 days too. A button that leads here is gone once it has: the focus
+   it had goes to the playhead it moved, or to Play where there is no strip, and never to nothing. */
+function goNow() {
+  const had = document.activeElement;
+  stopPlay(); S.pos = nOf(S.range) - 1; S.pin = null; S.at = null; S.picked = false; render(true);
+  if (had && had.hidden) (plot.hidden ? $("#play") : plot).focus({ preventScroll: true });
+}
+function showRange(k) {
+  S.range = k;
+  for (const b of $("#ranges").children) b.setAttribute("aria-pressed", String(b.dataset.range === k));
+  $("#time").dataset.range = k;
+  buildTimeline(); buildDiveHist(); paintTransport();
+}
+const indexIn = (k, t) => (k === "quarter" ? dayIndex(t - 1) : clamp(stepAt(R[k], t), first[k], R[k].n - 1));
+/* Another range shows the same moment: now stays now, and a moment of the past stays that moment where the new
+   range reaches it. Only picking a day changes the moment. */
+function setRange(k) {
+  if (k === S.range) return;
+  stopPlay();
+  const m = cur.text, quarter = k === "quarter", keep = S.pin && INC[S.pin].peak >= R[k].t0 ? S.pin : null;
+  const now = m.kind === "now" || (!quarter && m.t <= R[k].t0 + first[k] * R[k].step);
+  S.pos = now ? nOf(k) - 1 : indexIn(k, m.t);
+  S.pin = now || (!quarter && S.pos === nOf(k) - 1) ? null : keep;
+  S.at = quarter && !now && !S.pin ? m.t : null; S.picked = false;
+  showRange(k); render(true);
+}
+function rangeFor(t) { return RANGE_KEYS.find((k) => k === "quarter" || (t > R[k].t0 + first[k] * R[k].step && hasData(k) > 1)); }
+function jumpTo(t, incId, rangeKey) {
+  stopPlay();
+  const k = rangeKey || rangeFor(t);
+  S.pos = indexIn(k, t); S.pin = incId || null; S.at = k === "quarter" && !incId ? t : null; S.picked = false;
+  if (k !== S.range) showRange(k);
+  render(true);
+}
+/* Opening a worst moment shows the resource that capped it, so the map is visibly that moment. */
+const metricOf = (resource) => (resource === "cpu" ? "cpu" : "mem");
+function jumpIncident(inc, rangeKey) {
+  setMetric(metricOf(inc.resource), true);
+  /* One that peaks at the newest sample is now. */
+  if (inc.peak >= NOW.t) goNow(); else jumpTo(inc.peak, inc.id, rangeKey);
+}
+const toMap = () => $(".verdict").scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
+$("#prev").addEventListener("click", () => stepBy(-1));
+$("#next").addEventListener("click", () => stepBy(1));
+$("#play").addEventListener("click", () => (S.playing ? stopPlay() : startPlay()));
+$("#nowbtn").addEventListener("click", goNow);
+
+const dive = $("#dive");
+const D = { sig: "" };
+/* Who held what in the sample that holds a time, with each holder's process groups: asked of the server once per
+   sample, when a holder is opened there. */
+const splits = new Map();
+function splitAt(k, t) {
+  const r = R[k], at = r.t0 + stepAt(r, t) * r.step, key = `${k}:${at}`;
+  if (splits.has(key)) return splits.get(key);
+  if (splits.size > 240) splits.clear();
+  splits.set(key, "asked");
+  fetch(`/api/monitor/page/moment?key=${k}&t=${at}`, { cache: "no-store" }).then((res) => (res.ok ? res.json() : null)).catch(() => null).then((d) => {
+    splits.set(key, d && d.holders ? new Map(d.holders.map((h) => [h.id, h])) : null);
+    if (S.dive) { D.sig = ""; renderDive(cur.text); }
+  });
+  return "asked";
+}
+/* A holder's process groups at a moment. asked is true while the server has not said yet. */
+function holderParts(id, m) {
+  const of = S.metric === "mem" ? "memParts" : "cpuParts";
+  if (m.kind === "now") { const h = NOW.holders.find((x) => x.id === id); return { parts: h ? h[of] : [] }; }
+  if (m.kind === "incident" && (byCpu(m.inc.resource) ? "cpu" : "mem") === S.metric) { const h = m.inc.holders.find((x) => x.id === id); return { parts: h ? h.parts : [] }; }
+  const k = m.kind === "series" ? m.src : RANGE_KEYS.find((key) => m.t > R[key].t0), split = splitAt(k, m.t);
+  if (split === "asked") return { parts: [], asked: true };
+  const h = split && split.get(id);
+  return { parts: h ? h[of] : [] };
+}
+function partsFor(id, m) {
+  const total = tileValue(id, m, S.metric);
+  let parts = [], asked = false;
+  if (isFold(id)) {
+    const f = tilesFor(m, S.metric)[HOLD[id].region].find((t) => t.id === id);
+    for (const x of f ? f.members : []) {
+      if (!HOLD[x.id].group) { parts.push({ name: disp(x.id), full: HOLD[x.id].full, value: x.v, holder: x.id }); continue; }
+      const sub = holderParts(x.id, m);
+      asked = asked || !!sub.asked;
+      if (sub.parts.length) parts.push(...sub.parts); else parts.push({ name: disp(x.id), value: x.v });
+    }
+  } else ({ parts, asked = false } = holderParts(id, m));
+  /* key is what a part is, so its tile is found again when the numbers change: a holder, a process group by its
+     name, or one of the three rests. */
+  parts = parts.filter((p) => !nil(p.value, S.metric)).sort((a, b) => b.value - a.value).map((p) => ({ ...p, key: p.holder || `part:${p.name}` }));
+  const keep = isFold(id) ? 20 : 11;
+  if (parts.length > keep + 1) { const rest = parts.slice(keep); parts = [...parts.slice(0, keep), { key: "rest", name: `${rest.length} smaller ones`, value: sum(rest.map((p) => p.value)) }]; }
+  const left = total - sum(parts.map((p) => p.value));
+  if (parts.length && left > Math.max(0.05, total * 0.02)) parts.push({ key: "left", name: "everything smaller", value: left });
+  const split = parts.length > 0;
+  if (!split && !nil(total, S.metric)) parts = [{ key: "all", name: asked ? "reading the split" : "no recorded split", value: total }];
+  return { parts, asked, split, total };
+}
+function buildDive() {
+  const id = S.dive; dive.textContent = ""; D.sig = "";
+  dive.style.setProperty("--dc", `color-mix(in srgb,${paint(id)[0]} var(--tile-mix),var(--surface))`);
+  const head = el("div", "dhead"), crumb = el("div", "crumb"), back = el("button", "", HOST.name); back.type = "button"; back.addEventListener("click", closeDive);
+  const here = titled(el("span", "here"), id); here.append(swatch(id), disp(id));
+  crumb.append(back, el("span", "slash", "/"), here);
+  D.stat = el("div", "dstat");
+  const close = el("button", "btn"); close.type = "button"; close.append(`Back to ${HOST.name}`, el("kbd", "", "Esc")); close.addEventListener("click", closeDive);
+  head.append(crumb, D.stat, close);
+  D.note = el("p", "dnote"); D.box = el("div", "dtiles"); D.hist = el("div", "dhist");
+  D.hits = []; D.kept = new Map(); D.tiles = new Map(); D.none = el("p", "dnote");
+  tapThrough(D.box, () => D.hits, (id) => openDive(id));
+  dive.append(head, D.note, D.box, D.hist);
+  D.close = close;
+}
+/* A part's tile, made once and found again by the part's key. What it shows and says is read from the part as it
+   is now, so the tile stays the element it is while the numbers change, and keeps the focus. */
+function diveTile(p) {
+  let rec = D.tiles.get(p.key);
+  if (rec) return rec;
+  rec = { t: makeTile(p.holder || S.dive, D.box), p, total: 0 };
+  const n = rec.t.el, mem = () => S.metric === "mem";
+  const tipb = (box) => {
+    const th = el("div", "th"), g = el("div", "tg"); th.append(swatch(rec.p.holder || S.dive), rec.p.full || rec.p.name);
+    g.append(el("span", "", mem() ? "Memory" : "CPU"), el("span", "", `${rec.p.value.toFixed(2)} ${mem() ? "GB" : "cores"}`), el("span", "", `Of ${disp(S.dive)}`), el("span", "", pct(rec.p.value / rec.total * 100)));
+    box.append(th, g); if (rec.p.holder) box.append(el("div", "ta", "Click to see its processes."));
+  };
+  n.tabIndex = 0; n.dataset.part = p.key;
+  n.addEventListener("pointermove", (e) => { if (e.pointerType === "mouse") tipShow(tipb, e.clientX, e.clientY); });
+  n.addEventListener("pointerleave", tipHide);
+  n.addEventListener("focus", () => { if (n.matches(":focus-visible")) { const bb = n.getBoundingClientRect(); tipShow(tipb, bb.left + 20, bb.bottom - 6); } });
+  n.addEventListener("blur", tipHide);
+  if (p.holder) { n.style.cursor = "pointer"; n.setAttribute("role", "button"); n.addEventListener("click", () => openDive(p.holder)); n.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); openDive(p.holder); } }); }
+  D.tiles.set(p.key, rec);
+  return rec;
+}
+function renderDive(m) {
+  if (!S.dive) return;
+  const id = S.dive, mem = S.metric === "mem", unit = mem ? "GB" : "cores", fold = isFold(id);
+  D.stat.textContent = "";
+  if (m.kind === "gap") { D.stat.textContent = m.why || WORDS.noSamples; return; }
+  const { parts, asked, split, total } = partsFor(id, m), c = change(id, m);
+  /* A small holder is shown against all there is, so its size is not mistaken for much. */
+  D.stat.append(el("b", "", mem ? gb(total) : coresU(total)), ` of ${mem ? `${HOST.ramGB} GB of RAM` : `${HOST.cores} cores`}, ${pct(total / (mem ? HOST.ramGB : HOST.cores) * 100)}`);
+  if (c) D.stat.append(" · ", el("b", "", signed(c.d, unit)), ` ${c.label}`);
+  const how = asked ? "Reading its parts." : split ? "" : "No parts were recorded for it at this moment.";
+  txt(D.note, fold ? `${dot(noteOf(id))} A tile is one of them, and one the monitor follows on its own opens.${asked ? " Reading the smaller ones." : ""}`
+    : `${dot(noteOf(id))} This is ${whole(id)} alone: a tile is one of its process groups. ${how}`.trim());
+  const w = D.box.clientWidth, h = D.box.clientHeight;
+  const sig = `${w}x${h}|${S.metric}|${parts.map((p) => p.key + ":" + p.name + ":" + p.value.toFixed(2)).join(",")}`;
+  if (sig !== D.sig && w && h) {
+    D.sig = sig; D.keyed = []; D.hits = [];
+    const out = {}, nodes = [];
+    if (parts.length) partition(parts.map((p) => ({ id: p.key, v: p.value })), 0, 0, w + 2, h + 2, out, D.kept);
+    else { txt(D.none, `${upperFirst(disp(id))} holds nothing at this moment.`); nodes.push(D.none); }
+    for (const p of parts) {
+      const rec = diveTile(p), t = rec.t, r = out[p.key], b = place(t.el, r.x, r.y, r.x + r.w, r.y + r.h);
+      const val = mem ? gb(p.value) : `${p.value.toFixed(2)} cores`;
+      rec.p = p; rec.total = total; nodes.push(t.el);
+      if (p.full) t.el.title = p.full; else t.el.removeAttribute("title");
+      if (b && applyLabel(t, b.w, b.h, [p.name], val, pct(p.value / total * 100)) === "k") { D.keyed.push({ key: p.key, n: D.keyed.length + 1, paint: p.holder || id, name: p.name, full: p.full, val }); txt(t.tk, String(D.keyed.length)); }
+      if (p.holder && b) D.hits.push({ id: p.holder, ...b });
+    }
+    for (const key of [...D.tiles.keys()]) if (!parts.some((p) => p.key === key)) D.tiles.delete(key);
+    arrange(D.box, nodes);
+  }
+  drawKey((D.keyed || []).map((k) => ({ ...k, key: `dive:${k.key}`, opens: null })), null);
+  if (D.dot) {
+    const k = D.k, r = R[k], i = clamp(stepAt(r, m.t), 0, r.n - 1), v = D.src[i];
+    D.dot.style.display = v == null ? "none" : "";
+    if (v != null) { D.dot.setAttribute("cx", D.hx(i)); D.dot.setAttribute("cy", D.hy(clamp(m.kind === "incident" ? total : v, D.lo, D.hi))); }
+  }
+}
+function buildDiveHist() {
+  if (!S.dive || !D.hist) return;
+  const id = S.dive, k = S.range, r = R[k], n = r.n, src = seriesOf(id, S.metric, k), mem = S.metric === "mem";
+  D.hist.textContent = ""; D.dot = null;
+  const vals = src.filter((v) => v != null);
+  if (vals.length < 2) { D.hist.append(el("div", "cap", `Not enough samples across ${r.label} to draw its history yet.`)); return; }
+  const max = Math.max(...vals), min = Math.min(...vals), imax = src.indexOf(max), i0 = first[k], fmt = (v) => (mem ? gb(v) : coresU(v));
+  /* The line stands on zero, so a wobble of a holder that is steady does not look like a climb. */
+  const lo = 0, hi = Math.max(max * 1.12, mem ? 0.4 : 0.2);
+  const cap = el("div", "cap");
+  cap.append(el("span", "", `Across ${r.label}`), el("span", "", `${f1(min)} to ${fmt(max)}, highest ${imax === n - 1 ? "now" : tFull(endOf(r, imax))}`));
+  const W = D.hist.clientWidth || 600, Hh = 66, XL = 52;
+  const svg = sv("svg", { viewBox: `0 0 ${W} ${Hh}`, preserveAspectRatio: "none" });
+  const x = (i) => XL + (i - i0) / Math.max(1, n - 1 - i0) * (W - XL - 8), y = (v) => Hh - 8 - (v - lo) / (hi - lo) * (Hh - 16);
+  for (const v of [lo, hi]) { svg.append(sv("line", { x1: XL, x2: W - 8, y1: y(v), y2: y(v), stroke: "var(--hair)", "stroke-width": 1 })); const t = sv("text", { x: XL - 6, y: y(v) + 3.5, "text-anchor": "end" }); t.textContent = v ? fmt(v) : "0"; svg.append(t); }
+  let d = "", open = false;
+  for (let i = 0; i < n; i++) { if (src[i] != null) { d += `${open ? "L" : "M"}${x(i).toFixed(1)} ${y(src[i]).toFixed(1)}`; open = true; } else open = false; }
+  svg.append(sv("path", { d, fill: "none", stroke: paint(id)[0], "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }));
+  const cross = sv("line", { y1: 2, y2: Hh - 6, stroke: "var(--ink-3)", "stroke-width": 1, visibility: "hidden" });
+  svg.append(cross);
+  D.dot = sv("circle", { r: 4.5, fill: paint(id)[0], stroke: "var(--surface)", "stroke-width": 2 });
+  svg.append(D.dot);
+  D.hx = x; D.hy = y; D.lo = lo; D.hi = hi; D.src = src; D.k = k;
+  const at = (cx) => { const b = svg.getBoundingClientRect(); return clamp(i0 + Math.round((cx - b.left - XL) / (b.width - XL - 8) * (n - 1 - i0)), i0, n - 1); };
+  svg.addEventListener("pointermove", (e) => {
+    if (e.pointerType !== "mouse") return;
+    const i = at(e.clientX), v = src[i];
+    cross.setAttribute("x1", x(i)); cross.setAttribute("x2", x(i)); cross.setAttribute("visibility", "visible");
+    tipShow((nn) => { const th = el("div", "th"); th.append(swatch(id), disp(id)); nn.append(th, el("div", "tm", i === n - 1 ? "Now" : tFull(endOf(r, i)))); const g = el("div", "tg"); g.append(el("span", "", mem ? "Memory" : "CPU"), el("span", "", v == null ? "no samples" : mem ? `${v.toFixed(2)} GB` : `${v.toFixed(2)} cores`)); nn.append(g); }, e.clientX, e.clientY);
+  });
+  svg.addEventListener("pointerleave", () => { cross.setAttribute("visibility", "hidden"); tipHide(); });
+  svg.addEventListener("click", (e) => { stopPlay(); const i = at(e.clientX); if (k === "quarter") jumpTo(endOf(r, i), null, "quarter"); else setPos(i); });
+  D.hist.append(cap, svg);
+}
+function tileBox(id) {
+  const b = shown[id], sw = mapwrap.clientWidth, sh = mapwrap.clientHeight;
+  if (!b) return `translate(${stage.offsetLeft + 3}px,${sh - 6}px) scale(0.02,0.01)`;
+  return `translate(${b.x + stage.offsetLeft}px,${b.y}px) scale(${b.w / sw},${b.h / sh})`;
+}
+function openDive(id) {
+  tipHide();
+  S.dive = id; dive.hidden = false; mapwrap.classList.add("dived"); mapwrap.classList.remove("tabled"); buildDive();
+  if (!reduced) {
+    dive.style.transition = "none"; dive.style.transform = tileBox(id); dive.classList.add("opening");
+    dive.getBoundingClientRect();
+    dive.style.transition = ""; dive.style.transform = "";
+    setTimeout(() => dive.classList.remove("opening"), 180);
+  }
+  buildTimeline(); buildDiveHist(); render(true);
+  D.close.focus({ preventScroll: true });
+}
+function closeDive() {
+  if (!S.dive) return false;
+  const id = S.dive; S.dive = null; keySig = ""; tipHide(); mapwrap.classList.remove("dived");
+  const done = () => { dive.hidden = true; dive.style.transform = ""; dive.classList.remove("opening"); };
+  if (reduced) done(); else { dive.classList.add("opening"); dive.style.transform = tileBox(id); setTimeout(done, 270); }
+  buildTimeline(); render(true);
+  if (shown[id] && tiles[id]) tiles[id].el.focus({ preventScroll: true });
+  return true;
+}
+closers.push(closeDive);
+
+function miniBar(inc) {
+  const cpu = byCpu(inc.resource), cap = cpu ? HOST.cores : HOST.ramGB, top = cap * (HOST.ramGB + ZONE) / HOST.ramGB, box = el("span", "mini");
+  const vals = Object.fromEntries(inc.holders.map((h) => [h.id, cpu ? h.cpu : h.mem]));
+  let acc = 0;
+  for (const L of LAYERS) { const v = layerValue(L, vals); if (v <= 0) continue; const s = tint(el("i"), L.paint); s.style.left = acc / top * 100 + "%"; s.style.width = `max(0px, calc(${v / top * 100}% - 1px))`; box.append(s); acc += v; }
+  const c = el("span", "cap"); c.style.left = (cpu ? LIM.cpuCapped : cap) / top * 100 + "%"; box.append(c);
+  return box;
+}
+const goMark = () => { const g = ico("go"); g.className = "go"; return g; };
+/* How long the monitor has recorded, gaps left out, for the sentences that say why a list is still empty. */
+const recordedFor = () => span(sum(DATA.days.map((d) => Math.max(0, Math.min(d.t + 864e5, NOW.t) - d.t - d.gapMinutes * 6e4))));
+let worstEls = [];
+function buildWorst() {
+  const box = $("#worst"), list = DATA.incidents.filter((x) => x.severity === 2).sort((a, b) => b.peak - a.peak), FIRST = 6;
+  box.textContent = ""; worstEls = [];
+  $("#worst-lede").textContent = list.length ? `Every time ${HOST.name} was capped. One opens on the map.` : "";
+  if (!list.length) { const n = el("div", "none"); n.append(el("b", "", "None yet."), `${HOST.name} was not capped in the ${recordedFor()} recorded.`); box.append(n); return; }
+  list.forEach((inc, i) => {
+    const b = el("button", "wm"); b.type = "button"; b.setAttribute("aria-pressed", "false"); b.hidden = i >= FIRST; b.dataset.inc = inc.id;
+    const d = el("span", "d", tDay(inc.peak)); d.append(el("small", "", tHM(inc.peak)));
+    const main = el("span"), x = el("span", "x");
+    const read = byCpu(inc.resource) ? (inc.host.busy == null ? "" : `${f1(inc.host.busy)} of ${HOST.cores} cores`) : `${gb(inc.host.held)} held${inc.host.pressure == null ? "" : `, pressure ${pct(inc.host.pressure)}`}`;
+    x.append(miniBar(inc), el("span", "", read), el("span", "", `capped for ${mins(inc.cappedMinutes)}`));
+    main.append(el("span", "h", dot(inc.headline)), x);
+    b.append(d, main, goMark());
+    b.setAttribute("aria-label", `Show ${tFull(inc.peak)} on the map. ${inc.headline}`);
+    b.addEventListener("click", () => { jumpIncident(inc); toMap(); });
+    box.append(b); worstEls.push([inc.id, b]);
+  });
+  if (list.length > FIRST) {
+    const more = el("button", "btn more", `Show all ${list.length} worst moments`); more.type = "button";
+    more.addEventListener("click", () => { worstEls.forEach(([, b]) => (b.hidden = false)); more.remove(); });
+    box.append(more);
+  }
+}
+function evidence(p) {
+  const ev = p.evidence, W = 300, Hh = 40, col = p.holder ? paint(p.holder)[0] : "var(--ink-2)";
+  if (ev.type === "count") {
+    const wrapEl = el("div"), bar = el("div", "segbar"), lab = el("div", "seglab"), tot = sum(ev.values);
+    ev.values.forEach((v, i) => {
+      const k = el("i"); k.style.cssText = `width:8px;height:8px;border-radius:2px;background:${i ? "var(--sunken)" : "var(--ink-2)"};border:1px solid var(--axis)`;
+      const l = el("span", "key"); l.append(k, `${ev.labels[i]}: ${v}`); lab.append(l);
+      if (!v) return;
+      const s = el("div", "", String(v)); s.style.flex = `${v} 0 0`; s.style.background = i ? "var(--sunken)" : "var(--ink-2)"; s.style.color = i ? "var(--ink)" : "var(--surface)"; s.tabIndex = 0;
+      s.dataset.tip = `${upperFirst(ev.labels[i])}\n${v} of ${tot} ${ev.unit}`; bar.append(s);
+    });
+    wrapEl.append(bar, lab); return wrapEl;
+  }
+  const svg = sv("svg", { width: W, height: Hh + 16, viewBox: `0 0 ${W} ${Hh + 16}`, role: "img" });
+  const n = ev.values.length, PW = ev.threshold != null && ev.type !== "runs" ? W - 50 : W, max = Math.max(...ev.values, ev.threshold || 0) * 1.08;
+  const free = ev.unit === "GB free", base = free ? Math.min(...ev.values, ev.threshold) * 0.7 : 0;
+  const y = (v) => Hh - Math.max(0, v - base) / (max - base) * Hh, slot = PW / n;
+  const hit = (i, text) => { const r = sv("rect", { x: i * slot, y: 0, width: slot, height: Hh, fill: "transparent", tabindex: 0 }); r.dataset.tip = text; svg.append(r); };
+  if (free) {
+    const x = (i) => slot * (i + 0.5);
+    svg.append(sv("path", { d: ev.values.map((v, i) => `${i ? "L" : "M"}${x(i).toFixed(1)} ${y(v).toFixed(1)}`).join(""), fill: "none", stroke: col, "stroke-width": 2, "stroke-linejoin": "round", "stroke-linecap": "round" }));
+    svg.append(sv("circle", { cx: x(n - 1), cy: y(ev.values[n - 1]), r: 4, fill: col, stroke: "var(--page)", "stroke-width": 2 }));
+    ev.values.forEach((v, i) => hit(i, `${tDay(ev.t[i])}\n${v} GB free`));
+  } else {
+    ev.values.forEach((v, i) => {
+      const hot = ev.threshold == null || v >= ev.threshold;
+      const h = Math.max(v > 0 ? 2 : 1, Hh - y(Math.max(0, v))), bw = Math.max(2, Math.min(24, slot - 2)), rr = Math.min(2, h / 2, bw / 2);
+      svg.append(sv("path", { d: `M${i * slot + (slot - bw) / 2} ${Hh}v${-(h - rr)}q0 ${-rr} ${rr} ${-rr}h${bw - 2 * rr}q${rr} 0 ${rr} ${rr}v${h - rr}z`, fill: hot ? (ev.type === "days" ? col : "var(--ink-2)") : "var(--axis)" }));
+      hit(i, ev.type === "hours" ? `${p2(i)}:00 to ${p2(i + 1)}:00\n${v} ${ev.unit}` : ev.type === "runs" ? `Full suite, ${tFull(ev.t[i])}\nSwap ${signed(v, "GB")}` : `${tDay(ev.t[i])}\n${v} ${ev.unit}`);
+    });
+  }
+  if (ev.threshold != null && ev.type !== "runs") {
+    svg.append(sv("line", { x1: 0, x2: PW + 4, y1: y(ev.threshold), y2: y(ev.threshold), stroke: "var(--ink-2)", "stroke-width": 1 }));
+    const t = sv("text", { x: PW + 8, y: y(ev.threshold) + 3.5 }); t.textContent = `${ev.threshold} GB`; svg.append(t);
+  }
+  svg.append(sv("line", { x1: 0, x2: PW, y1: Hh + 0.5, y2: Hh + 0.5, stroke: "var(--axis)", "stroke-width": 1 }));
+  const lab = (xx, text, anchor) => { const t = sv("text", { x: xx, y: Hh + 13, "text-anchor": anchor || "start" }); t.textContent = text; svg.append(t); };
+  if (ev.type === "hours") [0, 6, 12, 18].forEach((hh) => lab(hh * slot, `${p2(hh)}:00`));
+  else if (ev.t) { lab(0, tDM(ev.t[0])); lab(PW, ev.type === "runs" ? `${tDM(ev.t[n - 1])}, each bar is one suite` : tDM(ev.t[n - 1]), "end"); }
+  return svg;
+}
+function buildPatterns() {
+  const box = $("#pats");
+  box.textContent = "";
+  $("#pats-lede").textContent = DATA.patterns.length ? "What keeps coming back, with the count behind it." : "";
+  if (!DATA.patterns.length) { const n = el("div", "none"); n.style.gridColumn = "1/-1"; n.append(el("b", "", "None yet."), `A pattern needs days of history. So far there is ${recordedFor()}.`); box.append(n); return; }
+  for (const p of DATA.patterns) {
+    const c = el("div", "pat"), h = el("h3");
+    if (p.holder) h.append(swatch(p.holder));
+    h.append(el("span", "", p.title)); c.append(h, el("p", "", p.detail), evidence(p));
+    if (p.jump != null) {
+      const b = el("button", "patgo"); b.type = "button"; b.dataset.pat = p.id;
+      b.append(el("span", "", `Show ${tFull(p.jump)} on the map`), goMark());
+      b.addEventListener("click", () => { setMetric(metricOf(p.resource), true); jumpTo(p.jump, null); toMap(); });
+      c.append(b);
+    }
+    box.append(c);
+  }
+}
+
+let calEls = [];
+function buildCalendar() {
+  $("#calgrid").textContent = ""; $("#calfoot").textContent = ""; calEls = [];
+  const grid = $("#calgrid"), lead = (new Date(CAL[0].t).getDay() + 6) % 7, known = CAL.filter((c, i) => dayKnown(i)).length;
+  $("#calhead").textContent = known === CAL.length ? "90 days, one square a day" : `90 days, ${known} recorded so far`;
+  ["", "Mon", "", "Wed", "", "Fri", "", "Sun"].forEach((w) => grid.append(el("span", "wd", w)));
+  const cols = Math.ceil((lead + CAL.length) / 7);
+  let lastMonth = -1;
+  for (let col = 0; col < cols; col++) {
+    const firstDay = CAL[clamp(col * 7 - lead, 0, CAL.length - 1)], lastDay = CAL[clamp(col * 7 - lead + 6, 0, CAL.length - 1)];
+    const mo = new Date(lastDay.t).getMonth(), label = el("span", "mo", mo !== lastMonth && (new Date(firstDay.t).getDate() <= 7 || lastMonth < 0) ? MON[mo] : "");
+    if (label.textContent) lastMonth = mo;
+    grid.append(label);
+    for (let row = 0; row < 7; row++) {
+      const i = col * 7 + row - lead, c = CAL[i];
+      if (!c) { grid.append(el("span")); continue; }
+      const d = c.day, ok = dayKnown(i), b = el("button", "cd"); b.type = "button"; b.dataset.s = ok ? d.state : "n"; b.dataset.day = String(c.t);
+      b.append(el("span", "dn", new Date(c.t).getDate() === 1 ? tDM(c.t) : String(new Date(c.t).getDate())));
+      if (i === CAL.length - 1) b.classList.add("today");
+      b.setAttribute("aria-pressed", "false"); b.setAttribute("aria-label", `${tDay(c.t)}: ${ok ? STATE[d.state] : "not recorded"}`);
+      if (!ok) { b.setAttribute("aria-disabled", "true"); b.dataset.tip = `${tDay(c.t)}\nNot recorded yet`; }
+      else b.dataset.tip = [`${tDay(c.t)}${d.partial ? ", so far" : ""}`, STATE[d.state], `Capped for ${mins(d.cappedMinutes)}, close for ${mins(d.tightMinutes)}`, `Held up to ${f1(d.heldMax)} GB`].join("\n");
+      /* On a phone the map is above the calendar and out of sight, so the day's moment is brought into view. */
+      b.addEventListener("click", () => { if (!ok) return; stopPlay(); const m = dayMoment(i); if (m.kind === "incident") setMetric(metricOf(m.inc.resource), true); S.pos = i; S.pin = S.at = null; S.picked = true; render(true); if (phone.matches) toMap(); });
+      grid.append(b); calEls.push([i, b]);
+    }
+  }
+  const foot = $("#calfoot");
+  const k = (s, label, tipText) => { const w = el("span", "key"), c = el("i", "cd"); c.dataset.s = s; w.append(c, label); if (tipText) w.dataset.tip = tipText; foot.append(w); };
+  WORDS.states.forEach((s) => k(s.state, s.label, `${s.label}\n${s.meaning}`));
+  k("n", "Not recorded");
+  foot.append(el("span", "", "The dot is today. A day opens its worst moment on the map."));
+}
+function renderDay() {
+  if (S.range !== "quarter") return;
+  const i = Math.round(S.pos), c = CAL[i], d = c.day, box = $("#daybox"), m = cur.text;
+  for (const [j, b] of calEls) b.setAttribute("aria-pressed", String(j === i));
+  box.textContent = "";
+  const head = el("div", "dayhead"), s = el("div", "s");
+  head.append(el("div", "d", `${tDay(c.t)}${d && d.partial ? ", so far" : ""}`));
+  if (!dayKnown(i)) { s.append(ico("gap", 14), el("b", "", "Not recorded")); head.append(s, el("p", "", "The monitor has no samples for this day.")); box.append(head); return; }
+  s.append(ico(d.state, 14), el("b", "", STATE[d.state]));
+  if (d.state && m.kind !== "gap" && m.limiter) { const by = el("span", "by"); by.append(ico(m.limiter), `by ${LIMWORD[m.limiter]}`); s.append(by); }
+  head.append(s, el("p", "", (m.kind === "gap" ? "No samples at this day's worst moment." : m.kind === "now" ? (S.picked ? "Today's worst moment is now." : "The map shows now. Pick a day to see its worst moment.") : `The map shows ${tHM(m.t)}, ${S.picked ? "the worst moment of this day" : "the moment you came from"}.`) + (d.gapMinutes ? ` No samples for ${mins(d.gapMinutes)} of this day.` : "")));
+  const figs = el("div", "figs"), fig = (label, value, small, wide) => { const f = el("div", wide ? "fig wide" : "fig"), v = el("div", "v", value); if (small) v.append(el("small", "", small)); f.append(el("div", "l", label), v); figs.append(f); };
+  fig("Capped for", mins(d.cappedMinutes)); fig("Close for", mins(d.tightMinutes));
+  if (d.pressureMax != null) fig("Memory left", `${100 - d.pressureMax}%`, "at the least");
+  fig("Memory peak", `${gb(d.heldMax)} held`, `(${HOST.ramGB} GB RAM)`, true);
+  fig("Swap up to", f1(d.swapMax), `of ${HOST.swapTotalGB} GB`);
+  /* One reading of ten seconds, which the limits never go by: they count a whole minute. */
+  if (d.busyMax != null) fig("CPU peak", f1(d.busyMax), `of ${HOST.cores}, for 10 s`);
+  if (d.diskFree != null) fig("Least disk free", String(Math.round(d.diskFree)), "GB");
+  fig("Full suites", String(d.runs));
+  /* Who held the most at the day's worst moment comes first: the one behind a cap is seldom the one that held the
+     most on average. Both lists are the server's (a day's worst and its top). */
+  const tops = el("div", "tops"), worst = d.worst && d.worst.top.length ? d.worst : null;
+  const list = (title, rows) => {
+    tops.append(el("h4", "", title));
+    const max = Math.max(...rows.map((t) => t.mem), 1);
+    for (const t of rows) {
+      const row = el("div", "toprow"), nm = el("span", "nm"); nm.append(swatch(HOLD[t.id] ? t.id : null), el("span", "", t.name));
+      const bar = tint(el("i", "bar"), HOLD[t.id] ? t.id : null); bar.style.width = t.mem / max * 100 + "%";
+      row.append(nm, el("span", "num", gb(t.mem)), bar); tops.append(row);
+    }
+  };
+  if (worst) list(`Held the most at its worst, ${tHM(worst.t)}`, worst.top);
+  if (d.top.length) list("Held the most on average", d.top);
+  box.append(head, figs, tops);
+}
+
+const tip = $("#tip");
+/* floor is the lowest the readout may reach, for one that must not cover what is under its panel. */
+function tipShow(build, x, y, floor) {
+  tip.textContent = ""; build(tip); tip.hidden = false;
+  const r = tip.getBoundingClientRect();
+  let L = x + 14, T = y + 16;
+  if (L + r.width > innerWidth - 8) L = x - r.width - 14;
+  if (T + r.height > Math.min(innerHeight - 8, floor ?? Infinity)) T = y - r.height - 14;
+  tip.style.transform = `translate(${Math.max(8, L)}px,${Math.max(8, T)}px)`;
+}
+function tipHide() { tip.hidden = true; }
+const plain = (text) => (n) => { const lines = text.split("\n"); n.append(el("div", "th", lines[0])); if (lines.length > 1) { const p = el("pre", "tm", lines.slice(1).join("\n")); n.append(p); } };
+let lastTipEl = null;
+document.addEventListener("pointermove", (e) => { const t = e.target.closest && e.target.closest("[data-tip]"); if (t && e.pointerType === "mouse") tipShow(plain(t.dataset.tip), e.clientX, e.clientY); else if (lastTipEl && !t) tipHide(); lastTipEl = t; });
+document.addEventListener("focusin", (e) => { const t = e.target.closest && e.target.closest("[data-tip]"); if (t && t.matches(":focus-visible")) { const b = t.getBoundingClientRect(); tipShow(plain(t.dataset.tip), b.left, b.bottom); } });
+document.addEventListener("focusout", (e) => { if (e.target.closest && e.target.closest("[data-tip]")) tipHide(); });
+
+let cur = null, lastKey = "", lastVH = 0;
+const verdictEl = $(".verdict");
+function render(force) {
+  cur = frame();
+  const m = cur.text, key = `${S.range}:${Math.round(S.pos)}:${S.pin || ""}:${S.at || ""}:${S.metric}:${S.view}:${S.dive || ""}`, fresh = key !== lastKey || force;
+  if (fresh) computeDeltas(m);
+  renderMap(cur); renderInst(cur); renderPlayhead(cur);
+  if (!fresh) return;
+  lastKey = key;
+  renderVerdict(m); renderTable(m); renderDive(m); renderDay();
+  mapkey.style.visibility = S.view === "table" && !S.dive ? "hidden" : "";
+  const vh = verdictEl.offsetHeight;
+  if (lastVH && vh !== lastVH && scrollY > verdictEl.offsetTop + 40) scrollBy({ top: vh - lastVH, behavior: "instant" });
+  lastVH = vh;
+  for (const { L, v } of legendEls) {
+    const val = m.kind === "gap" ? null : L.fold ? tileValue(L.fold, m, S.metric) : Math.max(0, layerValue(L, m[S.metric]) - (L.minus ? tileValue(L.minus, m, S.metric) : 0));
+    txt(v, val == null ? "" : S.metric === "mem" ? gb(val) : coresU(val));
+  }
+  const incId = m.kind === "incident" ? m.inc.id : null;
+  for (const [id, b] of worstEls) b.setAttribute("aria-pressed", String(id === incId));
+  for (const id in tiles) if (shown[id] && current[id]) tiles[id].el.setAttribute("aria-label", `${disp(id)}, ${S.metric === "mem" ? gb(current[id].v) : coresU(current[id].v)}. Open it.`);
+}
+
+function setMetric(metric, quiet) {
+  if (metric === S.metric) return;
+  S.metric = metric;
+  for (const o of document.querySelectorAll("[data-metric]")) o.setAttribute("aria-pressed", String(o.dataset.metric === metric));
+  buildRuler(); buildTimeline(); buildDiveHist(); buildInfo();
+  if (!quiet) render(true);
+}
+for (const b of document.querySelectorAll("[data-metric]")) b.addEventListener("click", () => setMetric(b.dataset.metric));
+for (const b of document.querySelectorAll("[data-view]")) b.addEventListener("click", () => {
+  S.view = b.dataset.view;
+  for (const o of document.querySelectorAll("[data-view]")) o.setAttribute("aria-pressed", String(o === b));
+  render(true);
+});
+document.addEventListener("keydown", (e) => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === "Escape") { for (let i = closers.length - 1; i >= 0; i--) if (closers[i]()) { e.preventDefault(); return; } }
+  else if (e.key === "ArrowLeft" || e.key === "ArrowRight") { e.preventDefault(); stepBy((e.key === "ArrowLeft" ? -1 : 1) * (e.shiftKey && S.range !== "quarter" ? 10 : 1)); }
+  /* Space plays only from the strip. On a button or a tile it presses that, as it does on every page. */
+  else if (e.key === " " && e.target === plot) { e.preventDefault(); if (S.playing) stopPlay(); else startPlay(); }
+  else if (e.key === "Home") { e.preventDefault(); stopPlay(); setPos(first[S.range]); }
+  else if (e.key === "End") { e.preventDefault(); goNow(); }
+});
+
+function relayout() { measureStage(); buildTimeline(); buildDiveHist(); D.sig = ""; keySig = ""; render(true); }
+
+/* Everything the page works out from an answer. Says whether the holders changed. */
+function derive() {
+  HOST = DATA.host; LIM = DATA.limits; NOW = DATA.now; WORDS = DATA.words;
+  STATE = WORDS.states.map((s) => s.label);
+  LIMWORD = Object.fromEntries(WORDS.limiters.map((l) => [l.id, l.label]));
+  LEVEL = WORDS.levels; THERMAL = WORDS.thermal;
+  FOLD_AT = { mem: DATA.tiles.memGB, cpu: DATA.tiles.cores };
+  /* The newest answer's holders come first, for the order, and last, because its colours are the newest. */
+  for (const list of [DATA.nowHolders, ...RANGE_KEYS.map((k) => R[k].holders), DATA.incidentHolders, DATA.patternHolders, DATA.nowHolders]) learn(list);
+  const holders = deriveHolders();
+  seriesMemo.clear(); cache.clear(); dayCache.clear();
+  INC = Object.fromEntries(DATA.incidents.map((x) => [x.id, x]));
+  for (const k of RANGE_KEYS) {
+    const r = R[k], i = r.host.held.findIndex((v) => v != null);
+    first[k] = i < 0 ? r.n - 1 : i;
+    const a = (peakAt[k] = {});
+    for (const inc of DATA.incidents) {
+      const j = stepAt(r, inc.peak);
+      if (j >= 0 && j < r.n && (!a[j] || a[j].score < inc.score)) a[j] = inc;
+    }
+  }
+  nowMoment = momentOfNow();
+  if (!lastVals) lastVals = nowMoment;
+  CAL = calendar();
+  first.quarter = Math.max(0, CAL.findIndex((c, i) => dayKnown(i)));
+  const all = (name) => RANGE_KEYS.flatMap((k) => R[k].host[name].filter((v) => v != null));
+  /* The band above the RAM line holds the highest spill there is to show, and the caption over it. */
+  ZONE = Math.max(6, Math.ceil(Math.max(HOST.ramGB, NOW.held, ...all("heldMax"), ...DATA.incidents.map((x) => x.host.held)) - HOST.ramGB + 6));
+  STORED_MAX = Math.max(HOST.ramGB, NOW.stored, ...all("stored"), ...DATA.incidents.map((x) => x.host.stored));
+  LAYERS = layerDefs(null);
+  return holders;
+}
+
+/* Built once, from the machine and its limits, when the first whole answer is in. */
+function mount() {
+  $("#hostname").textContent = HOST.name;
+  document.title = `${HOST.name} resource map`;
+  buildInfo();
+  $("#stale-i").append(ico(1, 15));
+  buildGutter(); buildGauges(); buildGaugeTips(); buildRanges();
+  S.range = hasData("day") >= R.day.n / 2 ? "day" : "hour";
+  $("#time").dataset.range = S.range;
+  for (const b of $("#ranges").children) b.setAttribute("aria-pressed", String(b.dataset.range === S.range));
+  paintTransport();
+}
+
+/* Live. The page asks for the newest sample with every tick and for each longer part no more often than the server
+   makes it anew (src/server/routes/monitor.ts), and only while it is in front: hidden, it has no timer and asks
+   nothing. An answer changes the data and what is drawn from it, never the page around it. */
+const PARTS = [
+  { key: "now", path: "now", every: 10e3 },
+  { key: "hour", path: "range?key=hour", every: 10e3 },
+  { key: "day", path: "range?key=day", every: 60e3 },
+  { key: "week", path: "range?key=week", every: 300e3 },
+  { key: "quarter", path: "range?key=quarter", every: 900e3 },
+  { key: "days", path: "days", every: 300e3 },
+  { key: "incidents", path: "incidents", every: 60e3 },
+  { key: "patterns", path: "patterns", every: 900e3 },
+  { key: "events", path: "events?hours=168", every: 60e3 },
+  { key: "growers", path: "growers", every: 900e3 },
+];
+const takeRange = (d) => { R[d.key] = d; };
+const TAKE = {
+  now(d) { DATA.host = d.host; DATA.began = d.began; DATA.limits = d.limits; DATA.tiles = d.tiles; DATA.tickSeconds = d.tickSeconds; DATA.words = d.words; DATA.self = d.self; DATA.now = d.now; DATA.nowHolders = d.holders; },
+  hour: takeRange, day: takeRange, week: takeRange, quarter: takeRange,
+  days(d) { DATA.days = d; },
+  incidents(d) { DATA.incidentHolders = d.holders; DATA.incidents = d.incidents; },
+  patterns(d) { DATA.patternHolders = d.holders; DATA.patterns = d.patterns; },
+  events(d) { DATA.events = d; },
+  growers(d) { DATA.growers = d; },
+};
+
+const GATES = {
+  loading: ["Loading", "Reading the monitor.", "Asking the server for the newest sample and what it has recorded."],
+  off: ["Off", "The monitor is off on this server.", "It runs on macOS where the server was started with HUD_MONITOR=1, as the plugin starts it. A service that an earlier version of the plugin installed starts without it until the plugin's restart action has written the service again. Nothing is being recorded, so there is nothing to draw. The page asks again every 10 seconds."],
+  waiting: ["Starting", "The monitor is taking its first sample.", "It takes one every 10 seconds. The page fills in by itself when the first one is there."],
+  lost: ["No answer", "The server is not answering.", "The page could not reach it, and asks again every 10 seconds."],
+};
+/* why is the server's own sentence for a monitor that should be on and is not: it is shown in place of the page's. */
+function gate(kind, why) {
+  const [pill, headline, sentence] = GATES[kind];
+  LIVE.ready = false;
+  $("#app").classList.remove("ready"); $("#stale").hidden = true;
+  sigged($("#gate-pill"), pill, (n) => n.append(ico("gap"), pill));
+  txt($("#gate-h"), headline); txt($("#gate-p"), why ? `${why} The page asks again every 10 seconds.` : sentence);
+}
+
+function apply(changed) {
+  LIVE.waiting = null;
+  const boot = !LIVE.ready;
+  const follow = boot || (S.pin == null && S.at == null && !S.picked && (S.range === "quarter" || Math.round(S.pos) >= nOf(S.range) - 1));
+  const keepT = follow ? null : S.range === "quarter" ? CAL[Math.round(S.pos)].t : R[S.range].t0 + S.pos * R[S.range].step;
+  const zone = ZONE;
+  for (const key of changed) TAKE[key](LIVE.parsed[key]);
+  const holders = derive();
+  if (!LIVE.mounted) { mount(); LIVE.mounted = true; }
+  if (S.pin && !INC[S.pin]) S.pin = null;
+  if (follow) S.pos = nOf(S.range) - 1;
+  else if (S.range === "quarter") S.pos = dayIndex(keepT);
+  else { const r = R[S.range], p = clamp((keepT - r.t0) / r.step, first[S.range], r.n - 1); S.pos = S.playing ? p : Math.round(p); }
+  if (holders) { for (const id in tiles) { tint(tiles[id].el, id); tiles[id].sig = ""; } buildSegs(); keySig = ""; }
+  /* The two lists say how long the monitor has recorded while they are empty, so they follow the days too. */
+  if (boot || changed.has("incidents") || changed.has("days")) refocus($("#worst"), "inc", buildWorst);
+  if (boot || changed.has("patterns") || changed.has("days")) refocus($("#pats"), "pat", buildPatterns);
+  if (boot || changed.has("days")) refocus($("#calgrid"), "day", buildCalendar);
+  if (boot || changed.has("growers")) buildGrowers();
+  const self = DATA.self, cost = self.cpuPercentOfOneCore == null ? `${self.memMB} MB` : `${self.cpuPercentOfOneCore}% of one core and ${self.memMB} MB`;
+  txt($("#meta-self"), `This monitor costs ${cost}.`);
+  txt($("#prov"), `Recorded on ${HOST.name}, one sample every ${DATA.tickSeconds} s. The monitor costs ${cost} of memory, and its database holds ${self.dbMB} of ${self.dbLimitMB} MB.`);
+  LIVE.stale = isStale();
+  if (boot) { LIVE.ready = true; $("#app").classList.add("ready"); relayout(); return; }
+  if (ZONE !== zone) measureStage();
+  if (holders || changed.has(S.range) || changed.has("events") || changed.has("incidents")) buildTimeline();
+  if (holders || changed.has(S.range)) buildDiveHist();
+  render(true);
+}
+
+/* A sample's age is counted on the server's clock: the answer says what time it was there. */
+const ageOfNewest = () => Math.max(0, Date.now() - LIVE.offset - NOW.t);
+const isStale = () => LIVE.lost || ageOfNewest() > 3.5 * DATA.tickSeconds * 1000;
+function paintAge() {
+  if (!LIVE.ready || !cur) return;
+  const age = ageOfNewest(), m = cur.text;
+  txt($("#meta-live"), LIVE.lost ? `No answer from the server since ${tHMS(LIVE.answered)}.` : `Live. The newest sample is ${span(age)} old.`);
+  txt($("#whenago"), m.kind === "now" ? `${tFull(NOW.t)} · sampled ${span(age)} ago` : `${span(NOW.t - m.t)} before ${LIVE.stale ? "the last sample" : "now"}`);
+  const viewing = $("#viewing");
+  viewing.hidden = m.kind === "now";
+  if (m.kind !== "now") txt(viewing, fillWords(WORDS.viewing, { when: sameDay(m.t, NOW.t) ? tHM(m.t) : tFull(m.t), ago: span(Math.max(0, NOW.t - m.t)) }));
+  $("#stale").hidden = !LIVE.stale;
+  if (LIVE.stale) txt($("#stale-t"), LIVE.lost
+    ? `The server has not answered since ${tHMS(LIVE.answered)}. What you see is the last sample it gave, ${span(age)} old. The page keeps asking.`
+    : `The newest sample is ${span(age)} old. The server answers, but the monitor has recorded nothing since ${tHMS(NOW.t)}.`);
+}
+function everySecond() {
+  if (!LIVE.ready) return;
+  if (isStale() !== LIVE.stale) { LIVE.stale = !LIVE.stale; render(true); } else paintAge();
+}
+
+/* One round: the newest sample first, and the longer parts only when there is one and they are due. */
+async function cycle() {
+  /* Hidden, the page asks nothing, but for its first picture: a tab opened in the background shows the machine the
+     moment it comes to the front, and not a page that is still reading. */
+  if (LIVE.busy || (document.hidden && LIVE.ready)) return;
+  LIVE.busy = true;
+  const get = (p) => fetch(`/api/monitor/page/${p.path}`, { cache: "no-store", signal: AbortSignal.timeout(8000) }).then((res) => (res.ok ? res.text() : null)).catch(() => null);
+  const parse = (text) => { try { return text == null ? null : JSON.parse(text); } catch (e) { return null; } };
+  const at = Date.now(), [newest, ...longer] = PARTS;
+  const said = await get(newest), head = parse(said);
+  if (!head) { LIVE.lost = true; if (LIVE.ready) everySecond(); else gate("lost"); }
+  else {
+    LIVE.lost = false; LIVE.answered = Date.now();
+    if (head.on === false || head.waiting) gate(head.waiting ? "waiting" : "off", head.failed);
+    else {
+      LIVE.offset = Date.now() - head.asOf;
+      LIVE.parsed.now = head;
+      const changed = new Set([...(LIVE.waiting || []), "now"]);
+      const due = longer.filter((p) => !(LIVE.asked[p.key] > at - p.every + 2000)), got = await Promise.all(due.map(get));
+      due.forEach((p, i) => {
+        const d = got[i] === LIVE.raw[p.key] ? null : parse(got[i]);
+        if (got[i] != null) LIVE.asked[p.key] = at;
+        if (d && d.on !== false) { LIVE.raw[p.key] = got[i]; LIVE.parsed[p.key] = d; changed.add(p.key); }
+      });
+      if (PARTS.every((p) => LIVE.parsed[p.key])) { if (LIVE.dragging()) LIVE.waiting = changed; else apply(changed); }
+    }
+  }
+  LIVE.busy = false;
+  /* The next question comes a moment after the server's next tick. */
+  const tick = (DATA.tickSeconds || 10) * 1000;
+  clearTimeout(LIVE.timer);
+  if (!document.hidden) LIVE.timer = setTimeout(cycle, tick - (Date.now() - LIVE.offset) % tick + 1500);
+}
+function wake() {
+  clearTimeout(LIVE.timer); clearInterval(LIVE.ager);
+  if (document.hidden) { if (LIVE.ready) stopPlay(); else cycle(); return; }
+  LIVE.ager = setInterval(everySecond, 1000);
+  cycle();
+}
+document.addEventListener("visibilitychange", wake);
+
+let rz = 0;
+new ResizeObserver(() => { cancelAnimationFrame(rz); rz = requestAnimationFrame(() => { if (LIVE.ready && (!G || stage.clientWidth !== G.w || stage.clientHeight !== G.h || (TL && plot.clientWidth !== TL.W))) relayout(); }); }).observe($("#app"));
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { meas.reset(); for (const id in tiles) tiles[id].sig = ""; if (LIVE.ready) relayout(); });
+gate("loading");
+wake();
+})();
+</script>
+</body>
+</html>

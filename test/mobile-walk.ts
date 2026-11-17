@@ -5,6 +5,7 @@
 import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { writeFixture } from "../scripts/monitor-fixture.ts";
 import { newSession, spawnServer, startChrome } from "../scripts/room-hash.ts";
 import { fakeHerdr } from "./fake-herdr.ts";
 import { fakeHome } from "./fake-subs.ts";
@@ -79,11 +80,16 @@ export async function startOffice(root: string) {
   ];
   const herdr = fakeHerdr(join(data, "herdr-fake"), agents);
   const { linear, ref } = fakeLinear();
+  // THE MONITOR's page draws a recorded hour that ends capped by memory (scripts/monitor-fixture.ts), replayed: no
+  // server of a test reads this machine.
+  const replay = join(data, "monitor-replay");
+  writeFixture(replay, "capped");
   const server = await spawnServer({
     cwd: root,
     env: {
       ...process.env, HUD_HOST: "127.0.0.1", HUD_DATA_DIR: data, HERDR_BIN: herdr.bin, HUD_OWNER: "Tester", HUD_MACHINES: "local", HUD_LOCAL_MACHINE: "local", HUD_HQ_AGENT: "hq",
       HUD_SUBS_HOME: home, HUD_SUBS_MS: "150", HUD_LINEAR_API_URL: `http://127.0.0.1:${linear.port}/graphql`, HUD_LINEAR_API_KEY: "lin_api_FAKE_FOR_THE_TEST",
+      HUD_MONITOR_REPLAY: replay, HUD_MONITOR_DISK: "0",
     },
   });
   const post = async (p: string, b: object = {}, pane?: string) => {
@@ -217,6 +223,8 @@ export async function openPhone(chrome: Awaited<ReturnType<typeof startChrome>>,
 
 export type Surface = {
   name: string;
+  // A page with a look of its own by design: left out of "one look per kind of action".
+  ownLook?: boolean;
   hash?: (o: Office) => string;
   stored?: Record<string, string>;
   // Tap to it, and wait for what proves it is open.
@@ -227,6 +235,14 @@ export type Surface = {
 };
 
 const room = "#room/pay-migration";
+// THE MONITOR's page is a page of its own (/monitor), not a panel of the HUD's: MACHINES opens it in a new tab, which
+// this one tab cannot follow, so the walk goes to its address here. AUDIT reads the HUD's .wrap on whatever page it
+// measures, so the page's root is given that class for the measure.
+const monitorPage = async (t: Tab) => {
+  await t.ev(`(location.assign("/monitor"), true)`);
+  await t.until(`location.pathname === "/monitor" && !!document.querySelector("#app.ready .tile:not(.nil)")`);
+  await t.ev(`(document.getElementById("app").classList.add("wrap"), true)`);
+};
 // On a phone the first tap opens a floor's row, the second goes in.
 const enterFloor = async (t: Tab) => { await t.tap('.tgo[data-floor-go="pay"]'); await t.tap('.tenterb[data-floor-go="pay"]'); await t.until(`!document.querySelector(".building") || document.querySelector(".building").getBoundingClientRect().height === 0`); };
 // Words left on closed questions, parked as a reload parks them: back, they wait behind one row at the top of the list.
@@ -281,6 +297,9 @@ export const SURFACES: Surface[] = [
   { name: "message-reply", stored: { "hq-qtab": "messages" }, go: (t) => t.tap("#msgs [data-reply]"), shows: "#msgs [data-rbox] textarea" },
   { name: "shelf-add", hash: () => room, go: async (t) => { await t.tap('[data-ptab="shelf"]'); await t.tap(".rshelf .addbtn"); }, shows: ".radd input[type=url]" },
   { name: "room-versions", hash: () => room, go: async (t) => { await t.tap('[data-ptab="brief"]'); }, shows: ".roomview .rbrief" },
+  // Its look is its own on purpose (the owner asked for a page without the HUD's look), so its buttons are not held
+  // to the HUD's one look per kind of action. Everything else is measured as on every surface.
+  { name: "monitor", go: monitorPage, shows: "#app.ready .tile:not(.nil)", ownLook: true },
   { name: "toast-long", go: async (t) => { await t.ev(`import("/src/client/core/dom.js").then((m) => m.toast("DELETED AN_API_TOKEN_WITH_A_VERY_LONG_NAME_THAT_GOES_ON_AND_ON_AND_ON."))`); }, shows: ".toast" },
 ];
 

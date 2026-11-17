@@ -1,0 +1,5 @@
+/* MACHINES as the way in to the monitor (monitor/index.js): it looks pressable like SUBS beside it. The top bar
+   rewrites the box's class with every state, so the rules hang on the role. */
+#machines[role="link"] { cursor: pointer; }
+@media (hover: hover) { #machines[role="link"]:hover { background: var(--lift); } }
+#machines[role="link"]:focus-visible { outline: 3px solid var(--blue); outline-offset: 2px; }

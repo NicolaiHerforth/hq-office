@@ -278,6 +278,42 @@ Nothing calls a provider or uses a credential. Only names, percentages and times
 id, token or transcript text. The readings are kept in memory, never in the database. A machine without grazr,
 Codex or python3 shows as "no source" in the dropdown; with no source anywhere, there is no SUBS box.
 
+## The resource monitor
+
+**MACHINES** in the top bar says how full a machine is. The monitor says who filled it. Click MACHINES, or
+**MENU › MONITOR**, and a page of its own opens at `/monitor`: the machine's memory as one map, with a tile for
+every lane and app sized by what it holds, the verdict as a sentence above it ("not capped right now", or what is
+the limit and who holds most of it), and a strip of time underneath that you drag to see any moment of the last
+hour, day, week or 90 days. It also lists the worst moments, what keeps coming back, and the sizes of the large
+cache and temp folders, measured once a day. That measuring never reads a folder that macOS guards with a consent
+prompt (Documents, Downloads, Desktop, other apps' containers and the like), so the container engine's disk image
+is not measured. The page is read-only: nothing on it can stop a process or change the machine.
+
+Whom it blames is what you would recognise, not a process id: a **lane** (a herdr agent and everything under its
+pane, a dev stack it started and detached included), an **app** with all its helpers as one, HQ Office itself, and
+the system. A click on a tile shows its processes. Memory is the footprint, what a process would free if it quit,
+as in Activity Monitor: compressed and swapped memory counts, which a plain process list leaves out. OrbStack's
+containers are read from its Docker socket and shown one by one.
+
+The plugin runs its server, and its service, with the monitor on. A server started any other way has it off, and
+`HUD_MONITOR=1 bun server.ts` turns it on. It samples every ten seconds on the machine the server runs on, macOS
+only, and keeps raw samples for a day, minutes for a week and quarters of an hour for 90 days in `monitor.db` in
+the data folder (never `hud.db`), 500 MB at most. A damaged `monitor.db` does not stop the HUD: a file that
+is not a database is moved aside and a new one started, and one that cannot be opened leaves the monitor off, with
+the reason on its page. It measures its own cost and shows it on the page: about a third of a percent of one core
+and 50 MB on the machine it was built on. While it runs, MACHINES takes its word for this machine from it (OK,
+CLOSE, CAPPED), so the two never disagree. It stores executable names and labels only, never a command line.
+
+A script can put a mark on the timeline, for a test run or a release:
+
+```sh
+hud monitor mark "full suite started" --kind suite
+```
+
+It never fails and waits a second and a half at most, so it is safe in a script that must not be held up.
+`docs/monitor.md` has the model: whom usage is blamed on, what is measured and why, what it costs, and what it
+cannot see.
+
 ## Secrets
 
 Paste a key into **MENU › SECRETS** (a panel over the office) with a name and a lifetime in minutes, or into the fields of a question HQ asked with `hud ask --secret NAME`. HQ reads it until it expires:
@@ -567,6 +603,9 @@ Set these in `config.env`. An empty value means the default.
 | `HUD_LINEAR_ACCEPTANCE_LABEL` | `acceptance` | The label that marks a project's acceptance criteria, matched in any case. |
 | `HUD_LOCAL_MACHINE` | `local` | Name of this machine in the room. |
 | `HUD_MACHINES` | this machine | Comma-separated herdr machine labels to poll for agents, sample for CPU and memory, and read subscription usage from (SUBS). Remote machines need SSH access. |
+| `HUD_MONITOR` | on with the plugin (macOS), off otherwise | The resource monitor. The plugin starts its server and its service with `1`. `0` turns it off: nothing is sampled and `/monitor` says so. A server started by hand samples only with `HUD_MONITOR=1`. |
+| `HUD_MONITOR_DISK` | on | `0` stops the monitor's daily walk of the large cache and temp folders. |
+| `HUD_MONITOR_REPLAY` | | A folder with a recorded `monitor.db`: the page is answered from it with no sampler, for tests and screenshots (`scripts/monitor-fixture.ts` writes one). |
 | `HERDR_BIN` | `herdr` on PATH | Path to the herdr binary. |
 | `HUD_GH_BIN` | `gh` on PATH | Path to the GitHub CLI, used by the work board. |
 | `HUD_SAMPLE_CMD` | empty | A command that reads a prompt on stdin and prints an answer: lets HTML pages ask a model (`claude.use("sample")`). Pages has the line for Claude Code. Empty: pages cannot. |
@@ -580,7 +619,7 @@ Set these in `config.env`. An empty value means the default.
 bun server.ts
 ```
 
-Then open http://127.0.0.1:4747. Without the plugin the database and uploads live next to `server.ts` unless you set `HUD_DATA_DIR`. All the variables above work as plain environment variables, for example `HUD_HQ_AGENT=lead bun server.ts`.
+Then open http://127.0.0.1:4747. Without the plugin the database and uploads live next to `server.ts` unless you set `HUD_DATA_DIR`. All the variables above work as plain environment variables, for example `HUD_HQ_AGENT=lead bun server.ts`. The resource monitor is off in a server started this way: `HUD_MONITOR=1 bun server.ts` runs it.
 
 Run the tests with `bun test`.
 

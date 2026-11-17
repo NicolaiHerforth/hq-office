@@ -45,7 +45,7 @@ restoreDrafts();
 // changed, and only the panels showing one of those parts are built again.
 export const PANELS = [
   [["open", "lanes", "score", "updatesUnread", "hq"], () => renderStats()],
-  [["machines"], () => renderMachines()],
+  [["machines", "monitor"], () => renderMachines()],
   [["open", "askPages", "answered", "askers"], () => renderHud()],
   [["lanes", "open", "config"], () => renderCard()],
   [["notes", "hq"], () => renderLastNote()],

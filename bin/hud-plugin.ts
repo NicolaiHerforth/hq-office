@@ -161,9 +161,11 @@ async function waitUp(alive: () => boolean = () => true) {
   return false;
 }
 
-// The variables the server runs with: config.env, then what the plugin decides.
+// The variables the server runs with: config.env, then what the plugin decides. The resource monitor is on for the
+// server the plugin runs, as a process or as a service, unless config.env says HUD_MONITOR=0: a server that anything
+// else starts has it off.
 function serverEnv(): Record<string, string> {
-  return { ...config, HUD_PORT: String(PORT), HUD_HOST: BIND_HOST, HUD_DATA_DIR: DATA_DIR, HERDR_BIN: HERDR };
+  return { HUD_MONITOR: "1", ...config, HUD_PORT: String(PORT), HUD_HOST: BIND_HOST, HUD_DATA_DIR: DATA_DIR, HERDR_BIN: HERDR };
 }
 
 // Bun for the service: the one on PATH (a stable link such as ~/.bun/bin/bun), else the one running this.

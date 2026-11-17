@@ -3,6 +3,85 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.44.0] - 2026-11-17
+### Added
+
+- **The resource monitor: who holds this machine's memory and CPU, now and over time.** MACHINES says how full a
+  machine is. The monitor says who filled it. Click **MACHINES** in the top bar, or **MENU › MONITOR**, and a page of
+  its own opens at `/monitor`. It starts with the answer as a sentence: "not capped right now", or what is the limit
+  and who holds most of it. Under it is the machine's memory as one map, with a tile for every lane and app sized by
+  what it holds, and a strip of time that you drag to see any moment of the last hour, day, week or 90 days. Click a
+  tile for its processes. Switch to CPU, or to a table. The page is read-only: nothing on it can stop a process or
+  change the machine. macOS only.
+- **Blame goes to what you recognise.** A lane is a herdr agent and everything under its pane, a dev stack it
+  started and detached included. An app counts with all its helpers as one. HQ Office and the system are their own.
+  OrbStack's containers are read from its Docker socket and shown one by one, under the lane that started them when
+  there is one.
+- **Memory is the footprint**, what a process would free if it quit, as Activity Monitor shows it. Compressed and
+  swapped memory counts, which a plain process list leaves out: on the machine this was built on, a process list
+  added up to 28 GB where the footprints were 68 GB. The system's own daemons are the exception: without root only
+  their resident size can be read.
+- **The verdict follows the system's own memory pressure and whether swap is growing**, never how full swap is. A
+  machine that sits at 90% swap and is steady reads "not capped".
+- **History.** Worst moments open at their peak with who held what and what was marked just before. Recurring
+  offenders are named with the numbers behind them. A calendar shows each day's state. The large cache and temp folders
+  are listed with how much they grew.
+- **Marks.** `hud monitor mark "full suite started" --kind suite` puts a mark on the timeline. It never fails and
+  waits a second and a half at most, so it is safe in a script that must not be held up. Restarts, gaps in the
+  samples and lanes starting or ending are marked by the monitor itself.
+- **Its own cost is on the page.** It samples every ten seconds. Run alone for an hour on the machine it was built
+  on (16 cores, about 840 processes, 17 containers) it measured 0.35% of one core and 47 MB. Inside the server, and
+  on other machines, the page shows what it costs there. It keeps raw samples for a day, minutes for a week and
+  quarters of an hour for 90 days in `monitor.db` in the data folder, 500 MB at most, and never writes to `hud.db`.
+- **What it stores.** Executable names and labels: a lane's name, an app's name, a container's compose project and
+  service, and the folder a pane or an unsorted process runs in, shortened to its last parts. Never a command line.
+  To tell which pane a detached process was started from, it reads that process's environment in memory once,
+  takes one herdr variable out and wipes the rest.
+- **Once a day it measures the large cache folders** (temp folders, `~/Library/Caches`, `~/.cache`, package caches,
+  Xcode's DerivedData) at the lowest priority, the first time ten minutes after the server starts. On the machine
+  it was built on that takes about a minute of CPU. It never reads a folder macOS guards (Desktop, Documents,
+  Downloads, Pictures, Mail, Messages, other apps' containers), so it never makes macOS ask for access.
+  `HUD_MONITOR_DISK=0` turns it off.
+- **The installed HUD monitors; nothing else does.** The plugin starts the server with the monitor on, as a process
+  or as a service. `HUD_MONITOR=0` in `config.env` turns it off. A server started by hand monitors only with
+  `HUD_MONITOR=1 bun server.ts`. **After updating from an earlier version, run the plugin's restart action (or
+  install the service again) once:** a service file written by an earlier version does not carry the setting, and
+  until it is rewritten the page says the monitor is off.
+- **A damaged `monitor.db` never stops the HUD.** A file that is not a database is set aside as
+  `monitor.db.broken-TIME` and a new one started. If the database cannot be opened at all, the monitor is off and its
+  page says why, and everything else works.
+- See "The resource monitor" in the README and `docs/monitor.md`.
+
+### Changed
+
+- **MACHINES takes its word for this machine from the monitor** while the monitor runs: OK, CLOSE or CAPPED, with
+  the monitor's sentence in the tooltip. It no longer reads past 90% of memory as trouble on a machine that swaps
+  by design. Other machines, and this one with the monitor off, read as before.
+- MACHINES is a link: a click, or Enter on it, opens the monitor.
+
+### Known limits
+
+- **Recurring offenders need days of history.** They say nothing until the monitor has recorded several days, and
+  they have not been seen on real data yet. Worst moments have been checked on a made-up hour only: the machine
+  this was built on was never capped while the monitor ran.
+- **The cost of the 90-day view is reasoned, not measured.** No machine has 90 days of samples yet. By arithmetic
+  the first answer after a restart reads a few million rows on a full database, which is between half a second and
+  a second, and later ones are kept.
+- **OrbStack's virtual machine is one holder beyond its containers.** The containers' own memory is split out. What
+  the Linux machine itself keeps (its file cache, and memory it has not given back) is one tile, and it is usually
+  the larger part. Docker Desktop is not read.
+- **Only the machine the server runs on is covered.** Other machines in `HUD_MACHINES` keep their MACHINES readings
+  and have no monitor page.
+- The kernel's own CPU cannot be read as a process without root. It shows as part of the system, named "kernel and
+  unattributed".
+- **The disk's lines follow the disk's size.** The disk reads "close to the cap" under 100 GB free or a tenth of
+  the disk, whichever is less, and "capped" under 20 GB or a fiftieth.
+- **Files that were set aside are not removed.** A `monitor.db.broken-TIME` can be up to 500 MB. Delete it when you
+  have looked at it.
+- **OrbStack's disk image is not measured.** It lives inside the app's own container, which the monitor does not
+  touch, and Docker's own disk report took over 20 seconds to answer.
+- Network traffic is not sampled.
+
 ## [0.43.0] - 2026-11-13
 ### Added
 

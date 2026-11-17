@@ -36,9 +36,9 @@
 .health .v { display: flex; align-items: center; gap: 6px; font: 11px/1 var(--pixel); }
 .health i { width: 9px; height: 9px; border-radius: 2px; background: var(--green); box-shadow: 0 0 0 2px var(--ink); }
 .health i.bad { background: var(--red); }
-.health i.off { background: var(--amber); }
+.health i.off, .health i.close { background: var(--amber); }
 .health.bad .v { color: var(--red-text); }
-.health.off .v { color: var(--amber-text); }
+.health.off .v, .health.close .v { color: var(--amber-text); }
 /* NOTHING MOVING in the whole office: as loud as WAITING ON YOU, amber, then red after 20 minutes */
 .strip.nomove { border-color: var(--amber); }
 .strip.nomove > div:first-child .k, .strip.nomove > div:first-child .v { color: var(--amber-strong-2); }
@@ -73,19 +73,19 @@
   .wrap > * { grid-column: 1 / -1; }
   .wrap > .top, .top > .right { display: contents; }
   .top .right .title, .top .right .spacer { display: none; }
-  .top .right :is(.strip.nomove, #machines.bad, #machines.off, .blockedbox) { grid-column: 1; order: 0; align-content: center; padding: 4px 8px; }
+  .top .right :is(.strip.nomove, #machines.bad, #machines.off, #machines.close, .blockedbox) { grid-column: 1; order: 0; align-content: center; padding: 4px 8px; }
   .wrap > .floornav { grid-column: 1 / 3; order: 1; }
-  .wrap:has(.top .right :is(.strip.nomove, #machines.bad, #machines.off, .blockedbox)) > .floornav { grid-column: 2; }
-  .wrap:has(.top .right :is(.strip.nomove, #machines.bad, #machines.off, .blockedbox)) .fswitch :is(.slot.sb, .fout span:last-child) { display: none; }
+  .wrap:has(.top .right :is(.strip.nomove, #machines.bad, #machines.off, #machines.close, .blockedbox)) > .floornav { grid-column: 2; }
+  .wrap:has(.top .right :is(.strip.nomove, #machines.bad, #machines.off, #machines.close, .blockedbox)) .fswitch :is(.slot.sb, .fout span:last-child) { display: none; }
   .top .right .menuwrap { grid-column: 3; order: 2; }
   .wrap > .main { order: 3; }
   .top > .urgent { grid-column: 1 / -1; order: 4; padding: 6px 14px; }
   .urgent .count, .urgent > .k { display: none; }
   .urgent .old { margin-left: 0; grid-auto-flow: column; align-items: center; justify-items: start; }
   .top .right .strip:not(.nomove) { grid-column: 1 / -1; order: 5; justify-content: space-between; gap: 10px; padding: 6px 12px; }
-  .strip.nomove > div:not(:first-child), #machines:is(.bad, .off) .k { display: none; }
-  #machines:is(.bad, .off) .v { font-size: 8px; }
+  .strip.nomove > div:not(:first-child), #machines:is(.bad, .off, .close) .k, #machines .long.here { display: none; }
+  #machines:is(.bad, .off, .close) .v { font-size: 8px; }
   .top .right .subswrap { grid-column: 1 / -1; order: 6; }
-  .top .right #machines:not(.bad, .off) { grid-column: 1 / -1; order: 7; padding-block: 6px; }
+  .top .right #machines:not(.bad, .off, .close) { grid-column: 1 / -1; order: 7; padding-block: 6px; }
   .fswitch .slot.sa { display: none; }
 }

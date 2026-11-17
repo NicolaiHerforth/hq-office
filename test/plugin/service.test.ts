@@ -32,8 +32,10 @@ function setup(platform: "darwin" | "linux") {
 }
 type T = ReturnType<typeof setup>;
 
-function writeConfig(t: T, owner: string) {
-  writeFileSync(join(t.config, "config.env"), [`HUD_PORT=${t.port}`, "HUD_HOST=127.0.0.1", `HUD_OWNER=${owner}`, `HERDR_BIN=${join(t.dir, "no-such-herdr")}`, "HUD_MACHINES=local", "HUD_HQ_AGENT=hq", ""].join("\n"));
+// The resource monitor is off in these servers, as a config.env can have it, unless a test leaves that line out to
+// see what the plugin does by itself. No server here ever walks the disk.
+function writeConfig(t: T, owner: string, monitor: string[] = ["HUD_MONITOR=0"]) {
+  writeFileSync(join(t.config, "config.env"), [`HUD_PORT=${t.port}`, "HUD_HOST=127.0.0.1", `HUD_OWNER=${owner}`, `HERDR_BIN=${join(t.dir, "no-such-herdr")}`, "HUD_MACHINES=local", "HUD_HQ_AGENT=hq", "HUD_MONITOR_DISK=0", ...monitor, ""].join("\n"));
 }
 
 // Runs the plugin as herdr would, with a made-up environment: nothing from this machine's but PATH.
@@ -70,6 +72,9 @@ const up = async (t: T) => {
   }
 };
 const owner = async (t: T) => (await (await fetch(`${t.base}/api/state`)).json()).config.owner;
+// Whether the server's resource monitor is on. It runs on macOS only, whatever it is asked.
+const monitors = async (t: T) => (await (await fetch(`${t.base}/api/monitor/now`)).json()).on;
+const CAN_MONITOR = process.platform === "darwin";
 
 function cleanup(t: T) {
   plugin(t, "remove-service");
@@ -103,6 +108,7 @@ describe("macOS: a LaunchAgent", () => {
     expect(text).toContain(`<key>HUD_DATA_DIR</key>\n      <string>${t.state}</string>`);
     expect(text).toContain(`<key>HUD_PORT</key>\n      <string>${t.port}</string>`);
     expect(text).toContain(`<key>HUD_OWNER</key>\n      <string>Tester</string>`);
+    expect(text).toContain(`<key>HUD_MONITOR</key>\n      <string>0</string>`);
     expect(text).toContain(`<key>StandardOutPath</key>\n    <string>${join(t.state, "server.log")}</string>`);
     const path = text.match(/<key>PATH<\/key>\s*<string>([^<]*)<\/string>/)![1].split(":");
     for (const d of [join(t.home, ".bun", "bin"), "/opt/homebrew/bin", "/usr/local/bin"]) expect(path).toContain(d);
@@ -129,6 +135,15 @@ describe("macOS: a LaunchAgent", () => {
     expect(readFileSync(plist, "utf8")).toContain("<string>Second</string>");
     expect(verbs(calls(t))).toEqual(["bootout", "bootstrap"]);
     expect(await owner(t)).toBe("Second");
+    expect(await monitors(t)).toBe(false);
+  });
+
+  test("a config that does not mention the resource monitor gets a service with it on", async () => {
+    writeConfig(t, "Second", []);
+    expect(plugin(t, "install-service").code).toBe(0);
+    expect(readFileSync(plist, "utf8")).toContain(`<key>HUD_MONITOR</key>\n      <string>1</string>`);
+    expect(await monitors(t)).toBe(CAN_MONITOR);
+    calls(t);
   });
 
   test("restart (reload) writes the agent again with the current config", async () => {
@@ -224,6 +239,7 @@ describe("Linux: a systemd user unit", () => {
     expect(text).toContain(` "${join(ROOT, "server.ts")}"`);
     expect(text).toContain(`Environment="HUD_DATA_DIR=${t.state}"`);
     expect(text).toContain(`Environment="HUD_OWNER=Tester"`);
+    expect(text).toContain(`Environment="HUD_MONITOR=0"`);
     expect(text).toMatch(/^Environment="PATH=[^"]*\/opt\/homebrew\/bin[^"]*"$/m);
     expect(text).toContain(`StandardOutput=append:${join(t.state, "server.log")}`);
     const all = calls(t);
@@ -235,10 +251,17 @@ describe("Linux: a systemd user unit", () => {
   });
 
   test("installing again reloads, enables and restarts it with the new config", async () => {
-    writeConfig(t, "Second");
+    writeConfig(t, "Second", []);
     expect(plugin(t, "install-service").code).toBe(0);
     expect(verbs(calls(t))).toEqual(["daemon-reload", "enable hq-office.service", "restart hq-office.service"]);
     expect(await owner(t)).toBe("Second");
+    // A config that does not mention the resource monitor gets a unit with it on.
+    expect(readFileSync(unitFile, "utf8")).toContain(`Environment="HUD_MONITOR=1"`);
+    expect(await monitors(t)).toBe(CAN_MONITOR);
+    writeConfig(t, "Second");
+    expect(plugin(t, "install-service").code).toBe(0);
+    expect(await monitors(t)).toBe(false);
+    calls(t);
   });
 
   test("stop and start use systemctl --user", async () => {
@@ -271,6 +294,18 @@ describe("without a service", () => {
     expect(plugin(t, "stop").out).toContain("Stopped HQ Office (pid");
     expect(await up(t)).toBe(false);
     expect(verbs(calls(t))).toEqual([]);
+  });
+
+  test("the server the plugin starts has the resource monitor on, unless config.env turns it off", async () => {
+    writeConfig(t, "Tester", []);
+    expect(plugin(t, "start").code).toBe(0);
+    expect(await monitors(t)).toBe(CAN_MONITOR);
+    expect(plugin(t, "stop").code).toBe(0);
+    writeConfig(t, "Tester");
+    expect(plugin(t, "start").code).toBe(0);
+    expect(await monitors(t)).toBe(false);
+    expect(plugin(t, "stop").code).toBe(0);
+    calls(t);
   });
 
   test("install service takes over from a server the plugin started", async () => {
