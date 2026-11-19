@@ -14,3 +14,7 @@ if (!process.env.HUD_SUBS_HOME) {
   afterAll(gone);
   process.on("exit", gone);
 }
+
+// No test reaches the owner's real GitHub: every server a test starts runs `false` for gh (SHIP, the work board) unless
+// the test gives it a stub of its own (test/fake-gh-world.ts).
+process.env.HUD_GH_BIN ??= "false";

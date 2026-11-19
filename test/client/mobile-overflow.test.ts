@@ -53,6 +53,18 @@ for (const phone of PHONES) {
 // ---- the one sheet ----
 
 const SHEETS = SURFACES.filter((s) => s.sheet);
+// The controls of the sheet SEL that the toast's box overlaps, by what they say: none, unless every band of the screen
+// has one, and then a press on each still reaches it through the toast.
+const TOAST_OVER = (sel: string) => `(() => {
+  const t = document.querySelector(".toast").getBoundingClientRect(), s = document.querySelector(${JSON.stringify(sel)}), b = s.getBoundingClientRect();
+  const all = [...s.querySelectorAll("button, a[href], input, textarea, select, [role=button], summary")].map((c) => [c, c.getBoundingClientRect()]).filter(([, r]) => r.width && r.height && r.bottom > b.top && r.top < b.bottom);
+  const over = all.filter(([, r]) => r.left < t.right && r.right > t.left && r.top < t.bottom && r.bottom > t.top);
+  const free = (y) => !all.some(([, r]) => r.top < y + t.height + 4 && r.bottom > y - 4);
+  let room = b.top >= t.height + 16;
+  for (let y = 8; !room && y + t.height < innerHeight; y += 4) room = free(y);
+  const reached = over.every(([c, r]) => { const x = Math.max(r.left + 2, Math.min(r.right - 2, (t.left + t.right) / 2)), y = Math.max(r.top + 1, Math.min(r.bottom - 1, (t.top + t.bottom) / 2)); return c.contains(document.elementFromPoint(x, y)); });
+  return room ? over.map(([c]) => (c.textContent || c.getAttribute("aria-label") || c.tagName).trim().slice(0, 30)) : reached ? [] : ["a control the toast blocks"];
+})()`;
 const sheetLooks = new Set<string>();
 for (const phone of PHONES) {
   for (const surface of SHEETS) {
@@ -65,6 +77,11 @@ for (const phone of PHONES) {
       expect(at).toMatchObject({ position: "fixed", left: 8, right: 8, bottom: 8, scrim: true, under: "sheetbg", locked: "hidden", inside: true });
       expect(at.top).toBeGreaterThanOrEqual(8);
       sheetLooks.add(at.look);
+      // a toast while it is open sits clear of every control in it
+      await tab.ev(`import("/src/client/core/dom.js").then((m) => m.toast("A TOAST WHILE A SHEET IS OPEN."))`);
+      await tab.until(`!!document.querySelector(".toast")`);
+      expect(await tab.ev(TOAST_OVER(surface.sheet!))).toEqual([]);
+      await tab.ev(`document.querySelectorAll(".toast").forEach((t) => t.remove()), true`);
       const y = await tab.ev(`scrollY`);
       await tab.s("Input.synthesizeScrollGesture", { x: phone.width / 2, y: Math.max(4, at.top / 2), yDistance: -300, gestureSourceType: "touch", speed: 3000 });
       expect(await tab.ev(`scrollY`)).toBe(y);
@@ -188,6 +205,10 @@ test.skipIf(!chromeFound)("the drawer: its terminal comes before the questions, 
   await openLaneDrawer("ledger-audit");
   const d = await tab.ev(`(() => { const c = document.getElementById("card"), t = c.querySelector(".agterm").getBoundingClientRect(), q = c.querySelector(".agq").getBoundingClientRect(), o = getComputedStyle(c.querySelector(".agopts span")); return { questions: c.querySelectorAll(".agq").length, termFirst: t.top < q.top, termOnScreen: t.top < innerHeight - 100, optBorder: o.borderTopWidth, optFill: o.backgroundColor }; })()`);
   expect(d).toEqual({ questions: 3, termFirst: true, termOnScreen: true, optBorder: "0px", optFill: "rgba(0, 0, 0, 0)" });
+  await tab.ev(`import("/src/client/core/dom.js").then((m) => m.toast("A TOAST WHILE THE DRAWER IS OPEN."))`);
+  await tab.until(`!!document.querySelector(".toast")`);
+  expect(await tab.ev(TOAST_OVER("#card"))).toEqual([]);
+  await tab.ev(`document.querySelectorAll(".toast").forEach((t) => t.remove()), true`);
   await tab.ev(`document.getElementById("card").scrollTop = 1e6`);
   await tab.rest();
   const x = await tab.ev(`(() => { const c = document.getElementById("card"), r = c.querySelector(".cardx").getBoundingClientRect(), b = c.getBoundingClientRect(), hit = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return { scrolled: c.scrollTop > 100, inside: r.top >= b.top && r.bottom <= b.bottom && r.top >= 0, top: hit?.closest("[data-card-close]") !== null }; })()`);
@@ -330,13 +351,13 @@ for (const phone of PHONES) {
 }
 
 for (const phone of PHONES) {
-  test.skipIf(!chromeFound)(`${phone.width}x${phone.height} all five question tabs show whole with the widest counts, as 44 px targets`, async () => {
+  test.skipIf(!chromeFound)(`${phone.width}x${phone.height} all six question tabs show whole with the widest counts, as 44 px targets`, async () => {
     await tab.size(phone);
     await openSurface(tab, office, SURFACES.find((s) => s.name === "needs-you")!);
     await tab.ev(`document.fonts.ready.then(() => true)`);
     await tab.ev(WIDEST_COUNTS);
     const tabs = await tab.ev(`[...document.querySelectorAll("#qtabs [data-qtab]")].map((t) => { const r = t.getBoundingClientRect(), q = document.getElementById("qtabs"), b = q.getBoundingClientRect(); return { name: t.dataset.qtab, inside: r.left >= Math.max(0, b.left) && r.right <= Math.min(document.documentElement.clientWidth, b.right), target: r.width >= 44 && r.height >= 44, whole: t.scrollWidth <= t.clientWidth, count: !!t.querySelector(".tag:not([hidden])"), scrolls: q.scrollWidth > q.clientWidth + 1 }; })`);
-    expect(tabs).toEqual(["questions", "messages", "work", "rooms", "briefs"].map((name) => ({ name, inside: true, target: true, whole: true, count: true, scrolls: false })));
+    expect(tabs).toEqual(["questions", "ship", "messages", "work", "rooms", "briefs"].map((name) => ({ name, inside: true, target: true, whole: true, count: true, scrolls: false })));
     const m = await tab.ev(MEASURE);
     expect(m.scrollers).toEqual([]);
     expect(m.clipped).toEqual([]);

@@ -6,6 +6,7 @@ import type { Route } from "../router.ts";
 import { json } from "../json.ts";
 import { askPageKey, hasAskPage, serveAskPage } from "../ask-pages.ts";
 import { requests } from "../owner-requests.ts";
+import { shipFromAsk } from "../ship-server.ts";
 
 // The new ask's id, and its page's key when it has one (hud ask prints where to read what the owner does in it).
 export const withPage = (id: number) => (hasAskPage(id) ? { id, page: askPageKey(id) } : { id });
@@ -13,7 +14,8 @@ export const withPage = (id: number) => (hasAskPage(id) ? { id, page: askPageKey
 const routes: Route[] = [
   // An ask's HTML page, served sandboxed like every page (ask-pages.ts), whatever the ask's status.
   { method: "GET", pattern: /^\/asks\/(\d+)\.html$/, handle: ({ m, url }) => serveAskPage(Number(m[1]), url.searchParams.get("theme")) ?? json({ error: `ask #${m[1]} has no page` }, 404) },
-  { method: "POST", path: "/api/asks", handle: ({ body, caller }) => withPage(createAsk(body, caller().floor, caller().agent)) },
+  // An ask for a PR merge goes to SHIP instead (ship-server.ts).
+  { method: "POST", path: "/api/asks", handle: ({ body, caller }) => shipFromAsk(body, caller()) ?? withPage(createAsk(body, caller().floor, caller().agent)) },
   // Who sent it goes along: a question that allows a lane's request takes only the owner's answer on the page.
   { method: "POST", pattern: /^\/api\/asks\/(\d+)\/answer$/, handle: ({ body, m, req }) => {
     answerAsk(Number(m[1]), String(body.answer ?? "").trim() || "done", { pane: req.headers.get("x-hud-pane"), page: req.headers.has("origin") });

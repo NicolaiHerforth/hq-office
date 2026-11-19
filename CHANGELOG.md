@@ -3,6 +3,30 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.46.0] - 2026-11-19
+### Added
+
+- **MERGE: one place for the PRs your agents want you to merge.** A tab beside NEEDS YOU. Its first line says how
+  many are ready to merge, and who is idle until you do ("Idle until you merge: alpha 8, charlie 5"; a name jumps to
+  its PRs). URGENT comes first, whatever its domain, each with its reason in a line. Then one row per domain with one
+  button, MERGE N, after a confirm that lists exactly what it will merge, a tick per PR. A PR that is fine says
+  nothing; one that is not ready has no button, only its reason. Click a PR for its repo, size, the agent's note and
+  SEND BACK. DONE keeps the last 24 hours.
+- **Safe merges.** Only you can merge, and only from the page. A PR pushed to after you looked is never merged
+  unseen. One press waits 5 seconds, held by the server, so UNDO works even if you close the page; after that the row
+  says it cannot be undone. A PR no checks ran on never merges with its group, only by its own button, which asks
+  first. MERGE WHEN CHECKS PASS turns on GitHub's auto-merge while checks run, where the repo allows it.
+- **Sorted for you.** A small model (through `HUD_SAMPLE_CMD`) gives each PR a domain and an urgency; without it, the
+  domain is the repo. `--urgent` from the agent always counts.
+- **For agents:** `hud ship PR_URL [--lane L] [--note TEXT] [--urgent WHY]`. An ask whose title asks you to merge
+  and carries PR links (and no options, items, page or secrets) becomes MERGE items, one per PR, so NEEDS YOU keeps
+  only decisions and things only you can do. GitHub is read through `gh` in one query for all PRs, every 5 minutes
+  and only while MERGE has PRs; nothing is written or sent when nothing changed.
+
+### Fixed
+
+- **On a phone, the toast no longer covers the tab row** or an open sheet's buttons.
+
 ## [0.45.0] - 2026-11-17
 ### Changed
 

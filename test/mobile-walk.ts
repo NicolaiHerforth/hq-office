@@ -9,6 +9,7 @@ import { writeFixture } from "../scripts/monitor-fixture.ts";
 import { newSession, spawnServer, startChrome } from "../scripts/room-hash.ts";
 import { fakeHerdr } from "./fake-herdr.ts";
 import { fakeHome } from "./fake-subs.ts";
+import { fileShips, shipEnv, shipSettled } from "./ship-seed.ts";
 
 export type Phone = { width: number; height: number };
 export const PHONES: Phone[] = [{ width: 390, height: 844 }, { width: 360, height: 780 }, { width: 430, height: 932 }];
@@ -84,12 +85,15 @@ export async function startOffice(root: string) {
   // server of a test reads this machine.
   const replay = join(data, "monitor-replay");
   writeFixture(replay, "capped");
+  // SHIP: PRs in every state, from lanes on every floor and from HQ, read from a stub gh and sorted by a stand-in.
+  const SHIPS = 30;
+  const ship = shipEnv(data, SHIPS);
   const server = await spawnServer({
     cwd: root,
     env: {
       ...process.env, HUD_HOST: "127.0.0.1", HUD_DATA_DIR: data, HERDR_BIN: herdr.bin, HUD_OWNER: "Tester", HUD_MACHINES: "local", HUD_LOCAL_MACHINE: "local", HUD_HQ_AGENT: "hq",
       HUD_SUBS_HOME: home, HUD_SUBS_MS: "150", HUD_LINEAR_API_URL: `http://127.0.0.1:${linear.port}/graphql`, HUD_LINEAR_API_KEY: "lin_api_FAKE_FOR_THE_TEST",
-      HUD_MONITOR_REPLAY: replay, HUD_MONITOR_DISK: "0",
+      HUD_MONITOR_REPLAY: replay, HUD_MONITOR_DISK: "0", ...ship.env,
     },
   });
   const post = async (p: string, b: object = {}, pane?: string) => {
@@ -144,6 +148,8 @@ export async function startOffice(root: string) {
   await post("/api/comments/reply", { page: `briefs/${brief}`, text: `Because the **launch** moved up.\n\n${CODE}` }, "w2:p1");
   await post("/api/comments/post", { page: `rooms/pay-migration/files/${SHELF_NAME}`, text: "On the page: looks good." });
   await post("/api/secrets", { name: "AN_API_TOKEN_WITH_A_VERY_LONG_NAME_THAT_GOES_ON_AND_ON_AND_ON", value: "not-a-real-value", minutes: 5, by: "owner" });
+  await fileShips(post, SHIPS, "w1:p1", LANES.map(([name], i) => [name, `w9:p${i + 2}`]));
+  await shipSettled(server.base, SHIPS);
   await post("/api/sync");
   // The subs source lands on its own poll.
   await Bun.sleep(400);
@@ -253,6 +259,8 @@ const closedRow = async (t: Tab) => {
   await t.until(`document.readyState === "complete" && !!document.querySelector(".leftrow [data-left-open]")`);
 };
 
+// MERGE with two domains and DONE open, as the owner leaves them.
+const MERGE_OPEN = { "hq-qtab": "ship", "hq-merge-open": JSON.stringify(["d:billing", "d:search", "done"]) };
 export const SURFACES: Surface[] = [
   { name: "needs-you", shows: "#hud .ask" },
   { name: "closed-row", go: closedRow, shows: ".leftrow [data-left-all]" },
@@ -274,6 +282,12 @@ export const SURFACES: Surface[] = [
   { name: "rooms-list", stored: { "hq-qtab": "rooms" }, shows: "#rooms article[data-room]" },
   { name: "new-room", stored: { "hq-qtab": "rooms" }, go: (t) => t.tap(".rnew"), shows: ".nrpanel", sheet: ".nrpanel" },
   { name: "briefs-list", stored: { "hq-qtab": "briefs" }, shows: "#briefs .brow" },
+  { name: "merge", stored: { "hq-qtab": "ship" }, shows: "#ship .sum" },
+  { name: "merge-domains", stored: MERGE_OPEN, shows: "#ship [data-g^='d:'] .r" },
+  { name: "merge-pr", stored: MERGE_OPEN, go: (t) => t.tap("#ship [data-g^='d:'] .r.ready .t"), shows: "#ship .r.open .d .acts" },
+  { name: "merge-confirm", stored: MERGE_OPEN, go: (t) => t.tap("#ship [data-all]"), shows: ".mcf:not([hidden]) [data-yes]", sheet: ".mcf" },
+  { name: "merge-unchecked", stored: MERGE_OPEN, go: (t) => t.tap("#ship [data-ask]"), shows: ".mcf:not([hidden]) [data-yes]", sheet: ".mcf" },
+  { name: "merge-send-back", stored: MERGE_OPEN, go: async (t) => { await t.tap("#ship [data-g^='d:'] .r.ready .t"); await t.tap("#ship .r.open [data-back]"); }, shows: "#ship [data-backform] textarea" },
   { name: "room-chat", hash: () => room, shows: ".roomview .rvchat" },
   { name: "room-brief", hash: () => room, go: (t) => t.tap('[data-ptab="brief"]'), shows: ".roomview .rbrief" },
   { name: "room-shelf", hash: () => room, go: (t) => t.tap('[data-ptab="shelf"]'), shows: ".roomview .rshelf" },
@@ -449,7 +463,7 @@ export const AUDIT = `(() => {
 })()`;
 
 // The widest counts the question tabs realistically carry, on every tab at once.
-export const WIDEST_COUNTS = `(() => { for (const [id, n] of [["qtCount", 87], ["qtUnread", 12], ["qtStalled", 12], ["qtRooms", 3], ["qtBriefs", 2]]) { const t = document.getElementById(id); t.hidden = false; t.textContent = n; } })()`;
+export const WIDEST_COUNTS = `(() => { for (const [id, n] of [["qtCount", 87], ["qtShipReady", 18], ["qtShipUrgent", "!4"], ["qtUnread", 12], ["qtStalled", 12], ["qtRooms", 3], ["qtBriefs", 2]]) { const t = document.getElementById(id); t.hidden = false; t.textContent = n; } })()`;
 
 export const openSurface = async (t: Tab, o: Office, s: Surface) => {
   await t.load(o.base, s.hash?.(o) ?? "", s.stored ?? {});

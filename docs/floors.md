@@ -164,13 +164,13 @@ hud floor add ID --start [--name N] [--color #hex]   the HUD starts its HQ, hq-I
 hud floor list [--json]          id, name, HQ, receiving (or STARTING), lanes, waiting on the owner (* marks your floor)
 hud floor set ID [--name N] [--hq AGENT] [--color #hex]
 hud floor rm ID                  refused unless the floor is empty (no lanes, open questions, open rooms,
-                                 open board items, or messages held for its HQ); the last floor never goes
+                                 open board items, PRs in MERGE, or messages held for its HQ); the last floor never goes
 hud floor tell FLOOR TEXT
 hud lane NAME --floor ID
 ```
 
 A floor's id is 1 to 32 lowercase letters, digits and dashes (not `all`). One agent is the HQ of one floor only.
-What a removed floor leaves behind (answered questions, updates, notes, briefs and their comments, the log) moves to the first floor.
+What a removed floor leaves behind (answered questions, updates, notes, briefs and their comments, the log, MERGE's DONE) moves to the first floor.
 
 ## API
 

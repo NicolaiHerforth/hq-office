@@ -6,6 +6,10 @@
 //                                 question closes itself ("all done") when every item is done
 //           [--file q.html]       an HTML page shown in the card (a whole document or an artifact-style fragment, as a
 //                                 brief); what the owner does in it: hud page data asks/ID. A markdown file is the body.
+//   An ask that links GitHub PRs and asks for a merge is not an ask: each linked PR is filed in MERGE instead (below).
+//   hud ship PR_URL [--lane L] [--note TEXT] [--urgent WHY]   a PR for the owner to merge, in MERGE (never an ask):
+//                        lane's is its own, HQ names the lane with --lane; the same PR again updates it. --note is
+//                        markdown, --urgent says why it is urgent. The owner merges or sends it back; whoever filed it hears.
 // ask ledger: change an open question instead of withdrawing and reposting it
 //   hud update ID [--title T] [--body B] [--file F] [--opt A --opt B] [--rec A] [--link URL] [--lane L]   only the fields
 //                                given; --file q.html replaces its page; --lane L moves it to lane L, --lane hq (or "")
@@ -208,8 +212,27 @@ switch (cmd) {
       items: flags.item,
       file: await fileArg("ask"),
     });
+    if (out.ship) {
+      console.log(out.said);
+      for (const p of out.ship) console.log(`${p.updated ? "updated" : "filed"} ${p.repo}#${p.number} in MERGE on floor ${p.floor}`);
+      break;
+    }
     console.log(`ask #${out.id}`);
     if (out.page) console.log(`page ${BASE}/#page/${out.page} (what the owner does in it: hud page data ${out.page})`);
+    break;
+  }
+  case "ship": {
+    const urgent = one("urgent");
+    if (urgent !== undefined && (!urgent.trim() || urgent.startsWith("--"))) {
+      console.error("hud ship: --urgent takes the reason it is urgent: --urgent WHY");
+      process.exit(2);
+    }
+    if (rest.length !== 1) {
+      console.error("usage: hud ship PR_URL [--lane L] [--note TEXT] [--urgent WHY]   (one PR per call)");
+      process.exit(2);
+    }
+    const r = await call("POST", "/api/ship", { url: rest[0], lane: one("lane"), note: one("note"), urgent }, 2);
+    console.log(`${r.updated ? "updated" : "filed"} ${r.repo}#${r.number} in MERGE on floor ${r.floor}`);
     break;
   }
   case "update":

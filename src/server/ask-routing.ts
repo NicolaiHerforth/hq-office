@@ -47,18 +47,25 @@ export function answerOwner(ask: Pick<Ask, "id" | "floor">): string | null {
 
 // The one way to tell whoever asked: its lane, through lane_outbox, or the floor's HQ.
 export function tellAsker(ask: Ask, text: string, ref: string) {
-  const lane = askerOf(ask);
-  if (!lane) return notifyHq(text, ref, ask.floor);
-  db.query("INSERT INTO lane_outbox (at, floor, to_lane, ref, text, delivery) VALUES (?, ?, ?, ?, ?, 'queued')").run(Date.now(), ask.floor, lane, ref, text);
+  tellLane(askerOf(ask), ask.floor, text, ref);
+}
+// The same for anything else a lane is told about (ship:ID, SHIP's merges and SEND BACK): kept while it is away or
+// busy, its floor's HQ's when it cannot take it. No lane (null): the floor's HQ.
+export function tellLane(lane: string | null, floor: string | null, text: string, ref: string) {
+  if (!lane) return notifyHq(text, ref, floor);
+  db.query("INSERT INTO lane_outbox (at, floor, to_lane, ref, text, delivery) VALUES (?, ?, ?, ?, ?, 'queued')").run(Date.now(), floor, lane, ref, text);
   bump();
   pump(lane);
 }
 
 const askIdOf = (ref: string) => Number(ref.split(":")[1]);
+const isAskRef = (ref: string) => ref.startsWith("ask:") || ref.startsWith("notyet:");
 const hhmm = (t: number) => new Date(t).toTimeString().slice(0, 5);
 
 // Nothing to type: the answer was acked (read from hud inbox or hud wait), or a NOT YET's ask is no longer open.
+// Anything that is not about an ask is always typed.
 function settled(ref: string) {
+  if (!isAskRef(ref)) return false;
   const a = db.query("SELECT status, acked_at FROM asks WHERE id = ?").get(askIdOf(ref)) as { status: string; acked_at: number | null } | null;
   return !a || (ref.startsWith("ask:") ? !!a.acked_at : a.status !== "open");
 }
@@ -67,10 +74,12 @@ function promptText(r: Row) {
   const id = askIdOf(r.ref);
   const after = r.ref.startsWith("ask:")
     ? `Ack it once you have acted on it: hud ack a:${id} (hud inbox lists your answers).`
-    : `The question stays open in the owner's NEEDS YOU.`;
+    : r.ref.startsWith("notyet:") ? `The question stays open in the owner's NEEDS YOU.` : null;
   const late = r.delivery === "queued" ? "" : `(kept while you were ${r.delivery === "busy" ? "busy" : "away"}; written at ${hhmm(r.at)}) `;
-  return `${late}${r.text}\n${after} ${OWNER} reads the HUD, not this terminal.`;
+  return `${late}${r.text}\n${after ? `${after} ` : ""}${OWNER} reads the HUD, not this terminal.`;
 }
+// What the event log says was typed.
+const typedWhat = (ref: string) => (ref.startsWith("ask:") ? `the answer on #${askIdOf(ref)}` : ref.startsWith("notyet:") ? `NOT YET on #${askIdOf(ref)}` : ref);
 
 function set(id: number, delivery: string, error: string | null = null) {
   db.query("UPDATE lane_outbox SET delivery = ?, error = ?, delivered_at = CASE WHEN ? = 'sent' THEN ? ELSE delivered_at END WHERE id = ?").run(delivery, error, delivery, Date.now(), id);
@@ -103,7 +112,7 @@ function pump(lane: string) {
   promptAgent(lane, text, l.machine).then((res) => {
     if (res.ok) {
       set(r.id, "sent");
-      event("hud", `typed ${r.ref.startsWith("ask:") ? "the answer" : "NOT YET"} on #${askIdOf(r.ref)} into ${lane}`, lane, r.floor);
+      event("hud", `typed ${typedWhat(r.ref)} into ${lane}`, lane, r.floor);
     } else toHq(r, `herdr could not type into it: ${res.error}`);
     pump(lane);
   });

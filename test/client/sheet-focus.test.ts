@@ -78,6 +78,7 @@ describe.skipIf(NO_CHROME)("sheets and the keyboard", () => {
     "floor-list": "[data-pill]", "floor-add": "[data-pill]", "floor-edit": "[data-pill]", "agent-drawer": "[data-lane-pick]", "new-room": ".rnew",
     "page-comments": ".pageview [data-comments-toggle]", menu: "#menuBtn", secrets: "#menuBtn", settings: "#menuBtn", subs: "#subsBtn", "tell-sheet": "#menuBtn",
     "close-room-confirm": "[data-room-close]", "secret-delete-confirm": "[data-secret-rm]", "brief-comment-sheet": ".bvbar [data-comments-toggle]", export: ".bvbar [data-export]",
+    "merge-confirm": "#ship [data-all]", "merge-unchecked": "#ship [data-ask]",
   };
   const label = `(() => { const a = document.activeElement; return a.tagName.toLowerCase() + (a.id ? "#" + a.id : "") + (typeof a.className === "string" && a.className ? "." + a.className.split(" ")[0] : ""); })()`;
 

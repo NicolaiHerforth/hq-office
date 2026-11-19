@@ -94,6 +94,43 @@ Questions from HQ appear at the top of the panel, most urgent first. Pick an opt
 
 HQ uses the CLI in `hud.ts` (the `hud` command after the install hud command action, or `bun hud.ts` from the plugin directory with `HUD_URL` set if you changed the port) to add lanes, ask questions and wait for your answers. HQ posts progress to the **MESSAGES** tab with `hud tell --title "PR is up" [--body "details"] [--lane NAME]` (`hud say` is the same command); the tab counts unread updates until you open it. MESSAGES is the whole conversation: HQ's updates, your notes and your answers to HQ's questions (with whether HQ acted on them), oldest at the top. `hud guide` prints how HQ should reach you.
 
+## SHIP: the PRs you merge
+
+A PR an agent wants you to merge does not go to NEEDS YOU. It waits in **SHIP**, the tab beside it. URGENT is on top
+whatever the domain, with why it is urgent. Then comes a group per domain (billing, search, docs …), then LOW. Inside a
+group, the PRs that can merge now come first, then the longest waiting. Each PR shows its link, who filed it, how long
+it has waited, its checks, its review, its size and the filer's note. When the lane behind a PR is idle, the PR says
+"LANE WAITS ON THIS": that is where you are what holds work up. The tab counts how many can merge now (green) and how
+many are urgent (red, with a `!`).
+
+- **MERGE** merges a PR whose checks pass, with the first method the repo allows of squash, merge and rebase. It
+  merges only the commit you were shown (`gh pr merge --match-head-commit`): a PR pushed to since then is not merged,
+  and says so.
+- **MERGE WHEN CHECKS PASS** turns on GitHub's auto-merge while checks still run, when the repo allows it.
+- One press on one PR (MERGE, MERGE WHEN CHECKS PASS, SEND BACK) waits 5 seconds before it runs, and **UNDO** takes it
+  back. The server holds it, so closing or reloading the page in those seconds neither loses it nor runs it twice.
+  Once it runs, a merge cannot be taken back.
+- A PR that cannot merge has no button: the reason stands where it would be, in words (failing checks, conflicts,
+  changes requested, a draft, a review still needed).
+- A group's **MERGE N** merges the PRs in it that can merge now, after a confirm that lists them. A PR no checks ran on
+  never merges with a group: it has its own button, which asks first.
+- **SEND BACK** with a note returns a PR to whoever filed it. It leaves the tab until it is filed again.
+- **DONE** lists what was merged or sent back in the last 24 hours, and whether you merged it or GitHub did.
+
+Whoever filed it hears "HUD SHIP: merged REPO#N" or "HUD SHIP: sent back REPO#N: NOTE"; MESSAGES gets one line per
+press (one PR, or a group's count with the PRs listed). A PR merged or closed on GitHub by anyone leaves by itself.
+
+```sh
+hud ship https://github.com/OWNER/REPO/pull/12 [--lane L] [--note TEXT] [--urgent WHY]
+```
+
+HQ or a lane files a PR; the same PR again updates it. An old-style `hud ask` that links PRs and asks for a merge
+files each linked PR in SHIP instead and says so. The HUD reads GitHub with `gh` on this machine, under your login: one
+query for every PR in SHIP when one is filed, when you open the tab, right before a merge, and every 5 minutes while
+SHIP holds anything. Nothing runs while it is empty, and nothing ever starts or re-runs CI. With `HUD_SAMPLE_CMD` set,
+a small model sorts new PRs into domains and urgency, one call per batch. Without it, the domain is the repo's name.
+Only your browser on the HUD's page can merge or send back: `hud` and the agents cannot.
+
 ## Briefs
 
 A brief is a longer write-up from a floor's HQ: a project update, a plan, a summary. Messages are too narrow for that. HQ posts one with:
@@ -608,8 +645,8 @@ Set these in `config.env`. An empty value means the default.
 | `HUD_MONITOR_DISK` | on | `0` stops the monitor's daily walk of the large cache and temp folders. |
 | `HUD_MONITOR_REPLAY` | | A folder with a recorded `monitor.db`: the page is answered from it with no sampler, for tests and screenshots (`scripts/monitor-fixture.ts` writes one). |
 | `HERDR_BIN` | `herdr` on PATH | Path to the herdr binary. |
-| `HUD_GH_BIN` | `gh` on PATH | Path to the GitHub CLI, used by the work board. |
-| `HUD_SAMPLE_CMD` | empty | A command that reads a prompt on stdin and prints an answer: lets HTML pages ask a model (`claude.use("sample")`). Pages has the line for Claude Code. Empty: pages cannot. |
+| `HUD_GH_BIN` | `gh` on PATH | Path to the GitHub CLI, used by SHIP and the work board. |
+| `HUD_SAMPLE_CMD` | empty | A command that reads a prompt on stdin and prints an answer: lets HTML pages ask a model (`claude.use("sample")`). Pages has the line for Claude Code. Empty: pages cannot, and SHIP sorts by repo. |
 | `HUD_CHROME_PATH` | a usual install | The Chrome, Chromium, Edge or Brave that prints PDFs (EXPORT, `hud brief export`). |
 | `HUD_PRINT_TIMEOUT_MS` | `60000` | How long a page gets to be ready to print before it is stopped. |
 | `HUD_DATA_DIR` | plugin state dir | Where the database, uploads and settings live. The plugin sets it; leave it empty. |

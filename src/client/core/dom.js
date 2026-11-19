@@ -5,7 +5,25 @@ export function toast(msg) {
   t.className = "box toast px";
   t.textContent = msg;
   document.body.append(t);
+  clearOfSheet(t);
   setTimeout(() => t.remove(), 2400);
+}
+// A sheet is open at the foot (core/sheet.js, a phone): the toast goes above it, or, when the sheet leaves no room
+// above it, to the first band from the top with nothing in the sheet to press. A sheet with something to press in every
+// band has the toast at the top, which takes no press (questions.css), so a tap there still reaches the sheet.
+const PRESSABLE = "button, a[href], input, textarea, select, [role=button], summary";
+function clearOfSheet(t) {
+  const s = [...document.querySelectorAll(".sheet")].sort((a, b) => Number(a.style.zIndex) - Number(b.style.zIndex)).at(-1);
+  if (!s) return;
+  const box = s.getBoundingClientRect(), h = t.getBoundingClientRect().height;
+  let y = box.top - h - 8;
+  if (y < 8) {
+    const hits = [...s.querySelectorAll(PRESSABLE)].map((c) => c.getBoundingClientRect()).filter((r) => r.height && r.bottom > box.top && r.top < box.bottom);
+    const busy = (y) => hits.some((r) => r.top < y + h + 4 && r.bottom > y - 4);
+    for (y = 8; y + h < innerHeight && busy(y); y += 4);
+    if (busy(y)) y = 8;
+  }
+  Object.assign(t.style, { top: `${Math.round(y)}px`, bottom: "auto" });
 }
 // Under 1151px the page scrolls, not the panels (core/layout.css), so a panel built again can move what is on screen.
 export const phone = () => matchMedia("(max-width: 1150px) and (pointer: coarse)").matches;

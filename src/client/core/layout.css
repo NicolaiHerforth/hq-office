@@ -50,10 +50,17 @@
 :root:not([data-layout="board"]) .under { display: none; }
 /* the worker card and the secrets panel open over the stage */
 .stage { position: relative; }
-/* A phone: all five question tabs show, with any count. Each count sits under its label, inside the 44 px target, so it
+/* A phone: all six question tabs show, with any count. Each count sits under its label, inside the 44 px target, so it
    takes no width; the labels stay on one line across the row. */
 @media (max-width: 640px) {
   html .qtabs { gap: 3px; }
   html .qtabs .tab { flex: 1 1 auto; flex-direction: column; justify-content: flex-start; gap: 2px; padding: 8px 2px 2px; border-width: 2px; font-size: 8px; }
   html .qtabs .tab .tag { padding: 1px 3px; font-size: 8px; line-height: 1.2; }
+}
+/* Six labels are wider than a 360 px row: there NEEDS YOU alone takes two lines, as WAITING ON YOU does above it, and
+   every other tab keeps its label whole. */
+@media (max-width: 380px) {
+  html .qtabs { gap: 2px; }
+  html .qtabs .tab { flex-shrink: 0; }
+  html .qtabs .tab[data-qtab="questions"] { flex-shrink: 1; white-space: normal; text-align: center; }
 }

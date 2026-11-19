@@ -34,6 +34,8 @@ const ALLOW = [
   { file: "src/client/rooms/new.js", has: '>${esc(form.text)}</textarea>', why: "the owner's own first message, put back into its textarea" },
   { file: "src/client/embeds/index.js", has: '? esc(c.title) :', why: "a card of a lane or a floor: its title is the lane's or the floor's name, not text anyone wrote" },
   { file: "src/client/embeds/model.js", has: '${r.last.text}', why: "the card model's data, not markup: embeds/index.js renders the preview with mdInline" },
+  { file: "src/client/ship/index.js", has: 'return `<b>${esc(v.why)}.</b>`;', why: "why a PR cannot merge: the page's own words from ship/model.js verdict(), not text HQ or a lane wrote" },
+  { file: "src/client/ship/index.js", has: '>${esc(back.text)}</textarea>', why: "the owner's own SEND BACK note, put back into its textarea" },
   { file: "src/client/embeds/model.js", has: '${room.title}', why: "the card model's data, not markup: embeds/index.js renders the preview with mdInline" },
 ];
 

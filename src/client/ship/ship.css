@@ -1,0 +1,196 @@
+/* MERGE: the PRs to merge (the design of brief 211). Quiet by default. Colour is kept for what differs: green is what you
+   can do now, red is urgent or a PR that has to change, amber is what nothing has checked or what time clears. A PR
+   that is fine says nothing about itself. Solid red stays NEEDS YOU's. Colours are the tokens of core/base.css. */
+.ship[hidden] { display: none; }
+.ship { padding: 5px; display: grid; grid-template-rows: minmax(0, 1fr); min-width: 0; }
+@media (min-width: 1151px) { .ship { height: 100%; overflow: hidden; } .ship > .mgs { min-height: 0; overflow-y: auto; overscroll-behavior: contain; } }
+/* the tab's counts: ready solid green (or what is left to check, amber), urgent an outlined red */
+.qtabs .mtags { display: inline-flex; gap: 3px; }
+.qtabs .mtags:not(:has(> .tag:not([hidden]))) { display: none; }
+.tag.mready { background: var(--green); color: var(--on-fill); }
+.tag.mcheck { background: var(--amber); color: var(--on-fill); }
+.tag.murgent { background: var(--box); color: var(--red-text); box-shadow: inset 0 0 0 1px var(--red); }
+/* a 360 px row holds six tabs only if these two give back a little width */
+@media (max-width: 380px) { html .qtabs .mtags .tag { padding-inline: 2px; } }
+
+/* the answer first: how much is ready, what is left for you to check, and who is idle until you merge */
+.ship .sum { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 14px; align-items: center; padding: 12px; }
+.ship .sum .n { grid-row: 1 / span 2; min-width: 56px; font: 26px/1 var(--pixel); color: var(--green-text); }
+.ship .sum.check .n { color: var(--amber-text); }
+.ship .sum .k { align-self: end; font: 9px/1.5 var(--pixel); }
+.ship .sum .k .fl { font: 12px/1.3 var(--text); color: var(--muted); }
+.ship .sum .of { align-self: start; font-size: 13px; line-height: 1.35; color: var(--muted); }
+.ship .sum .of code { font: 12px var(--mono); }
+.ship .sum .idle { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; padding-top: 9px; border-top: 2px solid var(--rule); font-size: 13px; color: var(--ink-2); }
+.ship .sum .idle + .idle { margin-top: 0; padding-top: 4px; border-top: 0; }
+.ship .sum.stuck .n { color: var(--muted); }
+.ship .idler { display: inline-flex; align-items: center; gap: 5px; min-height: 26px; padding: 2px 3px; border: 0; border-radius: 6px; background: none; font: 13px/1.2 var(--text); color: var(--ink-2); }
+@media (hover: hover) { .ship .idler:hover { background: var(--hover); } }
+.ship .idler > span:not(.tag) { white-space: nowrap; }
+.ship .idler .go { font: 700 12px/1 var(--text); color: var(--blue-text); }
+.ship .lnk { min-height: 0; min-width: 0; padding: 0; border: 0; background: none; font: inherit; font-weight: 700; color: var(--blue-text); cursor: pointer; }
+@media (hover: hover) { .ship .lnk:hover { text-decoration: underline; } }
+.ship .ck { margin-left: 5px; font: 800 13px/1 var(--text); }
+.ship .sum .n .ck { margin: 0; font-size: 30px; }
+
+/* a group: URGENT, a domain, LOW PRIORITY, CHECK THESE YOURSELF, DONE */
+.ship .g { border-top: 2px solid var(--rule); scroll-margin-top: 4px; }
+.ship .gh { display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; gap: 1px 10px; width: 100%; min-height: 46px; padding: 6px 10px 6px 8px; border: 0; background: var(--box); color: var(--ink); text-align: left; }
+.ship button.gh { cursor: pointer; }
+@media (hover: hover) { .ship button.gh:hover { background: var(--hover); } }
+.ship .gh .name { display: flex; align-items: center; gap: 8px; min-width: 0; font: 9px/1.5 var(--pixel); text-transform: uppercase; }
+.ship .caret { flex: none; display: grid; place-items: center; width: 14px; height: 14px; color: var(--muted); }
+.ship .caret.c::before { content: ""; border-left: 6px solid currentColor; border-block: 4px solid transparent; }
+.ship .caret.c.o::before { transform: rotate(90deg); }
+.ship .gh .caret { color: var(--ink); }
+.ship .gh .name b { font-weight: 400; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ship .gh .say { padding-left: 22px; font: 12.5px/1.35 var(--text); color: var(--ink-2); text-transform: none; }
+.ship .gh .say .tag { padding: 3px 5px; font-size: 7px; vertical-align: 1px; }
+.ship .gh .say .okk { color: var(--green-strong); font-weight: 700; }
+.ship .gh .say .bad { color: var(--red-text); font-weight: 700; }
+.ship .gh .hint { padding-left: 6px; font-size: 12.5px; line-height: 1.35; color: var(--ink-2); }
+.ship .ghwrap { position: relative; display: grid; background: var(--box); }
+.ship .ghwrap .act { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); display: flex; align-items: center; gap: 8px; }
+.ship .ghwrap:has(.act) .gh { padding-right: 128px; }
+.ship .ghwrap .act .send { min-height: 34px; padding: 0 10px; font-size: 9px; white-space: nowrap; }
+.ship .ghwrap .act .said { font: 8px/1.5 var(--pixel); color: var(--muted); text-align: right; white-space: nowrap; }
+.ship .ghwrap .act .said.ok { color: var(--green-strong); }
+.ship .g.gu .gh .name { color: var(--red-strong); padding-left: 6px; }
+.ship .g.gc .gh .name { color: var(--amber-strong); padding-left: 6px; }
+.ship .g.gu .gh, .ship .g.gu .r { box-shadow: inset 3px 0 0 var(--red); }
+.ship .g.gc .gh, .ship .g.gc .r { box-shadow: inset 3px 0 0 var(--amber); }
+.ship .g.one .gh { min-height: 36px; }
+.ship .g.low .gh .name b, .ship .g.done .gh .name b { color: var(--muted); }
+@media (min-width: 1151px) { .ship .ghwrap { position: sticky; top: 0; z-index: 2; box-shadow: 0 1px 0 var(--rule), 0 3px 0 var(--box); } }
+
+/* one PR, one line: what it is. What is fine about it is not said; what stops it is, in words, where the button would be */
+.ship .r { position: relative; display: grid; grid-template-columns: 14px minmax(0, 1fr) auto; gap: 0 8px; align-items: center; min-height: 38px; padding: 6px 10px 6px 8px; border-top: 1px solid var(--rule); cursor: pointer; }
+.ship .r > .fswatch { display: none; }
+@media (hover: hover) { .ship .r:hover { background: var(--hover); } }
+.ship .r:focus-visible, .ship .gh:focus-visible, .ship .idler:focus-visible { outline: 2px solid var(--blue); outline-offset: -2px; }
+.ship .r.open { background: var(--well); }
+.ship .r.hl { background: var(--blue-tint); box-shadow: inset 4px 0 0 var(--blue); }
+.ship .r .caret.c::before { border-left-width: 5px; border-block-width: 3.5px; }
+.ship .r .t { min-width: 0; font: 600 14px/1.35 var(--text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ship .r .t i { font-weight: 400; color: var(--muted); }
+.ship .r .t code { font-size: 12.5px; }
+.ship .r.open .t, .ship .g.one .r .t { white-space: normal; overflow-wrap: break-word; }
+.ship .r .side { display: flex; align-items: center; justify-content: flex-end; gap: 10px; min-width: 104px; white-space: nowrap; font: 12px/1.3 var(--mono); color: var(--muted); }
+.ship .r .side .age { min-width: 34px; text-align: right; font-family: var(--text); }
+.ship .r .side .tag.sorting { padding: 3px 5px; font-size: 7px; }
+.ship .r .why { font: 700 12px/1.3 var(--text); color: var(--muted); }
+.ship .r .why.bad { color: var(--red-text); }
+.ship .r .why.wait { color: var(--amber-strong); }
+.ship .r .why.ok { color: var(--green-strong); }
+.ship .r.wait .t { font-weight: 400; color: var(--ink-2); }
+.ship .r .urg, .ship .r .chk { grid-column: 2; font-size: 13px; line-height: 1.35; overflow-wrap: break-word; }
+.ship .r .urg { color: var(--red-strong); }
+.ship .r .chk { color: var(--amber-strong); }
+.ship .r .side .send { min-height: 34px; padding: 0 12px; }
+.ship .r .side .btn-s { min-height: var(--undo-h); color: var(--ink); }
+.ship .r .side .two { white-space: normal; width: 104px; line-height: 1.3; text-align: center; }
+.ship .r .doing { max-width: 104px; font: 8px/1.5 var(--pixel); color: var(--muted); white-space: normal; text-align: right; }
+/* a row with its own button keeps room for its tallest moment, the words over UNDO, from the start: one line of them,
+   two for MERGE WHEN CHECKS PASS */
+.ship .g.one .r.roomy .side { min-height: calc(12px + 3px + var(--undo-h)); }
+.ship .g.one .r.roomy.two .side { min-height: calc(24px + 3px + var(--undo-h)); }
+.ship { --undo-h: 30px; }
+/* a press that can still be taken back: the bar under UNDO runs out with the server's hold */
+.ship .r .held { display: grid; justify-items: end; gap: 3px; white-space: nowrap; text-align: right; }
+.ship .r .undo { position: relative; overflow: hidden; }
+.ship .r .undo::after { content: ""; position: absolute; left: 0; bottom: 0; height: 3px; width: 100%; background: var(--green); transform-origin: left; animation: mrunout 5s linear forwards; animation-delay: inherit; }
+@keyframes mrunout { to { transform: scaleX(0); } }
+.ship .r.gone .t { font-weight: 400; color: var(--muted); }
+.ship .r.gone .mark, .ship .dr .mark { font: 8px/1.5 var(--pixel); color: var(--green-strong); white-space: nowrap; }
+.ship .r .side .mark { max-width: 104px; white-space: normal; text-align: right; }
+.ship .d .heldb { display: inline-flex; flex-direction: row-reverse; align-items: center; gap: 10px; }
+.ship .r.gone .mark.back, .ship .dr .mark.back { color: var(--muted); }
+.ship .sub { padding: 9px 10px 5px 30px; border-top: 1px solid var(--rule); font: 7px/1.5 var(--pixel); color: var(--muted); }
+
+/* a PR opened: where it is, what state it is in (one sentence), the agent's note, and what you can do */
+.ship .d { grid-column: 2 / -1; display: grid; gap: 7px; padding: 6px 0; font-size: 13px; line-height: 1.4; color: var(--ink-2); cursor: default; }
+.ship .d .ref { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; color: var(--muted); }
+.ship .d .ref a { font: 8px/1.5 var(--pixel); color: var(--blue-text); text-decoration: none; }
+@media (hover: hover) { .ship .d .ref a:hover, .ship .dr .m a:hover { text-decoration: underline; } }
+.ship .d .ref .tag { padding: 3px 5px; font-size: 7px; }
+.ship .d .ext, .ship .dr .m .ext { margin-left: 4px; font: 700 12px/1 var(--text); }
+.ship .d .state b { font-weight: 800; }
+.ship .d .state.bad b { color: var(--red-text); }
+.ship .d .state.wait b { color: var(--amber-strong); }
+.ship .d .state.ok b { color: var(--green-strong); }
+.ship .d .note { padding: 6px 9px; border-left: 3px solid var(--rule); color: var(--ink-2); overflow-wrap: anywhere; }
+.ship .d .note > :is(p, ul, ol) { margin-block: 0 4px; }
+.ship .d .note i { display: block; margin-bottom: 2px; font: normal 7px/1.5 var(--pixel); color: var(--muted); }
+.ship .d .err { padding: 6px 9px; border-radius: 6px; background: var(--red-tint-2); color: var(--red-strong); overflow-wrap: anywhere; }
+.ship .d .acts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-height: 36px; }
+.ship .d .acts .send { min-height: 36px; }
+.ship .d .acts .btn-s { min-height: 32px; }
+.ship .d .acts .backb { margin-left: auto; }
+.ship .d .acts .doing { max-width: none; font: 8px/1.5 var(--pixel); color: var(--muted); }
+.ship .d form { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 6px; }
+.ship .d form label { flex: 1 0 100%; font-size: 12.5px; color: var(--muted); }
+.ship .d form textarea { flex: 1 1 100%; min-width: 0; resize: none; field-sizing: content; min-height: 54px; max-height: 9em; padding: 7px 10px; border: 2px solid var(--edge-2); border-radius: 8px; background: var(--field); color: var(--ink); font: 14px/1.4 var(--text); }
+.ship .d form textarea:focus { outline: none; border-color: var(--edge); }
+.ship .d form .send, .ship .d form .btn-s { min-height: 36px; }
+
+/* DONE: what was merged or sent back, each with where and when */
+.ship .dr { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0 10px; align-items: start; padding: 7px 10px 7px 30px; border-top: 1px solid var(--rule); }
+.ship .dr .t { font: 400 14px/1.35 var(--text); color: var(--ink-2); overflow-wrap: break-word; }
+.ship .dr .m { grid-column: 1 / -1; font-size: 12px; line-height: 1.4; color: var(--muted); overflow-wrap: break-word; }
+.ship .dr .m a { color: var(--blue-text); text-decoration: none; }
+.ship .dmore { padding: 8px 10px 10px 30px; border-top: 1px solid var(--rule); }
+.ship .foot { padding: 10px 12px 8px; border-top: 2px solid var(--rule); font-size: 12px; color: var(--muted); }
+
+/* the confirm: the list of what goes, right where you pressed (core/sheet.js makes it a sheet on a phone). A line can be
+   left out. */
+.mscrim { position: absolute; inset: 0; z-index: 20; border-radius: 10px; background: var(--scrim); }
+.mcf { position: absolute; z-index: 21; left: 8px; right: 8px; bottom: 8px; display: grid; gap: 10px; max-height: calc(100% - 60px); grid-template-rows: auto minmax(0, 1fr) auto auto; padding: 14px; border: 3px solid var(--edge); border-radius: 12px; background: var(--box); box-shadow: 0 8px 0 rgba(0, 0, 0, .25); }
+.mcf[hidden], .mscrim[hidden] { display: none; }
+.mcf:focus { outline: none; }
+.mcf h3 { margin: 0; font: 10px/1.6 var(--pixel); }
+.mcf ul { margin: 0; padding: 0; list-style: none; overflow-y: auto; border: 2px solid var(--rule); border-radius: 8px; background: var(--well); }
+.mcf li + li { border-top: 1px solid var(--rule); }
+.mcf li label { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 9px; align-items: center; min-height: 36px; padding: 5px 9px; font: 600 13.5px/1.35 var(--text); cursor: pointer; }
+.mcf li.alone label { grid-template-columns: minmax(0, 1fr) auto; cursor: default; }
+.mcf li input { width: 18px; height: 18px; margin: 0; accent-color: var(--green); }
+.mcf li span { overflow-wrap: break-word; }
+.mcf li small { font: 12px/1.5 var(--mono); color: var(--muted); white-space: nowrap; }
+.mcf li.out span { font-weight: 400; color: var(--muted); text-decoration: line-through; }
+/* what the confirm cannot take (new commits, no longer ready), and what turned ready while it was open */
+.mcf li small .lt { font: 400 7px/1.5 var(--pixel); color: var(--muted); white-space: normal; }
+.mcf li.fresh small .lt { color: var(--blue-text); }
+.mcf .rest { font-size: 13px; color: var(--ink-2); }
+.mcf .rest.warn { padding: 8px 10px; border-radius: 8px; background: var(--amber-tint-2); color: var(--amber-strong); box-shadow: inset 0 0 0 1px var(--amber-edge); }
+.mcf .acts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.mcf .acts .btn-s, .mcf .acts .send { min-height: 44px; font-size: 10px; }
+/* MERGE IT on a PR nothing tested: amber and outlined, so a hand used to a group's green MERGE N does not press it by habit */
+.mcf .acts .danger { border-color: var(--amber); background: var(--amber-tint-2); color: var(--amber-strong); }
+@media (hover: hover) { .mcf .acts .danger:hover { background: var(--amber-tint); } }
+@media (max-width: 1150px) {
+  .mscrim { position: fixed; border-radius: 0; z-index: 60; }
+  .mcf { position: fixed; z-index: 61; bottom: calc(8px + env(safe-area-inset-bottom, 0px)); max-height: calc(100dvh - 16px); }
+}
+/* a phone: the HUD's sheet brings its own scrim, and its look */
+@media (max-width: 799px), (max-width: 1150px) and (pointer: coarse) {
+  .mscrim { display: none; }
+}
+@media (max-width: 799px), (max-width: 1150px) and (pointer: coarse) {
+  .ship .g { scroll-margin-top: 60px; }
+  .ship .r { min-height: 50px; }
+  .ship .r .t { white-space: normal; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: break-word; }
+  .ship .r.open .t, .ship .g.one .r .t { display: block; }
+  .ship .r .urg, .ship .r .chk { grid-column: 2 / -1; }
+  .ship .r .side { flex-direction: column; align-items: flex-end; gap: 0; min-width: 76px; }
+  .ship .g.one .r .side { min-width: 104px; }
+  .ship { --undo-h: 44px; }
+  .ship .r .side:has(button) { flex-direction: row; gap: 8px; }
+  .ship .r .side .send, .ship .r .side .btn-s, .ship .ghwrap .act .send, .ship .d .acts .send, .ship .d .acts .btn-s, .ship .d form .send, .ship .d form .btn-s, .ship .idler, .ship .dmore .btn-s { min-height: 44px; }
+  .ship .gh { min-height: 56px; }
+  .ship .g.one .gh { min-height: 40px; }
+  .ship .lnk { min-height: 44px; margin-block: -12px; }
+  .ship .d form textarea { font-size: 16px; min-height: 60px; }
+  .ship .sub, .ship .gh .say .tag, .ship .d .ref .tag, .ship .d .note i, .ship .r .side .tag.sorting { font-size: 8px; }
+  .ship .dr .m a, .ship .d .ref a { display: inline-flex; align-items: center; min-height: 44px; margin-block: -14px; }
+  .ship .d .ref button.tag.lane { display: inline-flex; align-items: center; justify-content: center; min-width: 44px; min-height: 44px; margin-block: -14px; }
+  .mcf li label { min-height: 44px; }
+}

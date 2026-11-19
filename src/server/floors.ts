@@ -192,9 +192,10 @@ export function setFloor(id: string, body: any) {
   return hqChanged;
 }
 
-// Only a floor with no work goes: no lanes, no open question, no open room, no open board item. What was held for its
-// HQ (it never took it) moves to the first floor's HQ, marked as meant for this floor; what its HQ's owner already
-// read is dropped. What it leaves behind (answered questions, updates, notes, the log) moves to the first floor too.
+// Only a floor with no work goes: no lanes, no open question, no open room, no open board item, no PR in MERGE. What
+// was held for its HQ (it never took it) moves to the first floor's HQ, marked as meant for this floor; what its HQ's
+// owner already read is dropped. What it leaves behind (answered questions, updates, notes, the log, MERGE's DONE)
+// moves to the first floor too.
 // The herdr agent kind a floor's HQ last ran (floor_kinds.sql), and remembering it.
 export const hqKindOf = (floor: string) => (db.query("SELECT kind FROM floor_kinds WHERE floor = ?").get(floor) as { kind: string } | null)?.kind ?? null;
 export function rememberKind(floor: string, kind: string | null | undefined) {
@@ -210,6 +211,7 @@ export function removeFloor(id: string) {
     [count("SELECT COUNT(*) AS n FROM asks WHERE floor = ? AND status = 'open'"), "open questions"],
     [count("SELECT COUNT(*) AS n FROM rooms WHERE floor = ? AND archived_at IS NULL"), "open rooms"],
     [count("SELECT COUNT(*) AS n FROM work_items WHERE floor = ? AND done_at IS NULL"), "open board items"],
+    [count("SELECT COUNT(*) AS n FROM ship WHERE floor = ? AND status = 'open'"), "PRs in MERGE"],
   ].filter(([n]) => n) as [number, string][];
   if (left.length) throw new Error(`floor ${f.id} is not empty: ${left.map(([n, what]) => `${n} ${what}`).join(", ")}. Move lanes with hud lane NAME --floor OTHER first`);
   let moved = 0, dropped = 0;
@@ -229,7 +231,7 @@ export function removeFloor(id: string) {
         moved += 1;
       }
     }
-    for (const t of ["asks", "updates", "notes", "rooms", "hq_outbox", "events", "work_items", "briefs", "page_comments"]) db.query(`UPDATE ${t} SET floor = ? WHERE floor = ?`).run(to, f.id);
+    for (const t of ["asks", "updates", "notes", "rooms", "hq_outbox", "events", "work_items", "briefs", "page_comments", "ship"]) db.query(`UPDATE ${t} SET floor = ? WHERE floor = ?`).run(to, f.id);
   })();
   event("hud", `floor ${f.id} removed: ${moved} held ${moved === 1 ? "message" : "messages"} moved to ${firstFloor()}, ${dropped} dropped (already read, or only for its HQ)`);
 }

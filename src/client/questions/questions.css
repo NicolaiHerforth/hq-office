@@ -62,6 +62,14 @@
 .qtabs .tab { flex: 0 0 auto; }
 @media (min-width: 1151px) and (max-width: 1300px) { .qtabs { gap: 4px; } .qtabs .tab { padding: 7px 6px; gap: 4px; } }
 @media (max-width: 520px) { .qtabs { gap: 4px; } .qtabs .tab { font-size: 7px; padding: 6px 5px; gap: 3px; border-width: 2px; } .qtabs .tab .tag { padding: 3px 3px; font-size: 6px; } }
+/* A desktop's question column holds six tabs with every count only if each count sits under its label, as on a phone:
+   the labels alone fill a 1180 px screen's column. The row stays no taller than 0.45's one-line row (33 px): --askcap
+   below budgets the space above the list, and a taller row pushes a page card's options out of view. */
+@media (min-width: 1151px) {
+  .qtabs { align-items: stretch; }
+  .qtabs .tab { flex: 1 1 auto; flex-direction: column; justify-content: flex-start; gap: 2px; padding: 3px 4px 2px; }
+  .qtabs .tab .tag { padding: 2px 4px; line-height: 1; }
+}
 .qtabs .tag[hidden] { display: none; }
 .tag.count { background: var(--red); color: var(--on-fill); }
 .hud[hidden], .msgs[hidden] { display: none; }
@@ -99,8 +107,11 @@
 html .ask .reply .acts .send:disabled { background: transparent; border-color: var(--edge-2); color: var(--ink-2); opacity: 1; }
 /* It can sit over a control at any width, the dock's SEND on a desktop, and takes no press from it. */
 html .toast { pointer-events: none; }
-/* Where the list runs under your eye, what you are told lies over the tabs, clear of the next question's text. */
-@media (max-width: 1150px) { html .toast { top: calc(6px + env(safe-area-inset-top, 0px)); bottom: auto; left: 8px; right: 8px; text-align: center; } }
+/* Where the list runs under your eye, what you are told lies over the sticky row above it, clear of the next question's
+   text (anywhere lower, a long list has text). On a touch screen that is the questions bar under the tab row, which
+   sticks at 0-56 px with the counts (.asknav top: 56px); the toast is no taller than the bar's 44 px. */
+@media (max-width: 1150px) { html .toast { top: calc(6px + env(safe-area-inset-top, 0px)); bottom: auto; left: max(8px, env(safe-area-inset-left, 0px)); right: max(8px, env(safe-area-inset-right, 0px)); padding-block: 10px; text-align: center; } }
+@media (max-width: 1150px) and (pointer: coarse) { html .toast { top: 57px; } }
 /* FOCUS: one question on the stage; the others are out of layout, so nothing about them can move what you read. */
 .hud.focus > .ask:not(.on) { display: none; }
 .hud.focus:has(> .ask.left.on) > .box:not(.ask) { display: none; }

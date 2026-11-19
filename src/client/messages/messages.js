@@ -17,7 +17,7 @@ import { messageChime } from "../sound/sound.js";
 // that starts with  re: #u12 ("first words of the parent")  (u = from HQ, n = your note), so the server needs
 // nothing new and HQ reads what the reply answers.
 const REF = /^re: #([un])(\d+)(?: \("([^"\n]*)"\))?[ \t]*/;
-export let qTab = (() => { try { const t = localStorage.getItem("hq-qtab"); return ["messages", "work", "rooms", "briefs"].includes(t) ? t : "questions"; } catch { return "questions"; } })();
+export let qTab = (() => { try { const t = localStorage.getItem("hq-qtab"); return ["ship", "messages", "work", "rooms", "briefs"].includes(t) ? t : "questions"; } catch { return "questions"; } })();
 export let replyTo = null, replyText = "", msgStick = true;
 // The open reply, put back after the page reloads (questions/drafts.js keeps it with the other drafts).
 export function setReply(to, text) { replyTo = to; replyText = text; }
@@ -40,7 +40,7 @@ export function setQTab(t) {
   msgStick = !was || was.bottom > 0 || phone();
   renderQTabs();
   if (t === "messages") renderMsgs(); else renderBelow();
-  emit("qtab", t); // WORK (requests/), ROOMS (rooms/) and BRIEFS (briefs/) draw themselves when shown
+  emit("qtab", t); // SHIP (ship/), WORK (requests/), ROOMS (rooms/) and BRIEFS (briefs/) draw themselves when shown
   if (!was) return;
   const now = wrap.getBoundingClientRect();
   if (was.bottom <= 0) scrollBy(0, now.bottom - was.bottom);
@@ -54,6 +54,7 @@ export function renderQTabs() {
     b.setAttribute("aria-selected", String(on));
   }
   $("hud").hidden = qTab !== "questions";
+  $("ship").hidden = qTab !== "ship"; // its list and counts are ship/
   $("msgs").hidden = qTab !== "messages";
   $("work").hidden = qTab !== "work"; // its list and count are requests/
   $("rooms").hidden = qTab !== "rooms"; // its count is set by rooms/
@@ -75,7 +76,12 @@ function fitTabs() {
   const more = q.scrollWidth - q.clientWidth > 1;
   q.classList.toggle("more-r", more && q.scrollLeft + q.clientWidth < q.scrollWidth - 1);
   q.classList.toggle("more-l", more && q.scrollLeft > 1);
-  if (more) q.querySelector(".tab.on")?.scrollIntoView({ block: "nearest", inline: "nearest" });
+  // Only the row scrolls: scrollIntoView would also move the page or the list to the tabs, off the card being read.
+  const on = more && q.querySelector(".tab.on");
+  if (!on) return;
+  const r = on.getBoundingClientRect(), b = q.getBoundingClientRect();
+  if (r.left < b.left) q.scrollLeft -= b.left - r.left;
+  else if (r.right > b.right) q.scrollLeft += r.right - b.right;
 }
 $("qtabs").addEventListener("scroll", fitTabs, { passive: true });
 addEventListener("resize", fitTabs);
