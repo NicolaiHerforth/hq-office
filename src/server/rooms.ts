@@ -370,8 +370,9 @@ export function roomView(slugRaw: unknown) {
     briefBy: r.brief_by,
     folder: roomDir(r.slug),
     briefVersions: versions(briefVersionsDir(r.slug)).length,
-    // A file's earlier versions (room-folder.ts): how many, so its card and its page can offer them.
-    artifactList: (db.query("SELECT id, at, by, kind, title, url, path FROM room_artifacts WHERE slug = ? ORDER BY id").all(r.slug) as { path: string | null }[]).map((a) => {
+    // In time order (the page shows the newest first). A file's earlier versions (room-folder.ts): how many, so its card
+    // and its page can offer them.
+    artifactList: (db.query("SELECT id, at, by, kind, title, url, path FROM room_artifacts WHERE slug = ? ORDER BY at, id").all(r.slug) as { path: string | null }[]).map((a) => {
       const name = a.path?.split("/").pop();
       return { ...a, versions: name ? versions(fileVersionsDir(r.slug, name)).length : 0 };
     }),

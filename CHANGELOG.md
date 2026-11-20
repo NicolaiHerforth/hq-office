@@ -3,6 +3,13 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.46.1] - 2026-11-20
+### Fixed
+
+- **A room's shelf is in time order again.** It was listed by when each item first arrived, so a file a lane
+  replaced, or wrote again in the room's folder, kept its old place while its card said "just now". The shelf now
+  follows each item's time, newest first, and a file written again in the folder takes the time of that write.
+
 ## [0.46.0] - 2026-11-19
 ### Added
 

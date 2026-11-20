@@ -110,7 +110,8 @@ export function ensureFolder(slug: string) {
   mkdirSync(filesDir(slug), { recursive: true });
   return roomDir(slug);
 }
-const rows = (slug: string) => db.query("SELECT * FROM room_artifacts WHERE slug = ? ORDER BY id").all(slug) as Row[];
+// In time order: a replaced file keeps its row and takes the time it was replaced at.
+const rows = (slug: string) => db.query("SELECT * FROM room_artifacts WHERE slug = ? ORDER BY at, id").all(slug) as Row[];
 // The shelf as a lane reads it: a file in files/ by its name, anything else by its url.
 export function writeShelf(slug: string) {
   const dir = filesDir(slug);
@@ -210,8 +211,18 @@ function reconcile(slug: string) {
     changed = true;
   }
   for (const a of known) {
-    if (existsSync(a.path!)) continue;
-    db.query("DELETE FROM room_artifacts WHERE id = ?").run(a.id);
+    let st;
+    try { st = lstatSync(a.path!); } catch {}
+    if (!st) {
+      db.query("DELETE FROM room_artifacts WHERE id = ?").run(a.id);
+      changed = true;
+      continue;
+    }
+    // A file a lane wrote again in files/ is as new as its last write, so the shelf shows it where its time says. An
+    // upload's row is written after its bytes, so its own write never counts.
+    if (st.mtimeMs <= a.at + 1000) continue;
+    if (Date.now() - st.mtimeMs < QUIET_MS) { settling = true; continue; }
+    db.query("UPDATE room_artifacts SET at = ? WHERE id = ?").run(Math.round(st.mtimeMs), a.id);
     changed = true;
   }
   if (changed) { touch(slug); writeShelf(slug); }

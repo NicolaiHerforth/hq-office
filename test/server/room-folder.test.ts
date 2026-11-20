@@ -135,6 +135,29 @@ describe("a room's folder", () => {
     expect(shelfJson("auth").some((x: any) => x.file === "dump.log")).toBe(false);
   });
 
+  test("the shelf is in time order: a file replaced, or written again in files/, moves to where its new time is", async () => {
+    await hud(["room", "create", "order", "--title", "Order", "--owner", "pm"]);
+    const titles = async () => (await room("order")).artifactList.map((x: any) => x.title);
+    await upload("order", "a.md", "a1\n", "&as=pm");
+    await Bun.sleep(5);
+    await upload("order", "b.md", "b1\n", "&as=pm");
+    await Bun.sleep(5);
+    await upload("order", "c.md", "c1\n", "&as=pm");
+    expect(await titles()).toEqual(["a.md", "b.md", "c.md"]);
+    // A lane's upload under a name already there replaces the file: same row, its new time.
+    await Bun.sleep(5);
+    expect((await upload("order", "a.md", "a2\n", "&as=pm")).name).toBe("a.md");
+    expect(await titles()).toEqual(["b.md", "c.md", "a.md"]);
+    // A lane writing a file again in files/ itself: the shelf takes the file's new time once it has settled.
+    await Bun.sleep(1100);
+    writeFileSync(join(ROOMS, "order", "files", "b.md"), "b2\n");
+    await until(async () => (await titles()).at(-1) === "b.md");
+    expect(await titles()).toEqual(["c.md", "a.md", "b.md"]);
+    expect(shelfJson("order").map((x: any) => x.file)).toEqual(["c.md", "a.md", "b.md"]);
+    const list = (await room("order")).artifactList;
+    expect(list.map((x: any) => x.at)).toEqual([...list.map((x: any) => x.at)].sort((x, y) => x - y));
+  });
+
   test("the owner removing an item takes its file with it", async () => {
     const it = await upload("auth", "picked.png", PNG, "&as=owner");
     await post(`/api/rooms/auth/artifacts/${it.id}/remove`, {});
