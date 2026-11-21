@@ -21,6 +21,7 @@ import { HOST, PORT, SYNC_MS } from "./config.ts";
 import { syncHerdr } from "./herdr.ts";
 import { STATS_MS, sampleMachines } from "./machines.ts";
 import { board } from "./work-board.ts";
+import { watchStalls } from "./stall-watch.ts";
 
 syncHerdr();
 setInterval(() => void syncHerdr(), SYNC_MS);
@@ -30,4 +31,6 @@ board.refresh(0).catch(() => {});
 // timers on the page tick on their own.
 sampleMachines();
 setInterval(sampleMachines, STATS_MS);
-console.log(`HQ command centre on http://${HOST}:${PORT}`);
+// A thread that stops is noticed, logged and, under a service, ended so it starts again (stall-watch.ts).
+watchStalls();
+console.log(`${new Date().toISOString()} HQ command centre on http://${HOST}:${PORT}`);

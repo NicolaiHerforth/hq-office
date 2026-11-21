@@ -3,6 +3,17 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.46.2] - 2026-11-21
+### Fixed
+
+- **A server that stops answering starts again by itself.** The server's own thread can stop while the process stays
+  alive and listening, and every request then waits until someone restarts it by hand. A small watch thread now
+  notices when that thread has not run for 30 seconds. It writes the time to the log and, on macOS, a sample of the
+  process to `stalls/` in the data folder, so the cause can be found. Under the service (launchd or systemd) it then
+  ends the process, and the service starts it again in seconds. Secrets held in memory are lost in that restart, as
+  in a crash; the HUD says which. Run **install service** again after updating, so the service passes the setting.
+- **The server log says when the server started.**
+
 ## [0.46.1] - 2026-11-20
 ### Fixed
 

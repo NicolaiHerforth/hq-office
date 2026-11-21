@@ -173,8 +173,10 @@ function bunPath() {
   return Bun.which("bun", { PATH: servicePath() }) ?? process.execPath;
 }
 
+// HUD_SUPERVISED: launchd and systemd start the server again when it ends, so a server whose thread stops may end
+// itself (src/server/stall-watch.ts).
 function serviceSpec(): ServiceSpec {
-  return { bun: bunPath(), root: ROOT, env: { ...serverEnv(), PATH: servicePath() }, log: LOG_FILE };
+  return { bun: bunPath(), root: ROOT, env: { ...serverEnv(), PATH: servicePath(), HUD_SUPERVISED: "1" }, log: LOG_FILE };
 }
 
 const serviceInstalled = () => !!service && service.state().installed;

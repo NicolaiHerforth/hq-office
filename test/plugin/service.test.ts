@@ -109,6 +109,8 @@ describe("macOS: a LaunchAgent", () => {
     expect(text).toContain(`<key>HUD_PORT</key>\n      <string>${t.port}</string>`);
     expect(text).toContain(`<key>HUD_OWNER</key>\n      <string>Tester</string>`);
     expect(text).toContain(`<key>HUD_MONITOR</key>\n      <string>0</string>`);
+    // Under launchd a server whose thread stops may end itself, to be started again (src/server/stall-watch.ts).
+    expect(text).toContain(`<key>HUD_SUPERVISED</key>\n      <string>1</string>`);
     expect(text).toContain(`<key>StandardOutPath</key>\n    <string>${join(t.state, "server.log")}</string>`);
     const path = text.match(/<key>PATH<\/key>\s*<string>([^<]*)<\/string>/)![1].split(":");
     for (const d of [join(t.home, ".bun", "bin"), "/opt/homebrew/bin", "/usr/local/bin"]) expect(path).toContain(d);
@@ -240,6 +242,7 @@ describe("Linux: a systemd user unit", () => {
     expect(text).toContain(`Environment="HUD_DATA_DIR=${t.state}"`);
     expect(text).toContain(`Environment="HUD_OWNER=Tester"`);
     expect(text).toContain(`Environment="HUD_MONITOR=0"`);
+    expect(text).toContain(`Environment="HUD_SUPERVISED=1"`);
     expect(text).toMatch(/^Environment="PATH=[^"]*\/opt\/homebrew\/bin[^"]*"$/m);
     expect(text).toContain(`StandardOutput=append:${join(t.state, "server.log")}`);
     const all = calls(t);
