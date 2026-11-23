@@ -8,9 +8,10 @@ import { join } from "node:path";
 
 const FIXTURE = join(import.meta.dir, "..", "fixtures", "stall.ts");
 
-async function run(env: Record<string, string>) {
+async function run(env: Record<string, string>, meanwhile?: (pid: number) => Promise<void>) {
   const data = mkdtempSync(join(tmpdir(), "hq-stall-test-"));
   const p = Bun.spawn([process.execPath, FIXTURE], { env: { ...process.env, HUD_DATA_DIR: data, HUD_STALL_MS: "1500", ...env }, stdout: "pipe", stderr: "pipe" });
+  await meanwhile?.(p.pid);
   const [out, err, code] = await Promise.all([new Response(p.stdout).text(), new Response(p.stderr).text(), p.exited]);
   return { out, err, code, signal: p.signalCode, data };
 }
@@ -39,6 +40,22 @@ describe("the stall watch", () => {
     expect(r.code).toBe(0);
     expect(r.err).not.toContain("stall watch");
   }, 30_000);
+
+  // As the machine's sleep does: every thread stops, the worker's too, so the beats it missed are no stall. A lid
+  // closed for 76 s was reported as one before (23 Nov).
+  test("a process stopped whole, as in the machine's sleep, is never reported or ended", async () => {
+    // The thread waits 8.7 s; the whole process is stopped from 1 s to 8 s of it, so the thread is still waiting when
+    // the worker runs again and no beat of its own can hide the missed ones. Counted from the wake, it waited 1 s.
+    const r = await run({ STALL_FOR: "8700", HUD_STALL_MS: "3000", HUD_SUPERVISED: "1", HUD_STALL_SAMPLE: "0" }, async (pid) => {
+      await Bun.sleep(1000);
+      process.kill(pid, "SIGSTOP");
+      await Bun.sleep(7000);
+      process.kill(pid, "SIGCONT");
+    });
+    expect(r.err).not.toContain("stall watch");
+    expect(r.code).toBe(0);
+    expect(r.out).toContain("back");
+  }, 40_000);
 
   test.skipIf(process.platform !== "darwin")("on macOS the stopped process is sampled into DATA/stalls/", async () => {
     const r = await run({ STALL_FOR: "9000" });

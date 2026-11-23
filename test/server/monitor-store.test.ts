@@ -281,6 +281,41 @@ describe("what is kept", () => {
     expect(names(s)).toEqual(["bun", "early"]);
   });
 
+  // After days away the first prune had a day of ticks to throw away, all at once, on the server's thread: 1.8 million
+  // rows and 171 MB written in one go stopped the server for 32 s at a busy login (23 Nov). A step does a bounded part.
+  test("a prune in steps throws away the oldest rows first, a bounded number each step, and says when it is done", () => {
+    const s = openStore(":memory:");
+    for (let i = 0; i < 30; i++) s.write(T0 + i * TICK, host(), [row("bun"), row("early")]);
+    const now = T0 + 29 * TICK + RAW_KEEP_MS + 1000;
+    const step = { rows: 20, pages: 1 };
+    const seen: number[][] = [];
+    let done = false;
+    for (let n = 0; n < 10 && !done; n++) {
+      done = s.prune(now, step);
+      seen.push(times(s, "raw"));
+    }
+    expect(done).toBe(true);
+    expect(seen.length).toBeGreaterThan(2);
+    expect(seen[0]).toEqual(Array.from({ length: 20 }, (_, i) => (i + 10) * 10));
+    expect(times(s, "raw")).toEqual([]);
+    expect(times(s, "host_raw")).toEqual([]);
+    expect(s.db.query("PRAGMA freelist_count").get()).toEqual({ freelist_count: 0 });
+  });
+
+  test("a step always moves on, even when one second holds more rows than its budget", () => {
+    const s = twoTicks();
+    expect(s.prune(T0 + minutes.keepMs + 1000, { rows: 1, pages: 1_000 })).toBe(false);
+    for (let n = 0; n < 10 && !s.prune(T0 + minutes.keepMs + 1000, { rows: 1, pages: 1_000 }); n++);
+    expect(times(s, "raw")).toEqual([]);
+    expect(times(s, "roll", 60)).toEqual([3600]);
+  });
+
+  test("without a step, one prune still does it all", () => {
+    const s = twoTicks();
+    expect(s.prune(T0 + minutes.keepMs + 1000)).toBe(true);
+    expect(times(s, "raw")).toEqual([]);
+  });
+
   test("each resolution goes after its own time", () => {
     const s = twoTicks();
     s.prune(T0 + minutes.keepMs + 1000);

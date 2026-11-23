@@ -187,6 +187,14 @@ So the database grows by about 45 MB on its first day, by 7.5 MB a day for the r
 day after that, and stops at about 150 MB when all three are full. The limit is 500 MB. Over it, every table gives
 up the oldest part of its time span until the database is under it again.
 
+**The prune goes in steps.** It runs on the server's thread, so one prune may delete about 25,000 rows of each table
+and give back 8 MB of freed pages; a prune that is not done takes the next step on the next tick, ten seconds later.
+The quarter-hourly prune fits in one step. The first prune after days away does not: on 23 Nov 2026, after the
+machine had sat 22 hours at the login window, it deleted a whole day of ticks in one go (about 1.8 million rows,
+171 MB written) while every lane was resuming. The server's thread stopped for 32 s. In steps, that day goes in about
+70 ticks, a quarter of an hour. A series is deleted only once every table is caught up, since older rows may still name
+it. Over the size limit, a step takes one of the twenty rounds.
+
 A series goes by its `seen` time, never by a look through the rows for one that still names it: `raw` and `roll`
 hold about six million rows when full, and the prune runs every quarter of an hour. `seen` is the newest tick the
 series was in. The store keeps it in memory and writes it down with each prune, which is a few hundred small

@@ -3,6 +3,17 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.46.3] - 2026-11-23
+### Fixed
+
+- **The server no longer stops for half a minute at the first start after a long time off.** The resource monitor
+  threw away all of its expired history in one go, on the thread that answers requests. After the machine had been
+  off for a day, that was 1.8 million rows and 171 MB written, and the HUD did not answer for 32 seconds while every
+  agent was starting at once. Old history now goes in small steps, one every ten seconds, until it has caught up.
+- **A machine's sleep is not reported as a stopped server.** The stall watch counted the time the lid was closed as
+  time the server had not run. It now counts only from when the process was running again, so it reports and
+  restarts only a server that stopped by itself.
+
 ## [0.46.2] - 2026-11-21
 ### Fixed
 

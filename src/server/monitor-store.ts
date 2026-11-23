@@ -33,7 +33,11 @@ export type Store = {
   // That a grower's walk was tried at a time, whatever came of it.
   tried(at: number, name: string): void;
   roll(now: number): void;
-  prune(now: number): void;
+  // Throws away what is too old, then too much. With a step, at most step.rows rows of each tier and step.pages pages
+  // given back, so a prune after days away is spread over ticks instead of holding the server's thread (one after
+  // 22 hours deleted 1.8 million rows and wrote 171 MB in one go, 32 s of a stopped server at a busy login). Says
+  // whether it is done: false while rows past their time or freed pages are left.
+  prune(now: number, step?: { rows: number; pages: number }): boolean;
   size(): { bytes: number; limit: number };
   db: Database;
   close(): void;
@@ -147,8 +151,19 @@ export function openStore(path: string, opts: { limitBytes?: number } = {}): Sto
     }
   });
 
-  const cut = (tier: (typeof TIERS)[number], before: number) => {
-    for (const table of [tier.host, tier.rows]) db.query(`DELETE FROM ${table} WHERE ${tier.where} AND t < ?`).run(before);
+  // Cuts a tier's rows from before a time; with a budget, only as far as its oldest `rows` rows reach (and always past
+  // the oldest second, so a step moves on). Says whether it got all the way.
+  const cut = (tier: (typeof TIERS)[number], before: number, rows = Infinity) => {
+    let to = before;
+    if (rows !== Infinity) {
+      const edge = db.query(`SELECT t FROM ${tier.rows} WHERE ${tier.where} AND t < ? ORDER BY t LIMIT 1 OFFSET ?`).get(before, rows) as { t: number } | null;
+      if (edge) {
+        const oldest = (db.query(`SELECT t FROM ${tier.rows} WHERE ${tier.where} ORDER BY t LIMIT 1`).get() as { t: number }).t;
+        to = Math.min(before, Math.max(edge.t, oldest + 1));
+      }
+    }
+    for (const table of [tier.host, tier.rows]) db.query(`DELETE FROM ${table} WHERE ${tier.where} AND t < ?`).run(to);
+    return to >= before;
   };
 
   return {
@@ -178,18 +193,21 @@ export function openStore(path: string, opts: { limitBytes?: number } = {}): Sto
       db.query("INSERT OR REPLACE INTO grower_tries (name, t) VALUES (?, ?)").run(name, Math.round(at / 1000));
     },
     roll: (now) => rollUp(now),
-    prune(now) {
+    prune(now, step) {
       const longest = Math.max(...RES.map((r) => r.keepMs));
-      for (const tier of TIERS) cut(tier, (now - tier.keepMs) / 1000);
+      let caught = true;
+      for (const tier of TIERS) caught = cut(tier, (now - tier.keepMs) / 1000, step?.rows) && caught;
       // A mark, a grower's size and when it was last tried are kept as long as the history they belong to.
       for (const table of ["marks", "growers", "grower_tries"]) db.query(`DELETE FROM ${table} WHERE t < ?`).run((now - longest) / 1000);
       if (size().bytes > limit) {
         // Every tier gives up the oldest twentieth of the time it spans, round after round. The last round would
         // leave nothing, so the limit holds whenever an empty database is under it.
         const spans = TIERS.map((tier) => ({ tier, ...(db.query(`SELECT MIN(t) AS oldest, MAX(t) AS newest FROM ${tier.host} WHERE ${tier.where}`).get() as { oldest: number | null; newest: number }) }));
-        for (let round = 1; round <= PRUNE_ROUNDS && size().bytes > limit; round++) {
-          for (const { tier, oldest, newest } of spans) if (oldest !== null) cut(tier, oldest + Math.ceil(((newest - oldest + 1) * round) / PRUNE_ROUNDS));
+        // A step takes one round, of its budget at most; the next step looks again.
+        for (let round = 1; round <= (step ? 1 : PRUNE_ROUNDS) && size().bytes > limit; round++) {
+          for (const { tier, oldest, newest } of spans) if (oldest !== null) cut(tier, oldest + Math.ceil(((newest - oldest + 1) * round) / PRUNE_ROUNDS), step?.rows);
         }
+        if (size().bytes > limit) caught = false;
       }
       // A series goes by when it was last in a tick, never by a look through the rows: those are millions, and a
       // series with none left was last seen longer ago than any of them is kept. A row from before the column counts
@@ -197,10 +215,12 @@ export function openStore(path: string, opts: { limitBytes?: number } = {}): Sto
       writeSeen();
       seenSince.clear();
       db.query("UPDATE series SET seen = ? WHERE seen IS NULL").run(Math.round(now / 1000));
-      db.query("DELETE FROM series WHERE seen < ?").run((now - longest - SERIES_SLACK_MS) / 1000);
+      // Only once every tier is cut: before that, rows older than the series' last tick may still name it.
+      if (caught) db.query("DELETE FROM series WHERE seen < ?").run((now - longest - SERIES_SLACK_MS) / 1000);
       loadIds();
-      // Stepped to its end: each step gives one freed page back to the file system.
-      db.query("PRAGMA incremental_vacuum").all();
+      // Stepped to its end, or as many pages as the step allows: each step gives one freed page back to the file system.
+      db.query(`PRAGMA incremental_vacuum${step ? `(${step.pages})` : ""}`).all();
+      return caught && pragma("freelist_count") === 0;
     },
     close: () => db.close(),
   };

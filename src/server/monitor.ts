@@ -17,6 +17,9 @@ import { usage } from "./monitor-usage.ts";
 // Five seconds would break the limit; thirty would average away a test run's spikes.
 export const TICK_MS = 10_000;
 const PRUNE_MS = 15 * 60_000;
+// What one tick's prune may do: about the rows of a quarter of an hour (224 series a tick here) and 8 MB given back.
+// A prune that is behind (the first after days away) takes a step every tick until it has caught up.
+const PRUNE_STEP = { rows: 25_000, pages: 2_048 };
 
 export type Tick = { at: number; host: HostUsage; rows: Usage[] };
 // A source reads the machine: one reading with the CPU the processes it started used, what attribution may ask
@@ -71,6 +74,7 @@ export function createMonitor(opts: { dir: string; herdr: string; now?: () => nu
   let last: Tick | null = null;
   let failed: string | null = null;
   let pruned = -Infinity;
+  let behind = false;
   // CPU not on any row yet: what the tick before spent after it had measured itself (its deltas, its write and its
   // rollups), and what a disk reading's child processes used.
   let carried = 0;
@@ -116,9 +120,9 @@ export function createMonitor(opts: { dir: string; herdr: string; now?: () => nu
     store.write(reading.at, host, named);
     carried = 0;
     store.roll(reading.at);
-    if (reading.at - pruned >= PRUNE_MS) {
+    if (behind || reading.at - pruned >= PRUNE_MS) {
       pruned = reading.at;
-      store.prune(reading.at);
+      behind = !store.prune(reading.at, PRUNE_STEP);
     }
     prev = reading;
     last = { at: reading.at, host, rows: named };

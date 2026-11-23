@@ -5,6 +5,8 @@ declare const self: Worker;
 
 type Setup = { slot: SharedArrayBuffer; pid: number; limitMs: number; dir: string; sample: boolean; kill: boolean };
 
+// A check is due every second; one this late means the process itself was not running (sleep).
+const SUSPENDED_MS = 5_000;
 const stamp = (t = Date.now()) => new Date(t).toISOString();
 const log = (s: string) => console.error(`${stamp()} stall watch: ${s}`);
 
@@ -13,9 +15,17 @@ self.onmessage = (e: MessageEvent<Setup>) => {
   const beat = new Float64Array(slot);
   let since = 0; // the beat the current stall started from; 0 while the thread runs
   let busy = false;
+  // When this worker last looked, and since when it has looked without a break. A break (a second check that comes
+  // many seconds late) means the whole process was stopped, as it is while the machine sleeps: the server's thread
+  // missed its beats for the same reason, so a stall counts only from when the worker itself was running again.
+  let looked = Date.now();
+  let awake = looked;
   setInterval(async () => {
+    const now = Date.now();
+    if (now - looked > SUSPENDED_MS) awake = now;
+    looked = now;
     const last = beat[0];
-    const age = Date.now() - last;
+    const age = now - Math.max(last, awake);
     if (since && last !== since) {
       log(`the server's thread is running again after ${Math.round((Date.now() - since) / 1000)} s`);
       since = 0;
