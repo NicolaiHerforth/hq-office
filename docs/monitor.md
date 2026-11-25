@@ -195,6 +195,18 @@ machine had sat 22 hours at the login window, it deleted a whole day of ticks in
 70 ticks, a quarter of an hour. A series is deleted only once every table is caught up, since older rows may still name
 it. Over the size limit, a step takes one of the twenty rounds.
 
+**The page is read in a worker.** Every part of the page's data (`/api/monitor/page/*` and `/api/monitor/marks`) is
+made in a worker thread with its own connection to monitor.db (`monitor-reader.ts`, `monitor-reader-worker.ts`), one
+part at a time, and kept there for as long as it can go without changing much. Every query reads by a primary key
+with a time bound, and the long ranges read the rollups. But a part still reads up to a few hundred thousand rows,
+and the history's parts read millions, and SQLite reads synchronously. On 25 Nov 2026 the machine ran at load 23,
+the file had left the OS's cache, and the page's questions held the server's thread for 30 s and more while SQLite
+waited on the disk. The stall watch ended the server eight times in an hour, and each restart emptied the cache, so the
+open page's next questions stopped it again. In the worker the same reads cost the page a wait and nothing else. The
+server's thread keeps the tick (the newest minute only) and the one-line verdict in the HUD's state.
+`test/server/monitor-reader.test.ts` asks for every part of a database of 2 million raw rows (`scripts/monitor-big.ts`)
+and fails when a request that reads nothing waits 300 ms; before the worker it waited 1.1 s on a quiet machine.
+
 A series goes by its `seen` time, never by a look through the rows for one that still names it: `raw` and `roll`
 hold about six million rows when full, and the prune runs every quarter of an hour. `seen` is the newest tick the
 series was in. The store keeps it in memory and writes it down with each prune, which is a few hundred small
@@ -331,8 +343,8 @@ ended. A mark is kept as long as the history it marks.
 0 whatever happened: no HUD, a HUD that never answers, the monitor off, or no text.
 
 `/api/monitor/page/events` and `/api/monitor/marks` give the timeline of the last `?hours=` (whole hours, 24 unless
-said, 90 days at most). An answer is kept for a minute per number of hours, because the page asks for a week of it
-every minute and reading that takes a tenth of a second. A mark that is put down drops what is kept, so it shows
+said, 90 days at most). An answer is kept in the reader for a minute per number of hours, because the page asks for a
+week of it every minute and reading that takes most of a second. A mark that is put down drops what is kept, so it shows
 at once.
 
 ## What limits the machine

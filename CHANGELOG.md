@@ -3,6 +3,15 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.46.4] - 2026-11-25
+### Fixed
+
+- **Opening the resource monitor no longer stops the HUD.** The monitor's page reads its history from a database of
+  millions of rows, and it did so on the thread that answers every request. On a busy machine those reads waited on
+  the disk for 30 seconds and more, so the HUD stopped answering and the stall watch restarted it, again each time
+  the page asked. The page's data is now read in a thread of its own. A busy machine can make the monitor's page
+  slow to fill, and the rest of the HUD keeps answering.
+
 ## [0.46.3] - 2026-11-23
 ### Fixed
 

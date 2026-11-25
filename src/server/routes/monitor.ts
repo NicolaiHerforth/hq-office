@@ -12,15 +12,15 @@
 import type { Database } from "bun:sqlite";
 import { DATA, DIR, HERDR, LOCAL } from "../config.ts";
 import { json } from "../json.ts";
-import { homedir, hostname } from "node:os";
+import { homedir } from "node:os";
 import { join } from "node:path";
 import { createMonitor } from "../monitor.ts";
 import { localLists } from "../herdr.ts";
 import { growers } from "../monitor-disk.ts";
 import { machineReading } from "../monitor-machine.ts";
 import { setLocalReader } from "../machines.ts";
-import { marks } from "../monitor-history.ts";
-import { assignSlots, days, events, incidents, moment, now, patterns, range, type RangeKey } from "../monitor-page.ts";
+import type { RangeKey } from "../monitor-page.ts";
+import { createReader, type Reader } from "../monitor-reader.ts";
 import { standing } from "../monitor-standing.ts";
 import { openStore } from "../monitor-store.ts";
 import { bump, secrets } from "../push.ts";
@@ -76,19 +76,27 @@ if (monitor) {
   });
 }
 
-// What the page's routes read: a database, the time that counts as now, and the database's size.
-type Recorded = { db: Database; now: () => number; size: () => { bytes: number; limit: number } };
+// What the routes read: a database, the time that counts as now, and the database's size, on the server's thread for
+// what is small (the newest minute, for the state); and the reader, a worker thread with its own connection, for
+// every part of the page (monitor-reader.ts says why).
+type Recorded = { db: Database; now: () => number; size: () => { bytes: number; limit: number }; reader: Reader };
 
 // A recorded database with its newest sample as now. Opening it adds a table this version has and the recording
 // lacks; after that the colour slots are the one thing written to it.
 function replayOf(folder: string): Recorded {
-  const store = openStore(join(folder, "monitor.db"));
+  const path = join(folder, "monitor.db");
+  const store = openStore(path);
   const newest = (store.db.query("SELECT MAX(t) AS t FROM host_raw").get() as { t: number | null }).t;
   const at = newest === null ? Date.now() : newest * 1000;
-  assignSlots(store.db, { now: at });
-  return { db: store.db, now: () => at, size: store.size };
+  const reader = createReader({ path, at });
+  reader.slots().catch(() => {});
+  return { db: store.db, now: () => at, size: store.size, reader };
 }
-const recorded: Recorded | null = REPLAY ? opened("The recording to replay, monitor.db in the folder HUD_MONITOR_REPLAY names,", () => replayOf(REPLAY)) : monitor ? { db: monitor.store.db, now: Date.now, size: () => monitor.store.size() } : null;
+const recorded: Recorded | null = REPLAY
+  ? opened("The recording to replay, monitor.db in the folder HUD_MONITOR_REPLAY names,", () => replayOf(REPLAY))
+  : monitor
+    ? { db: monitor.store.db, now: Date.now, size: () => monitor.store.size(), reader: createReader({ path: join(DATA, "monitor.db"), at: null }) }
+    : null;
 // What a route says when there is nothing to read: that the monitor is off, and why when it should have been on.
 const off = () => (failed ? { on: false, failed } : { on: false });
 
@@ -116,54 +124,25 @@ if (recorded) {
   };
 }
 
-const HOUR_MS = 3_600_000;
-
-// What the page asks for (monitor-page.ts), each part kept for as long as it can go without changing much: the hour
-// moves with every tick, the 90 days with every quarter of an hour. The long ranges read millions of rows, and the
-// page asks again every few seconds. An answer that is made anew takes the ones that have run out with it, so a
-// part that is asked for in many ways (the hours of a timeline) does not pile up.
-const RANGES: Record<RangeKey, number> = { hour: 10_000, day: 60_000, week: 5 * 60_000, quarter: 15 * 60_000 };
-const kept = new Map<string, { until: number; value: unknown }>();
-function keep<T>(key: string, ms: number, make: () => T): T {
-  const hit = kept.get(key);
-  if (hit && Date.now() < hit.until) return hit.value as T;
-  for (const [old, { until }] of kept) if (Date.now() >= until) kept.delete(old);
-  const value = make();
-  kept.set(key, { until: Date.now() + ms, value });
-  return value;
-}
-// The machine's name in the page's sentences: its own, as it calls itself.
-const NAME = hostname().split(".")[0].replace(/^./, (c) => c.toUpperCase());
-// This machine's zone: minutes east of UTC at a time, by the clocks as they stood then.
-const zone = (t: number) => -new Date(t).getTimezoneOffset();
-const rangeKey = (url: URL) => (Object.keys(RANGES).includes(url.searchParams.get("key") ?? "") ? (url.searchParams.get("key") as RangeKey) : "hour");
+// What the page asks for is kept in the reader for as long as each part can go without changing much
+// (monitor-reader-worker.ts); the key is checked there too.
+const rangeKey = (url: URL) => (url.searchParams.get("key") ?? "hour") as RangeKey;
 
 // The colour slots follow who mattered over the last week, so they are looked at again every quarter of an hour:
 // at the start, for a database that has a history already, and a few ticks in, for one that had none.
 const SLOTS_MS = 15 * 60_000;
-if (monitor) {
-  const slots = () => {
-    try {
-      assignSlots(monitor.store.db, { now: Date.now() });
-    } catch {}
-  };
+if (monitor && recorded) {
+  const slots = () => void recorded.reader.slots().catch(() => {});
   slots();
   setTimeout(slots, 15_000);
   setInterval(slots, SLOTS_MS);
 }
-// A part of the page's data, or that the monitor is off when there is nothing to read it from.
-const page = (make: (from: Recorded, url: URL) => unknown) => ({ url }: { url: URL }) => json(recorded ? make(recorded, url) : off());
+// A part of the page's data, made by the reader, or that the monitor is off when there is nothing to read it from.
+const page = (make: (from: Recorded, url: URL) => Promise<unknown>) => async ({ url }: { url: URL }) => json(recorded ? await make(recorded, url) : off());
 // The timeline of the last hours, whole ones: 24 unless ?hours= says otherwise, 90 days at most, oldest first. Kept a
-// minute per number of hours, since the page asks for a week of it every minute and reading that takes a tenth of
-// a second. It changes with a minute's rollup, and with a mark, which drops what is kept.
+// minute per number of hours; it changes with a minute's rollup, and with a mark, which drops what is kept.
 const MOST_HOURS = 90 * 24;
-const TIMELINE = "timeline:";
 const hours = (url: URL) => Math.min(Math.max(Math.ceil(Number(url.searchParams.get("hours") ?? 24)) || 24, 1), MOST_HOURS);
-const timeline = <T>(what: string, read: (db: Database, q: { from: number; to: number }) => T) => (r: Recorded, url: URL) => {
-  const back = hours(url);
-  return keep(`${TIMELINE}${what}:${back}`, 60_000, () => read(r.db, { from: r.now() - back * HOUR_MS, to: r.now() + 1000 }));
-};
-const marked = timeline("marks", marks);
 
 // The monitor's page is one file that asks the routes below for its data. What it may load is said here and not
 // left to the file: itself, and its two fonts.
@@ -180,26 +159,18 @@ const routes: Route[] = [
   // The sampler's own newest tick. A replay has no sampler.
   // setAside names the file a database that could not be read was moved to when this server started.
   { method: "GET", path: "/api/monitor/now", handle: () => json(monitor ? { on: true, failed: monitor.failed(), setAside: monitor.setAside, size: monitor.store.size(), ...monitor.last() } : off()) },
-  { method: "GET", path: "/api/monitor/page/now", handle: page((r) => keep("now", 2_000, () => now(r.db, { now: r.now(), name: NAME, size: r.size() })) ?? { on: true, waiting: true }) },
-  { method: "GET", path: "/api/monitor/page/range", handle: page((r, url) => keep(`range:${rangeKey(url)}`, RANGES[rangeKey(url)], () => range(r.db, { now: r.now(), key: rangeKey(url) }))) },
+  { method: "GET", path: "/api/monitor/page/now", handle: page((r) => r.reader.now(r.size())) },
+  { method: "GET", path: "/api/monitor/page/range", handle: page((r, url) => r.reader.range(rangeKey(url))) },
   // Who held what at ?t= in the range ?key=: what the page asks when a holder is opened at a past moment.
-  {
-    method: "GET",
-    path: "/api/monitor/page/moment",
-    handle: page((r, url) => {
-      const key = rangeKey(url);
-      const holders = keep(`range:${key}`, RANGES[key], () => range(r.db, { now: r.now(), key })).holders;
-      return moment(r.db, { now: r.now(), key, t: Number(url.searchParams.get("t")) || r.now(), holders });
-    }),
-  },
-  { method: "GET", path: "/api/monitor/page/days", handle: page((r) => keep("days", 5 * 60_000, () => days(r.db, { now: r.now(), zone }))) },
-  { method: "GET", path: "/api/monitor/page/incidents", handle: page((r) => keep("incidents", 60_000, () => incidents(r.db, { now: r.now() }))) },
-  { method: "GET", path: "/api/monitor/page/patterns", handle: page((r) => keep("patterns", 15 * 60_000, () => patterns(r.db, { now: r.now(), zone }))) },
-  { method: "GET", path: "/api/monitor/page/events", handle: page(timeline("events", events)) },
+  { method: "GET", path: "/api/monitor/page/moment", handle: page((r, url) => r.reader.moment(rangeKey(url), Number(url.searchParams.get("t")))) },
+  { method: "GET", path: "/api/monitor/page/days", handle: page((r) => r.reader.days()) },
+  { method: "GET", path: "/api/monitor/page/incidents", handle: page((r) => r.reader.incidents()) },
+  { method: "GET", path: "/api/monitor/page/patterns", handle: page((r) => r.reader.patterns()) },
+  { method: "GET", path: "/api/monitor/page/events", handle: page((r, url) => r.reader.events(hours(url))) },
   // What takes the most room on the disk (monitor-disk.ts), largest first. Empty until something has been read.
-  { method: "GET", path: "/api/monitor/page/growers", handle: page((r) => keep("growers", 5 * 60_000, () => growers(r.db, { now: r.now() }))) },
+  { method: "GET", path: "/api/monitor/page/growers", handle: page((r) => r.reader.growers()) },
   // The same timeline as plain marks, for a script. An empty list when there is nothing to read it from.
-  { method: "GET", path: "/api/monitor/marks", handle: ({ url }) => json(recorded ? marked(recorded, url) : []) },
+  { method: "GET", path: "/api/monitor/marks", handle: async ({ url }) => json(recorded ? await recorded.reader.marks(hours(url)) : []) },
   // A mark on the timeline: { text, kind? }. `hud monitor mark` posts it. With the monitor off, or a replay on, it
   // is not kept, and that is no error: whoever marks a test run must not fail because of it.
   {
@@ -209,7 +180,7 @@ const routes: Route[] = [
       const text = typeof body?.text === "string" ? body.text.trim() : "";
       if (!monitor || !text) return { ok: true, kept: false };
       monitor.store.mark(Date.now(), typeof body.kind === "string" ? body.kind : undefined, mask(text));
-      for (const key of kept.keys()) if (key.startsWith(TIMELINE)) kept.delete(key);
+      recorded?.reader.marked();
       return { ok: true, kept: true };
     },
   },
