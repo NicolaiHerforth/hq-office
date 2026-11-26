@@ -3,6 +3,13 @@
 All notable changes to HQ Office are listed here, newest first. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/).
 
+## [0.46.5] - 2026-11-26
+### Changed
+
+- **No more character limits on what you type.** Room messages and comments took 20,000 characters at most, and
+  REOPEN, SEND BACK, a room's title, a floor's name and the level names had shorter limits in the page. They are
+  gone: whatever you write is kept whole. A secret's name and the sweep's hours keep their format.
+
 ## [0.46.4] - 2026-11-25
 ### Fixed
 

@@ -70,7 +70,7 @@ function lineHTML(r, now) {
 const reopenButton = (r) => (reopen?.id === r.id ? "" : `<button class="btn-s" type="button" data-rq-reopen title="Not done: say what is missing, and it goes back to HQ">REOPEN</button>`);
 function reopenBox(r) {
   return `<form class="rqre" data-rq-re autocomplete="off">
-      <input type="text" name="reopen" maxlength="2000" placeholder="What is still missing?" aria-label="Why request #${r.id} is not done" value="${esc(reopen.said)}">
+      <input type="text" name="reopen" placeholder="What is still missing?" aria-label="Why request #${r.id} is not done" value="${esc(reopen.said)}">
       <button class="send go" type="submit" ${reopen.said.trim() ? "" : "disabled"}>SEND</button><button class="btn-s" type="button" data-rq-cancel>CANCEL</button>
     </form>`;
 }

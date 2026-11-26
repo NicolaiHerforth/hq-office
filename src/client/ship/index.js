@@ -230,7 +230,7 @@ function detailHTML(it, v, one, l) {
     if (back?.id !== it.id) acts.push(`<button class="btn-s backb" type="button" data-back title="Not like this: say why, and it goes back to ${esc(who(it))}">SEND BACK</button>`);
   }
   const form = back?.id === it.id && free(it) ? `<form data-backform autocomplete="off"><label for="mbk${it.id}">It leaves this list and goes back to ${esc(who(it))} with your note. It returns when ${esc(who(it))} files it again.</label>
-      <textarea id="mbk${it.id}" rows="2" maxlength="2000" placeholder="What has to change first?">${esc(back.text)}</textarea>
+      <textarea id="mbk${it.id}" rows="2" placeholder="What has to change first?">${esc(back.text)}</textarea>
       <button class="send go" type="submit" ${back.text.trim() ? "" : "disabled"}>SEND BACK</button><button class="btn-s" type="button" data-cancel>CANCEL</button></form>` : "";
   const goingBack = l.held?.verb === "back" || l.run === "back" || l.gone === "back";
   const said = l.held?.verb === "back" ? l.held.note : l.note;

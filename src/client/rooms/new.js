@@ -24,7 +24,7 @@ function html() {
   const others = all.filter((l) => l.name !== form.owner);
   return `<form class="nrform" data-nr novalidate>
     <div class="nrhead"><b class="k">NEW ROOM</b><button class="spx" type="button" data-nr-close aria-label="Close">✕</button></div>
-    <label class="nrrow"><span class="sk">TITLE</span><input class="levels" id="nrTitle" name="title" maxlength="80" autocomplete="off" spellcheck="false" placeholder="Pricing page copy" value="${esc(form.title)}"></label>
+    <label class="nrrow"><span class="sk">TITLE</span><input class="levels" id="nrTitle" name="title" autocomplete="off" spellcheck="false" placeholder="Pricing page copy" value="${esc(form.title)}"></label>
     <label class="nrrow"><span class="sk">OWNER</span><select class="levels" id="nrOwner" name="owner">${owners.join("")}</select></label>
     <div class="nrrow"><span class="sk">LANES</span>${others.length ? `<div class="nrlanes" role="group" aria-label="Other lanes in the room">${others.map((l) => `<label class="nrlane"><input type="checkbox" name="member" value="${esc(l.name)}"${form.members.has(l.name) ? " checked" : ""}><span>${esc(l.name)}</span></label>`).join("")}</div>` : `<span class="nrnone">No other lanes${form.owner ? "" : " yet: pick the owner first"}.</span>`}</div>
     <div class="nrrow nrtwo"><label><span class="sk">ISSUE</span><input class="levels" id="nrIssue" name="issue" autocomplete="off" spellcheck="false" placeholder="OPE-12 (optional)" value="${esc(form.issue)}"></label><label><span class="sk">PR</span><input class="levels" id="nrPr" name="pr" autocomplete="off" spellcheck="false" placeholder="#34 (optional)" value="${esc(form.pr)}"></label></div>

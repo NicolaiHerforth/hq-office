@@ -193,7 +193,6 @@ export function say(slugRaw: unknown, body: any) {
   const r = mustRoom(slugRaw);
   const text = String(body.text ?? "").trim();
   if (!text) throw new Error("say something: hud room say SLUG TEXT");
-  if (text.length > 20_000) throw new Error("the message is over 20,000 characters");
   const author = str(body.as) || r.owner;
   if (!inRoom(r, author)) throw new Error(`${author} is not in room ${r.slug}: hud room create ${r.slug} --member ${author} adds it`);
   const res = db.query("INSERT INTO room_messages (slug, at, author, text, reply_to) VALUES (?, ?, ?, ?, ?)").run(r.slug, Date.now(), isHq(author) ? "hq" : author, text, replyTarget(r, body.reply));
@@ -207,7 +206,6 @@ export function ownerPost(slugRaw: unknown, body: any) {
   if (r.archived_at) throw new Error(`room ${r.slug} is archived`);
   const text = String(body.text ?? "").trim();
   if (!text) throw new Error("write something first");
-  if (text.length > 20_000) throw new Error("the message is over 20,000 characters");
   const to = str(body.to) || r.owner;
   if (!inRoom(r, to)) throw new Error(`${to} is not in room ${r.slug}`);
   const res = db.query("INSERT INTO room_messages (slug, at, to_lane, text, reply_to, delivery) VALUES (?, ?, ?, ?, ?, 'sending')").run(r.slug, Date.now(), isHq(to) ? "hq" : to, text, replyTarget(r, body.reply));

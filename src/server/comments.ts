@@ -16,7 +16,7 @@ import { postUpdate } from "./updates.ts";
 import { away } from "./rooms.ts";
 import { HTML_EXT } from "./pages.ts";
 
-const MAX_TEXT = 20_000, MAX_QUOTE = 2_000, SHOWN = 300;
+const MAX_QUOTE = 2_000, SHOWN = 300;
 
 type Row = { id: number; page: string; at: number; author: string | null; to_agent: string | null; text: string; quote: string | null; reply_to: number | null; delivery: string | null; delivered_at: number | null; error: string | null; read_at: number | null; floor: string | null };
 // A page that takes comments. to: the lane its comments go to, or "hq" for its floor's HQ. link: where the page opens
@@ -81,7 +81,6 @@ function replyTarget(p: Page, reply: unknown) {
 function textOf(v: unknown, empty: string) {
   const text = String(v ?? "").trim();
   if (!text) throw new Error(empty);
-  if (text.length > MAX_TEXT) throw new Error(`a comment is at most ${MAX_TEXT.toLocaleString("en")} characters`);
   return text;
 }
 

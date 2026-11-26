@@ -128,7 +128,7 @@ function html() {
     : "";
   return `<form class="fpform" data-fp style="--fc:${esc(form.color)}">
     <div class="fphead"><i class="fsw" style="background:${esc(form.color)}"></i><b>${f ? `EDIT <span class="fname">${esc(f.name)}</span>` : "ADD A FLOOR"}</b><button class="fpx" type="button" data-fp-close aria-label="Close">✕</button></div>
-    <label class="fprow"><span class="sk">NAME</span><input class="levels" name="name" maxlength="40" spellcheck="false" autocomplete="off" placeholder="Backend, Legal, Sales…" value="${esc(form.name)}" aria-label="Floor name"></label>
+    <label class="fprow"><span class="sk">NAME</span><input class="levels" name="name" spellcheck="false" autocomplete="off" placeholder="Backend, Legal, Sales…" value="${esc(form.name)}" aria-label="Floor name"></label>
     <div class="fprow"><span class="sk">COLOUR</span><div class="opts2">${colors.map((c) => { const by = wornBy(c); return `<button class="fcolor${c === form.color ? " on" : ""}" type="button" data-color="${esc(c)}" style="background:${esc(c)}" aria-label="${by ? `${esc(c)}, worn by ${esc(by)}` : `Colour ${esc(c)}`}"${by ? ` disabled title="${esc(by)} wears it"` : ""} aria-pressed="${c === form.color}"></button>`; }).join("")}</div></div>
     <div class="fprow"><span class="sk">HQ</span><div class="fphq">${f ? "" : `<div class="fphow" role="radiogroup" aria-label="Its HQ">${how("agent", "USE AN AGENT")}${how("start", "START A NEW HQ")}</div>`}${hqHTML()}</div></div>
     ${form.error ? `<div class="fperr" role="alert">${mdInline(form.error)}</div>` : ""}

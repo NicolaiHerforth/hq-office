@@ -61,12 +61,20 @@ test("a change sets only the keys given; null goes back to the default", async (
 });
 
 test("bad names and values are refused", async () => {
-  for (const settings of [null, [1], { "": 1 }, { "bad key": 1 }, { hero: { nested: true } }, { hero: "x".repeat(201) }, { n: [1] }]) {
+  for (const settings of [null, [1], { "": 1 }, { "bad key": 1 }, { hero: { nested: true } }, { n: [1] }]) {
     const res = await post({ settings });
     expect({ settings, status: res.status }).toEqual({ settings, status: 400 });
   }
   const many = Object.fromEntries(Array.from({ length: 60 }, (_, i) => [`k${i}`, i]));
   expect((await post({ settings: many })).status).toBe(400);
+  expect(await stateSettings()).toEqual({ hero: "IVY", season: "winter", sound: true, performance: "saver" });
+});
+
+test("a long text is kept whole: no setting has a length limit", async () => {
+  const long = "x".repeat(5000);
+  expect((await post({ settings: { levels: long } })).status).toBe(200);
+  expect((await stateSettings()).levels).toBe(long);
+  expect((await post({ settings: { levels: null } })).status).toBe(200);
   expect(await stateSettings()).toEqual({ hero: "IVY", season: "winter", sound: true, performance: "saver" });
 });
 

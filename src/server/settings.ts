@@ -9,7 +9,6 @@ import { addStatePart } from "./state.ts";
 export type Settings = Record<string, string | number | boolean>;
 const KEY = /^[A-Za-z][\w-]{0,39}$/;
 const MAX_KEYS = 50;
-const MAX_STRING = 200;
 
 let cache: Settings | null = null;
 export function getSettings(): Settings {
@@ -23,8 +22,8 @@ function check(changes: unknown): Record<string, string | number | boolean | nul
   const out: Record<string, string | number | boolean | null> = {};
   for (const [key, value] of Object.entries(changes)) {
     if (!KEY.test(key)) throw new Error(`"${key}" is not a setting name`);
-    const ok = value === null || typeof value === "boolean" || (typeof value === "number" && Number.isFinite(value)) || (typeof value === "string" && value.length <= MAX_STRING);
-    if (!ok) throw new Error(`setting "${key}" must be a short string, a number, a boolean or null`);
+    const ok = value === null || typeof value === "boolean" || (typeof value === "number" && Number.isFinite(value)) || typeof value === "string";
+    if (!ok) throw new Error(`setting "${key}" must be a string, a number, a boolean or null`);
     out[key] = value as string | number | boolean | null;
   }
   return out;
